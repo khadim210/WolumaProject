@@ -4,29 +4,32 @@
 
 @layer base {
   :root {
-    --color-primary: 221 44% 41%;     /* #1A56DB */
-    --color-primary-light: 221 83% 53%; /* #3B82F6 */
-    --color-primary-dark: 222 47% 11%;  /* #0F172A */
+    --color-primary: 220 100% 20%;      /* #003366 - Bleu marine Woluma */
+    --color-primary-light: 220 100% 30%; /* #004080 */
+    --color-primary-dark: 220 100% 15%;  /* #002650 */
     
-    --color-secondary: 164 73% 41%;   /* #0CA678 */
-    --color-secondary-light: 162 47% 50%; /* #10B981 */
+    --color-secondary: 195 100% 50%;    /* #00BFFF - Cyan Woluma */
+    --color-secondary-light: 195 100% 60%; /* #33CCFF */
+    --color-secondary-dark: 195 100% 40%;  /* #0099CC */
     
-    --color-accent: 43 96% 56%;       /* #FBBF24 */
+    --color-accent: 38 100% 50%;         /* #FFA500 - Orange Woluma */
+    --color-accent-light: 38 100% 60%;   /* #FFB533 */
+    --color-accent-dark: 38 100% 40%;    /* #CC8400 */
     
-    --color-success: 142 71% 45%;     /* #22C55E */
-    --color-warning: 37 92% 50%;      /* #F59E0B */
-    --color-error: 0 84% 60%;         /* #EF4444 */
+    --color-success: 142 71% 45%;        /* #22C55E */
+    --color-warning: 38 100% 50%;        /* #FFA500 - Orange Woluma pour warning */
+    --color-error: 0 84% 60%;            /* #EF4444 */
     
-    --color-gray-50: 210 20% 98%;     /* #F8FAFC */
-    --color-gray-100: 220 14% 96%;    /* #F1F5F9 */
-    --color-gray-200: 220 13% 91%;    /* #E2E8F0 */
-    --color-gray-300: 216 12% 84%;    /* #CBD5E1 */
-    --color-gray-400: 218 11% 65%;    /* #94A3B8 */
-    --color-gray-500: 220 9% 46%;     /* #64748B */
-    --color-gray-600: 215 14% 34%;    /* #475569 */
-    --color-gray-700: 217 19% 27%;    /* #334155 */
-    --color-gray-800: 215 25% 17%;    /* #1E293B */
-    --color-gray-900: 222 47% 11%;    /* #0F172A */
+    --color-gray-50: 210 20% 98%;        /* #F8FAFC */
+    --color-gray-100: 220 14% 96%;       /* #F1F5F9 */
+    --color-gray-200: 220 13% 91%;       /* #E2E8F0 */
+    --color-gray-300: 216 12% 84%;       /* #CBD5E1 */
+    --color-gray-400: 218 11% 65%;       /* #94A3B8 */
+    --color-gray-500: 220 9% 46%;        /* #64748B */
+    --color-gray-600: 215 14% 34%;       /* #475569 */
+    --color-gray-700: 217 19% 27%;       /* #334155 */
+    --color-gray-800: 215 25% 17%;       /* #1E293B */
+    --color-gray-900: 220 100% 15%;      /* #002650 - Bleu marine foncé */
   }
   
   body {
@@ -67,6 +70,10 @@
     @apply bg-secondary-600 text-white hover:bg-secondary-700 focus:ring-secondary-500;
   }
   
+  .btn-accent {
+    @apply bg-accent-600 text-white hover:bg-accent-700 focus:ring-accent-500;
+  }
+  
   .btn-outline {
     @apply border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary-500;
   }
@@ -89,5 +96,13 @@
   
   .form-error {
     @apply mt-1 text-sm text-error-600;
+  }
+  
+  .woluma-gradient {
+    @apply bg-gradient-to-r from-primary-600 via-secondary-500 to-accent-500;
+  }
+  
+  .woluma-gradient-text {
+    @apply bg-gradient-to-r from-primary-600 via-secondary-500 to-accent-500 bg-clip-text text-transparent;
   }
 }

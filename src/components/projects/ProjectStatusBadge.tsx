@@ -4,14 +4,14 @@ import { ProjectStatus } from '../../stores/projectStore';
 
 type StatusConfig = {
   label: string;
-  variant: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'outline';
+  variant: 'default' | 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'error' | 'outline';
 };
 
 const statusConfigs: Record<ProjectStatus, StatusConfig> = {
   draft: { label: 'Brouillon', variant: 'default' },
   submitted: { label: 'Soumis', variant: 'primary' },
   under_review: { label: 'En revue', variant: 'secondary' },
-  pre_selected: { label: 'Présélectionné', variant: 'secondary' },
+  pre_selected: { label: 'Présélectionné', variant: 'accent' },
   selected: { label: 'Sélectionné', variant: 'success' },
   formalization: { label: 'Formalisation', variant: 'secondary' },
   financed: { label: 'Financé', variant: 'success' },

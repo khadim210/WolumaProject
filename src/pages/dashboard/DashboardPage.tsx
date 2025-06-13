@@ -20,7 +20,10 @@ import {
   Clock,
   FileCheck, 
   ListChecks, 
-  ArrowRight 
+  ArrowRight,
+  TrendingUp,
+  Award,
+  Target
 } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
@@ -76,7 +79,7 @@ const DashboardPage: React.FC = () => {
       if (statusCounts.submitted + statusCounts.under_review > 0) {
         actions.push({
           label: 'Suivre les projets en cours d\'évaluation',
-          icon: <Clock className="h-6 w-6 text-warning-600" />,
+          icon: <Clock className="h-6 w-6 text-accent-600" />,
           link: '/dashboard/projects',
         });
       }
@@ -105,7 +108,7 @@ const DashboardPage: React.FC = () => {
       if (statusCounts.financed > 0) {
         actions.push({
           label: 'Suivre les projets financés',
-          icon: <Clock className="h-6 w-6 text-warning-600" />,
+          icon: <Clock className="h-6 w-6 text-accent-600" />,
           link: '/dashboard/monitoring',
         });
       }
@@ -120,7 +123,7 @@ const DashboardPage: React.FC = () => {
       if (statusCounts.financed + statusCounts.monitoring > 0) {
         actions.push({
           label: 'Suivre les projets financés',
-          icon: <Clock className="h-6 w-6 text-warning-600" />,
+          icon: <Clock className="h-6 w-6 text-accent-600" />,
           link: '/dashboard/monitoring',
         });
       }
@@ -134,8 +137,8 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Bonjour, {user?.name}
+        <h1 className="text-3xl font-bold">
+          Bonjour, <span className="woluma-gradient-text">{user?.name}</span>
         </h1>
         <p className="mt-1 text-lg text-gray-500">
           Bienvenue sur votre tableau de bord {user?.role === 'partner' ? 'partenaire' : user?.role === 'manager' ? 'gestionnaire' : 'soumissionnaire'}
@@ -144,9 +147,12 @@ const DashboardPage: React.FC = () => {
       
       {user?.role === 'submitter' && userProjects.length > 0 && (
         <div className="mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Progression de vos projets</CardTitle>
+          <Card className="border-l-4 border-l-primary-500 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-primary-50 to-secondary-50">
+              <CardTitle className="flex items-center">
+                <Target className="h-5 w-5 text-primary-600 mr-2" />
+                Progression de vos projets
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ProcessDiagram 
@@ -159,16 +165,19 @@ const DashboardPage: React.FC = () => {
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Projets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary-600">
-              {userProjects.length}
-            </div>
-            <div className="text-sm text-gray-500 mt-1">
-              Total des projets {user?.role === 'submitter' ? 'soumis' : ''}
+        <Card className="border-l-4 border-l-primary-500 hover:shadow-lg transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Projets</p>
+                <p className="text-3xl font-bold text-primary-600 mt-1">{userProjects.length}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Total des projets {user?.role === 'submitter' ? 'soumis' : ''}
+                </p>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-primary-100 to-secondary-100 rounded-lg">
+                <FolderPlus className="h-6 w-6 text-primary-600" />
+              </div>
             </div>
             
             <div className="mt-4 space-y-2">
@@ -177,36 +186,44 @@ const DashboardPage: React.FC = () => {
                 .map(([status, count]) => (
                   <div key={status} className="flex justify-between items-center">
                     <ProjectStatusBadge status={status as ProjectStatus} />
-                    <span className="font-medium">{count}</span>
+                    <span className="font-medium text-gray-700">{count}</span>
                   </div>
                 ))}
             </div>
           </CardContent>
           <CardFooter className="bg-gray-50 border-t border-gray-200">
-            <Link to="/dashboard/projects" className="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+            <Link to="/dashboard/projects" className="text-sm text-primary-600 hover:text-primary-700 flex items-center font-medium">
               Voir tous les projets <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </CardFooter>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions recommandées</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+        <Card className="border-l-4 border-l-secondary-500 hover:shadow-lg transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Actions recommandées</p>
+                <p className="text-2xl font-bold text-secondary-600 mt-1">{nextActions.length}</p>
+                <p className="text-sm text-gray-500 mt-1">Tâches en attente</p>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-secondary-100 to-accent-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-secondary-600" />
+              </div>
+            </div>
+            
+            <div className="mt-4 space-y-3">
               {nextActions.length > 0 ? (
-                nextActions.map((action, index) => (
+                nextActions.slice(0, 2).map((action, index) => (
                   <Link 
                     key={index} 
                     to={action.link}
-                    className="flex items-start p-3 rounded-md hover:bg-gray-50 transition-colors"
+                    className="flex items-start p-3 rounded-md hover:bg-gradient-to-r hover:from-gray-50 hover:to-secondary-50 transition-colors group"
                   >
-                    <div className="mr-3 flex-shrink-0">
+                    <div className="mr-3 flex-shrink-0 group-hover:scale-110 transition-transform">
                       {action.icon}
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-gray-900 group-hover:text-primary-700">
                         {action.label}
                       </div>
                     </div>
@@ -214,17 +231,19 @@ const DashboardPage: React.FC = () => {
                 ))
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  Aucune action requise pour le moment
+                  <Award className="h-8 w-8 mx-auto mb-2 text-success-500" />
+                  <p className="text-sm">Tout est à jour !</p>
                 </div>
               )}
             </div>
           </CardContent>
           {user?.role === 'submitter' && (
-            <CardFooter className="bg-gray-50 border-t border-gray-200">
+            <CardFooter className="bg-gradient-to-r from-secondary-50 to-accent-50 border-t border-gray-200">
               <Link to="/dashboard/projects/create">
                 <Button 
-                  variant="primary" 
+                  variant="secondary" 
                   leftIcon={<FolderPlus className="h-4 w-4" />}
+                  size="sm"
                 >
                   Créer un nouveau projet
                 </Button>
@@ -233,21 +252,29 @@ const DashboardPage: React.FC = () => {
           )}
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Activité récente</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Card className="border-l-4 border-l-accent-500 hover:shadow-lg transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Activité récente</p>
+                <p className="text-2xl font-bold text-accent-600 mt-1">{recentProjects.length}</p>
+                <p className="text-sm text-gray-500 mt-1">Projets récents</p>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-accent-100 to-primary-100 rounded-lg">
+                <Clock className="h-6 w-6 text-accent-600" />
+              </div>
+            </div>
+            
             {recentProjects.length > 0 ? (
-              <div className="space-y-4">
-                {recentProjects.map(project => (
+              <div className="mt-4 space-y-3">
+                {recentProjects.slice(0, 3).map(project => (
                   <Link 
                     key={project.id} 
                     to={`/dashboard/projects/${project.id}`}
-                    className="block p-3 rounded-md hover:bg-gray-50 transition-colors"
+                    className="block p-3 rounded-md hover:bg-gradient-to-r hover:from-gray-50 hover:to-accent-50 transition-colors group"
                   >
                     <div className="flex justify-between items-start">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-gray-900 group-hover:text-primary-700 truncate">
                         {project.title}
                       </div>
                       <ProjectStatusBadge status={project.status} />
@@ -260,12 +287,12 @@ const DashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-4 text-gray-500">
-                Aucun projet récent
+                <div className="text-sm">Aucun projet récent</div>
               </div>
             )}
           </CardContent>
-          <CardFooter className="bg-gray-50 border-t border-gray-200">
-            <Link to="/dashboard/projects" className="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+          <CardFooter className="bg-gradient-to-r from-accent-50 to-primary-50 border-t border-gray-200">
+            <Link to="/dashboard/projects" className="text-sm text-accent-600 hover:text-accent-700 flex items-center font-medium">
               Voir l'historique complet <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </CardFooter>

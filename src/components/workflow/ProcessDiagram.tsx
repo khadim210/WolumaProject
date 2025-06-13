@@ -11,28 +11,30 @@ interface ProcessStepProps {
 const ProcessStep: React.FC<ProcessStepProps> = ({ number, title, isActive, isCompleted }) => {
   const stepClasses = useMemo(() => {
     if (isCompleted) {
-      return 'bg-success-600 text-white border-success-600';
+      return 'bg-success-600 text-white border-success-600 shadow-lg';
     }
     if (isActive) {
-      return 'bg-primary-600 text-white border-primary-600';
+      return 'bg-gradient-to-r from-primary-600 to-secondary-500 text-white border-primary-600 shadow-lg';
     }
-    return 'bg-white text-gray-500 border-gray-300';
+    return 'bg-white text-gray-500 border-gray-300 shadow-sm';
   }, [isActive, isCompleted]);
 
   const lineClasses = useMemo(() => {
     if (isCompleted) {
-      return 'bg-success-600';
+      return 'bg-gradient-to-b from-success-600 to-success-500';
     }
     return 'bg-gray-300';
   }, [isCompleted]);
 
   return (
     <div className="flex items-center">
-      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${stepClasses} font-medium transition-colors duration-300`}>
+      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${stepClasses} font-medium transition-all duration-300 transform hover:scale-110`}>
         {number}
       </div>
       <div className="ml-4 flex-1">
-        <div className="text-sm font-medium">{title}</div>
+        <div className={`text-sm font-medium transition-colors ${isActive ? 'text-primary-700' : isCompleted ? 'text-success-700' : 'text-gray-600'}`}>
+          {title}
+        </div>
       </div>
     </div>
   );
@@ -89,9 +91,9 @@ const ProcessDiagram: React.FC<ProcessDiagramProps> = ({ currentStatus, classNam
                 isCompleted={isCompleted}
               />
               {!isLast && (
-                <div className="absolute left-5 top-10 w-0.5 h-6 bg-gray-300">
+                <div className="absolute left-5 top-10 w-0.5 h-6 bg-gray-300 rounded-full overflow-hidden">
                   <div 
-                    className="w-0.5 bg-success-600 transition-all duration-300"
+                    className={`w-0.5 transition-all duration-500 ${isCompleted ? 'bg-gradient-to-b from-success-600 to-success-500' : 'bg-gray-300'}`}
                     style={{ height: isCompleted ? '100%' : '0%' }}
                   />
                 </div>

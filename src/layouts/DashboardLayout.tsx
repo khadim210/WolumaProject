@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { 
-  ClipboardCheck, 
   LayoutDashboard, 
   FolderKanban, 
   ListChecks, 
   FileText, 
   BarChart3, 
-  Settings, 
   LogOut, 
   ChevronDown, 
   Menu, 
@@ -30,9 +28,9 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => {
     <NavLink
       to={to}
       className={({ isActive }) => `
-        flex items-center px-4 py-2 text-sm font-medium rounded-md
+        flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors
         ${isActive 
-          ? 'bg-primary-700 text-white' 
+          ? 'bg-primary-700 text-white shadow-md' 
           : 'text-gray-300 hover:bg-primary-700 hover:text-white'}
       `}
       onClick={onClick}
@@ -63,21 +61,25 @@ const DashboardLayout: React.FC = () => {
           onClick={() => setSidebarOpen(false)}
         />
         
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-primary-800">
+        <div className="relative flex-1 flex flex-col max-w-xs w-full woluma-gradient">
           <div className="absolute top-0 right-0 -mr-12 pt-2">
             <button
               className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
               onClick={() => setSidebarOpen(false)}
             >
-              <span className="sr-only">Close sidebar</span>
+              <span className="sr-only">Fermer la barre latérale</span>
               <X className="h-6 w-6 text-white" />
             </button>
           </div>
           
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-            <div className="flex-shrink-0 flex items-center px-4">
-              <ClipboardCheck className="h-8 w-8 text-white" />
-              <span className="ml-2 text-white font-medium text-lg">Évaluation de Projets</span>
+            <div className="flex-shrink-0 flex items-center px-4 mb-8">
+              <img 
+                src="/src/assets/logo_couleur.png" 
+                alt="Woluma" 
+                className="h-8 w-auto filter brightness-0 invert"
+              />
+              <span className="ml-3 text-white font-bold text-lg">Woluma-Flow</span>
             </div>
             <nav className="mt-5 px-2 space-y-1">
               <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
@@ -113,11 +115,15 @@ const DashboardLayout: React.FC = () => {
       {/* Static sidebar for desktop */}
       <div className="hidden md:flex md:flex-shrink-0">
         <div className="flex flex-col w-64">
-          <div className="flex flex-col h-0 flex-1 bg-primary-800">
+          <div className="flex flex-col h-0 flex-1 woluma-gradient shadow-xl">
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <div className="flex items-center flex-shrink-0 px-4">
-                <ClipboardCheck className="h-8 w-8 text-white" />
-                <span className="ml-2 text-white font-medium text-lg">Évaluation de Projets</span>
+              <div className="flex items-center flex-shrink-0 px-4 mb-8">
+                <img 
+                  src="/src/assets/logo_couleur.png" 
+                  alt="Woluma" 
+                  className="h-8 w-auto filter brightness-0 invert"
+                />
+                <span className="ml-3 text-white font-bold text-lg">Woluma-Flow</span>
               </div>
               <nav className="mt-5 flex-1 px-2 space-y-1">
                 <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
@@ -157,7 +163,7 @@ const DashboardLayout: React.FC = () => {
             className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
             onClick={() => setSidebarOpen(true)}
           >
-            <span className="sr-only">Open sidebar</span>
+            <span className="sr-only">Ouvrir la barre latérale</span>
             <Menu className="h-6 w-6" />
           </button>
         </div>
@@ -166,19 +172,22 @@ const DashboardLayout: React.FC = () => {
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               <header className="flex justify-between items-center py-4 border-b border-gray-200 mb-6">
-                <h1 className="text-2xl font-semibold text-gray-900">
-                  Plateforme d'Évaluation de Projets
-                </h1>
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-900">
+                    <span className="woluma-gradient-text">Woluma-Flow</span>
+                  </h1>
+                  <p className="text-sm text-gray-600">Plateforme d'Évaluation et de Financement de Projets</p>
+                </div>
                 
                 <div className="relative">
                   <button
-                    className="flex items-center text-sm border-2 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    className="flex items-center text-sm border-2 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 hover:border-primary-200 transition-colors"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                   >
-                    <div className="h-8 w-8 rounded-full bg-primary-700 flex items-center justify-center text-white">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-primary-600 to-secondary-500 flex items-center justify-center text-white">
                       <User className="h-5 w-5" />
                     </div>
-                    <span className="ml-2 text-gray-700">{user?.name}</span>
+                    <span className="ml-2 text-gray-700 font-medium">{user?.name}</span>
                     <ChevronDown className="ml-1 h-4 w-4 text-gray-400" />
                   </button>
                   
