@@ -23,6 +23,10 @@ import ProfilePage from './pages/profile/ProfilePage';
 import FormBuilderPage from './pages/manager/FormBuilderPage';
 import FormTemplatesPage from './pages/manager/FormTemplatesPage';
 
+// Admin Pages
+import UserManagementPage from './pages/admin/UserManagementPage';
+import ParametersPage from './pages/admin/ParametersPage';
+
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuthStore();
@@ -62,6 +66,8 @@ function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="form-templates" element={<FormTemplatesPage />} />
           <Route path="form-templates/create" element={<FormBuilderPage />} />
+          <Route path="users" element={<UserManagementPage />} />
+          <Route path="parameters" element={<ParametersPage />} />
         </Route>
         
         {/* Fallback Route */}

@@ -18,7 +18,7 @@ const registerSchema = Yup.object().shape({
     .oneOf([Yup.ref('password')], 'Les mots de passe ne correspondent pas')
     .required('Confirmation du mot de passe requise'),
   role: Yup.string()
-    .oneOf(['partner', 'manager', 'submitter'], 'Rôle invalide')
+    .oneOf(['admin', 'partner', 'manager', 'submitter'], 'Rôle invalide')
     .required('Rôle requis'),
   organization: Yup.string()
     .when('role', {
@@ -163,9 +163,10 @@ const RegisterPage: React.FC = () => {
                   name="role"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                 >
-                  <option value="partner">Partenaire</option>
-                  <option value="manager">Gestionnaire de portefeuille</option>
                   <option value="submitter">Soumissionnaire</option>
+                  <option value="manager">Gestionnaire de portefeuille</option>
+                  <option value="partner">Partenaire</option>
+                  <option value="admin">Administrateur</option>
                 </Field>
                 <ErrorMessage name="role" component="div" className="mt-1 text-sm text-error-600" />
               </div>

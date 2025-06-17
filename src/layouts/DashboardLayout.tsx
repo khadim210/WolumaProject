@@ -12,7 +12,9 @@ import {
   Menu, 
   X, 
   User,
-  FileInput
+  FileInput,
+  Users,
+  Settings
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -91,6 +93,12 @@ const DashboardLayout: React.FC = () => {
               {user?.role === 'manager' && (
                 <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
               )}
+              {user?.role === 'admin' && (
+                <>
+                  <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
+                  <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
+                </>
+              )}
             </nav>
           </div>
           
@@ -134,6 +142,12 @@ const DashboardLayout: React.FC = () => {
                 <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" />
                 {user?.role === 'manager' && (
                   <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" />
+                )}
+                {user?.role === 'admin' && (
+                  <>
+                    <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" />
+                    <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" />
+                  </>
                 )}
               </nav>
             </div>
@@ -200,6 +214,24 @@ const DashboardLayout: React.FC = () => {
                       >
                         Profil
                       </NavLink>
+                      {user?.role === 'admin' && (
+                        <>
+                          <NavLink 
+                            to="/dashboard/users" 
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={() => setUserMenuOpen(false)}
+                          >
+                            Gestion des utilisateurs
+                          </NavLink>
+                          <NavLink 
+                            to="/dashboard/parameters" 
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={() => setUserMenuOpen(false)}
+                          >
+                            Paramètres
+                          </NavLink>
+                        </>
+                      )}
                       <button
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         onClick={() => {

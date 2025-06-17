@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type UserRole = 'partner' | 'manager' | 'submitter';
+export type UserRole = 'admin' | 'partner' | 'manager' | 'submitter';
 
 export interface User {
   id: string;
@@ -25,19 +25,25 @@ interface AuthState {
 const mockUsers: User[] = [
   {
     id: '1',
+    name: 'Admin User',
+    email: 'admin@woluma.com',
+    role: 'admin'
+  },
+  {
+    id: '2',
     name: 'Partner User',
     email: 'partner@example.com',
     role: 'partner',
     organization: 'Partner Organization'
   },
   {
-    id: '2',
+    id: '3',
     name: 'Portfolio Manager',
     email: 'manager@example.com',
     role: 'manager'
   },
   {
-    id: '3',
+    id: '4',
     name: 'Project Submitter',
     email: 'submitter@example.com',
     role: 'submitter',
