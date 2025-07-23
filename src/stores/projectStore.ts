@@ -25,12 +25,15 @@ export interface Project {
   createdAt: Date;
   updatedAt: Date;
   submissionDate?: Date;
-  evaluationScore?: number;
+  evaluationScores?: Record<string, number>; // Scores par critère d'évaluation
+  totalEvaluationScore?: number;
   evaluationNotes?: string;
   evaluatedBy?: string;
+  evaluationDate?: Date;
   formalizationCompleted?: boolean;
   ndaSigned?: boolean;
   tags: string[];
+  formData?: Record<string, any>; // Données du formulaire soumis
 }
 
 interface ProjectState {

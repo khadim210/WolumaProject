@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
+import { useProgramStore } from '../../stores/programStore';
 import { 
   Card, 
   CardHeader, 
@@ -30,6 +31,7 @@ const ProjectDetailPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, getProject, updateProject } = useProjectStore();
+  const { programs } = useProgramStore();
   
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -219,37 +221,86 @@ const ProjectDetailPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          {project.evaluationScore && (
+          {(project.totalEvaluationScore !== undefined || project.evaluationScores) && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Évaluation</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-500 mb-1">Score d'évaluation</div>
-                    <div className="relative pt-1">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-lg font-semibold inline-block text-primary-600">
-                            {project.evaluationScore}/100
-                          </span>
+                {project.totalEvaluationScore !== undefined && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-500 mb-1">Score d'évaluation total</div>
+                      <div className="relative pt-1">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-lg font-semibold inline-block text-primary-600">
+                              {project.totalEvaluationScore}%
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-                        <div 
-                          style={{ width: `${project.evaluationScore}%` }} 
-                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary-600"
-                        ></div>
+                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+                          <div 
+                            style={{ width: `${Math.min(100, project.totalEvaluationScore)}%` }} 
+                            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-primary-600 to-secondary-500"
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
+                
+                {project.evaluationScores && (
+                  <div>
+                    <div className="text-sm text-gray-500 mb-2">Détail par critère</div>
+                    <div className="space-y-2">
+                      {(() => {
+                        const program = programs.find(p => p.id === project.programId);
+                        if (!program) return null;
+                        
+                        return program.evaluationCriteria.map(criterion => {
+                          const score = project.evaluationScores![criterion.id] || 0;
+                          const percentage = (score / criterion.maxScore) * 100;
+                          
+                          return (
+                            <div key={criterion.id} className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-medium text-gray-700">{criterion.name}</span>
+                                  <span className="text-sm text-gray-500">{score}/{criterion.maxScore}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                                      percentage >= 75 ? 'bg-success-500' :
+                                      percentage >= 50 ? 'bg-warning-500' : 'bg-error-500'
+                                    }`}
+                                    style={{ width: `${percentage}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              <span className="ml-4 text-xs text-gray-500 w-12 text-right">
+                                {criterion.weight}%
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
                 
                 {project.evaluationNotes && (
                   <div>
                     <div className="text-sm text-gray-500 mb-1">Notes d'évaluation</div>
                     <p className="text-gray-700">{project.evaluationNotes}</p>
+                  </div>
+                )}
+                
+                {project.evaluationDate && (
+                  <div>
+                    <div className="text-sm text-gray-500 mb-1">Date d'évaluation</div>
+                    <p className="text-sm text-gray-700">{project.evaluationDate.toLocaleDateString()}</p>
                   </div>
                 )}
               </CardContent>
