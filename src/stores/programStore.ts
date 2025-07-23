@@ -153,7 +153,7 @@ const mockPrograms: Program[] = [
         minValue: 6,
         maxValue: 36
       }
-    ]
+    ],
     evaluationCriteria: [
       {
         id: 'e1',
@@ -229,7 +229,7 @@ const mockPrograms: Program[] = [
         minValue: 100,
         maxValue: 50000
       }
-    ]
+    ],
     evaluationCriteria: [
       {
         id: 'e6',
@@ -304,7 +304,7 @@ const mockPrograms: Program[] = [
         required: true,
         maxLength: 2000
       }
-    ]
+    ],
     evaluationCriteria: [
       {
         id: 'e11',
