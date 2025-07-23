@@ -135,8 +135,6 @@ const DashboardLayout: React.FC = () => {
                   alt="Woluma" 
                   className="h-8 w-auto"
                 />
-                <span className="ml-3 text-white font-bold text-lg">Woluma-Flow</span>
-              </div>
               <nav className="mt-5 flex-1 px-2 space-y-1">
                 <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
                 <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
