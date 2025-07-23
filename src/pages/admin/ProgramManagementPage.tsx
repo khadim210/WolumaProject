@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProgramStore, Program, Partner, SelectionCriterion, CriterionType } from '../../stores/programStore';
+import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
 import { 
   Card, 
@@ -32,6 +33,7 @@ const programSchema = Yup.object().shape({
   name: Yup.string().required('Nom requis'),
   description: Yup.string().required('Description requise'),
   partnerId: Yup.string().required('Partenaire requis'),
+  formTemplateId: Yup.string().optional(),
   budget: Yup.number().required('Budget requis').positive('Le budget doit être positif'),
   startDate: Yup.date().required('Date de début requise'),
   endDate: Yup.date()
@@ -69,6 +71,7 @@ interface ProgramFormValues {
   name: string;
   description: string;
   partnerId: string;
+  formTemplateId: string;
   budget: number;
   startDate: string;
   endDate: string;
@@ -100,6 +103,7 @@ const ProgramManagementPage: React.FC = () => {
     deleteProgram 
   } = useProgramStore();
   const { users } = useUserManagementStore();
+  const { templates: formTemplates, fetchTemplates } = useFormTemplateStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
@@ -111,6 +115,7 @@ const ProgramManagementPage: React.FC = () => {
   useEffect(() => {
     fetchPrograms();
     fetchPartners();
+    fetchTemplates();
   }, [fetchPrograms, fetchPartners]);
 
   const managers = users.filter(user => user.role === 'manager' && user.isActive);
@@ -132,6 +137,7 @@ const ProgramManagementPage: React.FC = () => {
         name: values.name,
         description: values.description,
         partnerId: values.partnerId,
+        formTemplateId: values.formTemplateId || undefined,
         budget: values.budget,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
@@ -155,6 +161,7 @@ const ProgramManagementPage: React.FC = () => {
         name: values.name,
         description: values.description,
         partnerId: values.partnerId,
+        formTemplateId: values.formTemplateId || undefined,
         budget: values.budget,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
@@ -181,6 +188,12 @@ const ProgramManagementPage: React.FC = () => {
   const getPartnerName = (partnerId: string) => {
     const partner = partners.find(p => p.id === partnerId);
     return partner ? partner.name : 'Partenaire introuvable';
+  };
+
+  const getFormTemplateName = (formTemplateId?: string) => {
+    if (!formTemplateId) return 'Aucun formulaire';
+    const template = formTemplates.find(t => t.id === formTemplateId);
+    return template ? template.name : 'Formulaire introuvable';
   };
 
   const getCriterionTypeLabel = (type: CriterionType) => {
@@ -212,6 +225,7 @@ const ProgramManagementPage: React.FC = () => {
     name: '',
     description: '',
     partnerId: '',
+    formTemplateId: '',
     budget: 0,
     startDate: '',
     endDate: '',
@@ -236,6 +250,7 @@ const ProgramManagementPage: React.FC = () => {
     name: program.name,
     description: program.description,
     partnerId: program.partnerId,
+    formTemplateId: program.formTemplateId || '',
     budget: program.budget,
     startDate: program.startDate.toISOString().split('T')[0],
     endDate: program.endDate.toISOString().split('T')[0],
@@ -333,12 +348,18 @@ const ProgramManagementPage: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center text-sm text-gray-500">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      <span>{program.startDate.toLocaleDateString()} - {program.endDate.toLocaleDateString()}</span>
+                      <FileInput className="h-4 w-4 mr-2" />
+                      <span className="font-medium">Formulaire:</span>
+                      <span className="ml-1">{getFormTemplateName(program.formTemplateId)}</span>
                     </div>
                   </div>
                   
-                  <div className="mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <span>{program.startDate.toLocaleDateString()} - {program.endDate.toLocaleDateString()}</span>
+                    </div>
+                    
                     <div className="text-sm text-gray-500 mb-2">
                       <span className="font-medium">Budget:</span> {program.budget.toLocaleString()} FCFA
                     </div>
@@ -496,6 +517,26 @@ const ProgramManagementPage: React.FC = () => {
                       </Field>
                       <ErrorMessage name="partnerId" component="div" className="mt-1 text-sm text-error-600" />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Modèle de formulaire (optionnel)</label>
+                    <Field
+                      as="select"
+                      name="formTemplateId"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                    >
+                      <option value="">Aucun formulaire associé</option>
+                      {formTemplates.map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </Field>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Sélectionnez un modèle de formulaire pour les soumissions de ce programme
+                    </p>
+                    <ErrorMessage name="formTemplateId" component="div" className="mt-1 text-sm text-error-600" />
                   </div>
 
                   <div>

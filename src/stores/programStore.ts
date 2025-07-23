@@ -45,6 +45,7 @@ export interface Program {
   name: string;
   description: string;
   partnerId: string; // Programme exécuté pour un partenaire
+  formTemplateId?: string; // Modèle de formulaire associé
   budget: number;
   startDate: Date;
   endDate: Date;
@@ -123,6 +124,7 @@ const mockPrograms: Program[] = [
     budget: 500000000, // 500M FCFA
     startDate: new Date('2025-01-01'),
     endDate: new Date('2025-12-31'),
+    formTemplateId: '1', // Associé au modèle "Appel à projets innovation"
     isActive: true,
     createdAt: new Date('2024-12-01'),
     managerId: '2',
@@ -200,6 +202,7 @@ const mockPrograms: Program[] = [
     budget: 750000000, // 750M FCFA
     startDate: new Date('2025-02-01'),
     endDate: new Date('2026-01-31'),
+    formTemplateId: '1', // Associé au modèle "Appel à projets innovation"
     isActive: true,
     createdAt: new Date('2024-11-15'),
     managerId: '2',
