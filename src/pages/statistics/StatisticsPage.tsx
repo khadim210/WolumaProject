@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { useAuthStore } from '../../stores/authStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useProgramStore } from '../../stores/programStore';
 import { 
   Card, 
   CardHeader, 
@@ -18,7 +21,7 @@ import {
   LineElement,
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Filter } from 'lucide-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -34,15 +37,102 @@ ChartJS.register(
 );
 
 const StatisticsPage = () => {
+  const { user } = useAuthStore();
+  const { projects } = useProjectStore();
+  const { programs, partners } = useProgramStore();
+  
   const [timeframe, setTimeframe] = useState('year');
+  const [partnerFilter, setPartnerFilter] = useState<string>('all');
+  const [programFilter, setProgramFilter] = useState<string>('all');
+
+  // Get accessible programs based on user role
+  const getAccessiblePrograms = () => {
+    if (!user) return [];
+    
+    if (user.role === 'admin') {
+      return programs;
+    } else if (user.role === 'manager') {
+      // Manager can see programs from their assigned partners
+      const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
+      const partnerIds = managerPartners.map(p => p.id);
+      return programs.filter(p => partnerIds.includes(p.partnerId));
+    } else if (user.role === 'partner') {
+      // Partner can see their own programs
+      const userPartner = partners.find(p => p.contactEmail === user.email);
+      return userPartner ? programs.filter(p => p.partnerId === userPartner.id) : [];
+    }
+    
+    return programs; // For submitters, show all programs
+  };
+  
+  const accessiblePrograms = getAccessiblePrograms();
+  
+  // Get programs filtered by selected partner
+  const getFilteredPrograms = () => {
+    if (partnerFilter === 'all') {
+      return accessiblePrograms;
+    }
+    return accessiblePrograms.filter(p => p.partnerId === partnerFilter);
+  };
+  
+  const filteredPrograms = getFilteredPrograms();
+  
+  // Reset program filter when partner changes
+  React.useEffect(() => {
+    if (partnerFilter !== 'all' && programFilter !== 'all') {
+      const programExists = filteredPrograms.some(p => p.id === programFilter);
+      if (!programExists) {
+        setProgramFilter('all');
+      }
+    }
+  }, [partnerFilter, programFilter, filteredPrograms]);
+  
+  // Get unique partners from accessible programs
+  const getAccessiblePartners = () => {
+    const partnerIds = [...new Set(accessiblePrograms.map(p => p.partnerId))];
+    return partners.filter(partner => partnerIds.includes(partner.id));
+  };
+  
+  const accessiblePartners = getAccessiblePartners();
+  
+  // Filter projects based on selected filters
+  const getFilteredProjects = () => {
+    let filtered = projects;
+    
+    // Filter by partner
+    if (partnerFilter !== 'all') {
+      const partnerPrograms = programs.filter(p => p.partnerId === partnerFilter).map(p => p.id);
+      filtered = filtered.filter(project => partnerPrograms.includes(project.programId));
+    }
+    
+    // Filter by program
+    if (programFilter !== 'all') {
+      filtered = filtered.filter(project => project.programId === programFilter);
+    }
+    
+    // Filter by user access
+    const accessibleProgramIds = accessiblePrograms.map(p => p.id);
+    filtered = filtered.filter(project => accessibleProgramIds.includes(project.programId));
+    
+    return filtered;
+  };
+  
+  const filteredProjects = getFilteredProjects();
 
   // Mock data for project statistics
-  const mockData = {
+  const generateMockData = (projects: any[]) => ({
     projectsByStatus: {
       labels: ['Soumis', 'En revue', 'Présélectionné', 'Sélectionné', 'Financé', 'Clôturé'],
       datasets: [{
         label: 'Nombre de projets',
-        data: [12, 8, 6, 4, 3, 2],
+        data: [
+          projects.filter(p => p.status === 'submitted').length,
+          projects.filter(p => p.status === 'under_review').length,
+          projects.filter(p => p.status === 'pre_selected').length,
+          projects.filter(p => p.status === 'selected').length,
+          projects.filter(p => p.status === 'financed').length,
+          projects.filter(p => p.status === 'closed').length
+        ],
         backgroundColor: [
           'rgba(59, 130, 246, 0.5)', // primary
           'rgba(16, 185, 129, 0.5)', // secondary
@@ -76,7 +166,13 @@ const StatisticsPage = () => {
       labels: ['< 50k€', '50k€-100k€', '100k€-250k€', '250k€-500k€', '> 500k€'],
       datasets: [{
         label: 'Nombre de projets',
-        data: [8, 12, 15, 6, 4],
+        data: [
+          projects.filter(p => p.budget < 50000).length,
+          projects.filter(p => p.budget >= 50000 && p.budget < 100000).length,
+          projects.filter(p => p.budget >= 100000 && p.budget < 250000).length,
+          projects.filter(p => p.budget >= 250000 && p.budget < 500000).length,
+          projects.filter(p => p.budget >= 500000).length
+        ],
         backgroundColor: [
           'rgba(59, 130, 246, 0.7)',
           'rgba(16, 185, 129, 0.7)',
@@ -94,9 +190,11 @@ const StatisticsPage = () => {
         borderWidth: 1
       }]
     }
-  };
+  });
+  
+  const mockData = generateMockData(filteredProjects);
 
-  const kpis = [
+  const generateKpis = (projects: any[]) => [
     {
       label: 'Taux d\'acceptation',
       value: '45%',
@@ -105,7 +203,7 @@ const StatisticsPage = () => {
     },
     {
       label: 'Budget moyen',
-      value: '185k€',
+      value: projects.length > 0 ? `${Math.round(projects.reduce((sum, p) => sum + p.budget, 0) / projects.length / 1000)}k€` : '0€',
       change: '+12%',
       positive: true
     },
@@ -117,27 +215,67 @@ const StatisticsPage = () => {
     },
     {
       label: 'Projets actifs',
-      value: '24',
+      value: projects.filter(p => ['submitted', 'under_review', 'pre_selected', 'selected', 'formalization', 'financed', 'monitoring'].includes(p.status)).length.toString(),
       change: '+3',
       positive: true
     }
   ];
+  
+  const kpis = generateKpis(filteredProjects);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Statistiques</h1>
         
-        <select
-          value={timeframe}
-          onChange={(e) => setTimeframe(e.target.value)}
-          className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-        >
-          <option value="month">Dernier mois</option>
-          <option value="quarter">Dernier trimestre</option>
-          <option value="year">Dernière année</option>
-          <option value="all">Toutes les périodes</option>
-        </select>
+        <div className="flex gap-4">
+          <div className="relative w-64">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Filter className="h-5 w-5 text-gray-400" />
+            </div>
+            <select
+              className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
+              value={partnerFilter}
+              onChange={(e) => setPartnerFilter(e.target.value)}
+            >
+              <option value="all">Tous les partenaires</option>
+              {accessiblePartners.map(partner => (
+                <option key={partner.id} value={partner.id}>
+                  {partner.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="relative w-64">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Filter className="h-5 w-5 text-gray-400" />
+            </div>
+            <select
+              className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
+              value={programFilter}
+              onChange={(e) => setProgramFilter(e.target.value)}
+            >
+              <option value="all">Tous les programmes</option>
+              {filteredPrograms.map(program => (
+                <option key={program.id} value={program.id}>
+                  {program.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <select
+            value={timeframe}
+            onChange={(e) => setTimeframe(e.target.value)}
+            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+          >
+            <option value="month">Dernier mois</option>
+            <option value="quarter">Dernier trimestre</option>
+            <option value="year">Dernière année</option>
+            <option value="all">Toutes les périodes</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -304,12 +442,42 @@ const StatisticsPage = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {[
-                  { status: 'Soumis', count: 12, budget: '2.4M€', duration: '15 mois' },
-                  { status: 'En revue', count: 8, budget: '1.6M€', duration: '18 mois' },
-                  { status: 'Présélectionné', count: 6, budget: '1.2M€', duration: '16 mois' },
-                  { status: 'Sélectionné', count: 4, budget: '800k€', duration: '20 mois' },
-                  { status: 'Financé', count: 3, budget: '600k€', duration: '24 mois' },
-                  { status: 'Clôturé', count: 2, budget: '400k€', duration: '12 mois' }
+                  { 
+                    status: 'Soumis', 
+                    count: filteredProjects.filter(p => p.status === 'submitted').length,
+                    budget: `${Math.round(filteredProjects.filter(p => p.status === 'submitted').reduce((sum, p) => sum + p.budget, 0) / 1000000)}M€`,
+                    duration: '15 mois' 
+                  },
+                  { 
+                    status: 'En revue', 
+                    count: filteredProjects.filter(p => p.status === 'under_review').length,
+                    budget: `${Math.round(filteredProjects.filter(p => p.status === 'under_review').reduce((sum, p) => sum + p.budget, 0) / 1000000)}M€`,
+                    duration: '18 mois' 
+                  },
+                  { 
+                    status: 'Présélectionné', 
+                    count: filteredProjects.filter(p => p.status === 'pre_selected').length,
+                    budget: `${Math.round(filteredProjects.filter(p => p.status === 'pre_selected').reduce((sum, p) => sum + p.budget, 0) / 1000000)}M€`,
+                    duration: '16 mois' 
+                  },
+                  { 
+                    status: 'Sélectionné', 
+                    count: filteredProjects.filter(p => p.status === 'selected').length,
+                    budget: `${Math.round(filteredProjects.filter(p => p.status === 'selected').reduce((sum, p) => sum + p.budget, 0) / 1000000)}M€`,
+                    duration: '20 mois' 
+                  },
+                  { 
+                    status: 'Financé', 
+                    count: filteredProjects.filter(p => p.status === 'financed').length,
+                    budget: `${Math.round(filteredProjects.filter(p => p.status === 'financed').reduce((sum, p) => sum + p.budget, 0) / 1000000)}M€`,
+                    duration: '24 mois' 
+                  },
+                  { 
+                    status: 'Clôturé', 
+                    count: filteredProjects.filter(p => p.status === 'closed').length,
+                    budget: `${Math.round(filteredProjects.filter(p => p.status === 'closed').reduce((sum, p) => sum + p.budget, 0) / 1000000)}M€`,
+                    duration: '12 mois' 
+                  }
                 ].map((row, index) => (
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
