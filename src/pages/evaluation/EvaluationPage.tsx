@@ -15,6 +15,7 @@ import {
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 
@@ -29,6 +30,7 @@ const EvaluationPage: React.FC = () => {
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isAIEvaluating, setIsAIEvaluating] = useState(false);
   
   useEffect(() => {
     fetchPrograms();
@@ -140,6 +142,162 @@ const EvaluationPage: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+  
+  const handleAIEvaluation = async (project: Project, program: any) => {
+    setIsAIEvaluating(true);
+    
+    try {
+      // Préparer les données du projet pour l'IA
+      const projectData = {
+        title: project.title,
+        description: project.description,
+        budget: project.budget,
+        timeline: project.timeline,
+        tags: project.tags,
+        submissionDate: project.submissionDate?.toLocaleDateString()
+      };
+      
+      // Préparer les critères d'évaluation
+      const evaluationCriteria = program.evaluationCriteria.map((criterion: any) => ({
+        name: criterion.name,
+        description: criterion.description,
+        maxScore: criterion.maxScore,
+        weight: criterion.weight
+      }));
+      
+      // Construire le prompt pour ChatGPT
+      const prompt = `
+En tant qu'expert en évaluation de projets, analysez le projet suivant et attribuez un score pour chaque critère d'évaluation.
+
+PROJET À ÉVALUER:
+- Titre: ${projectData.title}
+- Description: ${projectData.description}
+- Budget: ${projectData.budget.toLocaleString()} FCFA
+- Durée: ${projectData.timeline}
+- Tags: ${projectData.tags.join(', ')}
+- Date de soumission: ${projectData.submissionDate}
+
+CRITÈRES D'ÉVALUATION:
+${evaluationCriteria.map((c: any, i: number) => 
+  `${i + 1}. ${c.name} (${c.description}) - Score max: ${c.maxScore}, Poids: ${c.weight}%`
+).join('\n')}
+
+INSTRUCTIONS:
+1. Analysez objectivement le projet selon chaque critère
+2. Attribuez un score entre 0 et le score maximum pour chaque critère
+3. Justifiez brièvement chaque score
+4. Répondez UNIQUEMENT au format JSON suivant:
+
+{
+  "scores": {
+    "${evaluationCriteria.map((c: any) => c.name).join('": X, "')}"
+  },
+  "notes": "Justification détaillée de l'évaluation en 2-3 phrases par critère",
+  "recommendation": "pre_selected|selected|rejected"
+}
+
+Soyez rigoureux et objectif dans votre évaluation.`;
+
+      // Simuler l'appel à l'API ChatGPT (remplacez par un vrai appel API)
+      const response = await simulateAIEvaluation(projectData, evaluationCriteria);
+      
+      // Appliquer les scores suggérés par l'IA
+      if (response.scores) {
+        const formik = document.querySelector('form');
+        if (formik) {
+          // Mettre à jour les champs de score
+          program.evaluationCriteria.forEach((criterion: any) => {
+            const scoreField = document.querySelector(`input[name="score_${criterion.id}"]`) as HTMLInputElement;
+            if (scoreField && response.scores[criterion.name] !== undefined) {
+              scoreField.value = response.scores[criterion.name].toString();
+              scoreField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          });
+          
+          // Mettre à jour les notes
+          const notesField = document.querySelector('textarea[name="evaluationNotes"]') as HTMLTextAreaElement;
+          if (notesField && response.notes) {
+            notesField.value = `[Évaluation IA] ${response.notes}`;
+            notesField.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          
+          // Mettre à jour la décision
+          if (response.recommendation) {
+            const decisionField = document.querySelector(`input[name="decision"][value="${response.recommendation}"]`) as HTMLInputElement;
+            if (decisionField) {
+              decisionField.checked = true;
+              decisionField.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'évaluation IA:', error);
+      alert('Erreur lors de l\'évaluation par IA. Veuillez réessayer.');
+    } finally {
+      setIsAIEvaluating(false);
+    }
+  };
+  
+  // Fonction de simulation de l'API ChatGPT (à remplacer par un vrai appel)
+  const simulateAIEvaluation = async (projectData: any, criteria: any[]) => {
+    // Simuler un délai d'API
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Générer des scores simulés basés sur des heuristiques simples
+    const scores: Record<string, number> = {};
+    
+    criteria.forEach(criterion => {
+      // Logique de scoring simulée basée sur le contenu du projet
+      let score = Math.floor(Math.random() * (criterion.maxScore * 0.4)) + Math.floor(criterion.maxScore * 0.6);
+      
+      // Ajustements basés sur des mots-clés
+      const description = projectData.description.toLowerCase();
+      const title = projectData.title.toLowerCase();
+      
+      if (criterion.name.toLowerCase().includes('innovation')) {
+        if (description.includes('nouveau') || description.includes('innovant') || title.includes('ia')) {
+          score = Math.min(criterion.maxScore, score + 2);
+        }
+      }
+      
+      if (criterion.name.toLowerCase().includes('faisabilité')) {
+        if (projectData.budget > 100000000) { // Budget élevé = plus complexe
+          score = Math.max(1, score - 1);
+        }
+      }
+      
+      if (criterion.name.toLowerCase().includes('impact')) {
+        if (projectData.tags.some((tag: string) => 
+          ['environnement', 'santé', 'education'].includes(tag.toLowerCase())
+        )) {
+          score = Math.min(criterion.maxScore, score + 1);
+        }
+      }
+      
+      scores[criterion.name] = Math.max(0, Math.min(criterion.maxScore, score));
+    });
+    
+    // Calculer le score total pour la recommandation
+    const totalScore = criteria.reduce((total, criterion) => {
+      return total + (scores[criterion.name] / criterion.maxScore) * criterion.weight;
+    }, 0);
+    
+    let recommendation = 'rejected';
+    if (totalScore >= 80) recommendation = 'selected';
+    else if (totalScore >= 60) recommendation = 'pre_selected';
+    
+    return {
+      scores,
+      notes: `Évaluation automatique basée sur l'analyse du contenu du projet. Score total calculé: ${Math.round(totalScore)}%. ${
+        totalScore >= 80 ? 'Projet très prometteur avec des critères solides.' :
+        totalScore >= 60 ? 'Projet intéressant nécessitant quelques améliorations.' :
+        'Projet nécessitant des améliorations significatives avant acceptation.'
+      }`,
+      recommendation
+    };
   };
   
   const renderScoreIndicator = (score: number, maxScore: number) => {
@@ -565,6 +723,16 @@ const EvaluationPage: React.FC = () => {
                                 >
                                   Annuler
                                 </Button>
+                               <div className="flex space-x-3">
+                                 <Button
+                                   type="button"
+                                   variant="secondary"
+                                   onClick={() => handleAIEvaluation(selectedProject, program)}
+                                   leftIcon={<Sparkles className="h-4 w-4" />}
+                                   disabled={isSubmitting}
+                                 >
+                                   Évaluation IA
+                                 </Button>
                                 <Button
                                   type="submit"
                                   variant="primary"
@@ -574,6 +742,7 @@ const EvaluationPage: React.FC = () => {
                                 >
                                   Soumettre l'évaluation
                                 </Button>
+                               </div>
                               </CardFooter>
                             </Form>
                           )}
