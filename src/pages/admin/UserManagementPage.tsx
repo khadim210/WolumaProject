@@ -13,7 +13,6 @@ import Button from '../../components/ui/Button';
 import { 
   Users, 
   Plus, 
-  Shield,
   Edit, 
   Trash2, 
   Search, 
