@@ -63,14 +63,15 @@ const ParametersPage: React.FC = () => {
   };
 
   if (currentUser?.role !== 'admin') {
-  if (!checkPermission('parameters.edit')) {
-    return (
-      <div className="text-center py-12">
-        <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h2 className="text-lg font-medium text-gray-900 mb-2">Accès restreint</h2>
-        <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
-      </div>
-    );
+    if (!checkPermission('parameters.edit')) {
+      return (
+        <div className="text-center py-12">
+          <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-gray-900 mb-2">Accès restreint</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+        </div>
+      );
+    }
   }
 
   const tabs = [
