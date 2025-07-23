@@ -93,7 +93,7 @@ const mockPartners: Partner[] = [
     contactPhone: '+225 01 02 03 04',
     isActive: true,
     createdAt: new Date('2024-01-15'),
-    assignedManagerId: '2', // Assigné au manager
+    assignedManagerId: '3', // Assigné au manager (ID 3)
   },
   {
     id: '2',
@@ -103,7 +103,7 @@ const mockPartners: Partner[] = [
     contactPhone: '+225 05 06 07 08',
     isActive: true,
     createdAt: new Date('2024-02-01'),
-    assignedManagerId: '2', // Assigné au même manager
+    assignedManagerId: '3', // Assigné au même manager (ID 3)
   },
   {
     id: '3',
@@ -127,7 +127,7 @@ const mockPrograms: Program[] = [
     formTemplateId: '1', // Associé au modèle "Appel à projets innovation"
     isActive: true,
     createdAt: new Date('2024-12-01'),
-    managerId: '2',
+    managerId: '3', // Manager ID 3
     selectionCriteria: [
       {
         id: 'c1',
@@ -205,7 +205,7 @@ const mockPrograms: Program[] = [
     formTemplateId: '1', // Associé au modèle "Appel à projets innovation"
     isActive: true,
     createdAt: new Date('2024-11-15'),
-    managerId: '2',
+    managerId: '3', // Manager ID 3
     selectionCriteria: [
       {
         id: 'c4',

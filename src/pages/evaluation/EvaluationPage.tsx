@@ -62,7 +62,6 @@ const EvaluationPage: React.FC = () => {
   
   // Get projects in submitted status
   const submittedProjects = projects.filter(project => {
-    const program = programs.find(p => p.id === project.programId);
     const isAccessible = accessiblePrograms.some(p => p.id === project.programId);
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          project.description.toLowerCase().includes(searchTerm.toLowerCase());

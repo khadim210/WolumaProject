@@ -79,7 +79,7 @@ const mockProjects: Project[] = [
     submissionDate: new Date('2025-01-10'),
     evaluationScore: 87,
     evaluationNotes: 'Proposition solide avec un potentiel de marché clair',
-    evaluatedBy: '2',
+    evaluatedBy: '3', // Évalué par le manager ID 3
     tags: ['agriculture', 'urbain', 'développement durable'],
   },
   {
@@ -96,7 +96,7 @@ const mockProjects: Project[] = [
     submissionDate: new Date('2024-12-05'),
     evaluationScore: 95,
     evaluationNotes: 'Équipe de recherche exceptionnelle avec des résultats préliminaires prometteurs',
-    evaluatedBy: '2',
+    evaluatedBy: '3', // Évalué par le manager ID 3
     tags: ['santé', 'IA', 'technologie'],
   },
   {
@@ -113,7 +113,7 @@ const mockProjects: Project[] = [
     submissionDate: new Date('2024-11-20'),
     evaluationScore: 92,
     evaluationNotes: 'Approche innovante avec un impact environnemental significatif',
-    evaluatedBy: '2',
+    evaluatedBy: '3', // Évalué par le manager ID 3
     formalizationCompleted: true,
     ndaSigned: true,
     tags: ['environnement', 'nettoyage', 'océan', 'développement durable'],
@@ -236,9 +236,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const projects = get().projects;
     
     if (user.role === 'manager') {
-      // Managers can see projects from their assigned partners' programs
-      // For now, return all projects (will be filtered by program access)
-      return projects;
+      // Managers can see all projects (filtering by program access is done in components)
+      return projects.filter(p => p.status !== 'draft');
     } else if (user.role === 'submitter') {
       // Submitters can only see their own projects
       return projects.filter(p => p.submitterId === user.id);
