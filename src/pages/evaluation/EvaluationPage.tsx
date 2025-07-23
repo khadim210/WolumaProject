@@ -729,9 +729,10 @@ Soyez rigoureux et objectif dans votre évaluation.`;
                                    variant="secondary"
                                    onClick={() => handleAIEvaluation(selectedProject, program)}
                                    leftIcon={<Sparkles className="h-4 w-4" />}
-                                   disabled={isSubmitting}
+                                   disabled={isSubmitting || isAIEvaluating}
+                                   isLoading={isAIEvaluating}
                                  >
-                                   Évaluation IA
+                                   {isAIEvaluating ? 'Analyse en cours...' : 'Évaluation IA'}
                                  </Button>
                                 <Button
                                   type="submit"
