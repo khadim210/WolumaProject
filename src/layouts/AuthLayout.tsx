@@ -16,12 +16,9 @@ const AuthLayout: React.FC = () => {
           <img 
             src="/src/assets/logo_couleur.png" 
             alt="Woluma" 
-            className="h-16 w-auto"
+            className="h-20 w-auto"
           />
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          <span className="woluma-gradient-text">Woluma-Flow</span>
-        </h2>
         <p className="mt-2 text-center text-lg font-medium text-primary-600">
           Plateforme d'Évaluation et de Financement de Projets
         </p>

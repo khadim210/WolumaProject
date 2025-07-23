@@ -137,9 +137,16 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">
-          Bonjour, <span className="woluma-gradient-text">{user?.name}</span>
-        </h1>
+        <div className="flex items-center mb-4">
+          <img 
+            src="/src/assets/logo_couleur.png" 
+            alt="Woluma" 
+            className="h-12 w-auto mr-4"
+          />
+          <h1 className="text-3xl font-bold">
+            Bonjour, <span className="woluma-gradient-text">{user?.name}</span>
+          </h1>
+        </div>
         <p className="mt-1 text-lg text-gray-500">
           Bienvenue sur votre tableau de bord {user?.role === 'partner' ? 'partenaire' : user?.role === 'manager' ? 'gestionnaire' : 'soumissionnaire'}
         </p>

@@ -79,9 +79,9 @@ const DashboardLayout: React.FC = () => {
               <img 
                 src="/src/assets/logo_couleur.png" 
                 alt="Woluma" 
-                className="h-8 w-auto filter brightness-0 invert"
+                className="h-8 w-auto"
               />
-              <span className="ml-3 text-white font-bold text-lg">Woluma-Flow</span>
+              <span className="ml-3 text-white font-bold text-lg">Flow</span>
             </div>
             <nav className="mt-5 px-2 space-y-1">
               <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
