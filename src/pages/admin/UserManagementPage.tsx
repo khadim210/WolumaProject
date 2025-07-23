@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUserManagementStore, User, UserRole } from '../../stores/userManagementStore';
 import RoleManagementModal from '../../components/admin/RoleManagementModal';
+import PartnerAssignmentModal from '../../components/admin/PartnerAssignmentModal';
 import { 
   Card, 
   CardHeader, 
@@ -66,6 +67,7 @@ const UserManagementPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
+  const [showPartnerAssignment, setShowPartnerAssignment] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -181,6 +183,13 @@ const UserManagementPage: React.FC = () => {
             onClick={() => setShowRoleManagement(true)}
           >
             Gestion des rôles
+          </Button>
+          <Button
+            variant="secondary"
+            leftIcon={<Users className="h-4 w-4" />}
+            onClick={() => setShowPartnerAssignment(true)}
+          >
+            Attribution partenaires
           </Button>
           <Button
             variant="primary"
@@ -589,6 +598,12 @@ const UserManagementPage: React.FC = () => {
       <RoleManagementModal
         isOpen={showRoleManagement}
         onClose={() => setShowRoleManagement(false)}
+      />
+      
+      {/* Partner Assignment Modal */}
+      <PartnerAssignmentModal
+        isOpen={showPartnerAssignment}
+        onClose={() => setShowPartnerAssignment(false)}
       />
     </div>
   );

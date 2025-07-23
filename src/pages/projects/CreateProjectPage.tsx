@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useProgramStore } from '../../stores/programStore';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
 import { 
@@ -27,6 +28,8 @@ const projectSchema = Yup.object().shape({
     .positive('Le budget doit être positif'),
   timeline: Yup.string()
     .required('Durée requise'),
+  programId: Yup.string()
+    .required('Programme requis'),
   tags: Yup.array()
     .of(Yup.string().required('Tag requis'))
     .min(1, 'Au moins un tag est requis'),
@@ -37,21 +40,51 @@ interface ProjectFormValues {
   description: string;
   budget: number;
   timeline: string;
+  programId: string;
   tags: string[];
 }
 
 const CreateProjectPage: React.FC = () => {
   const { user } = useAuthStore();
   const { addProject } = useProjectStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  
+  React.useEffect(() => {
+    fetchPrograms();
+    fetchPartners();
+  }, [fetchPrograms, fetchPartners]);
+  
+  // Get accessible programs based on user role
+  const getAccessiblePrograms = () => {
+    if (!user) return [];
+    
+    if (user.role === 'admin') {
+      return programs;
+    } else if (user.role === 'manager') {
+      // Manager can see programs from their assigned partners
+      const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
+      const partnerIds = managerPartners.map(p => p.id);
+      return programs.filter(p => partnerIds.includes(p.partnerId));
+    } else if (user.role === 'partner') {
+      // Partner can see their own programs
+      const userPartner = partners.find(p => p.contactEmail === user.email);
+      return userPartner ? programs.filter(p => p.partnerId === userPartner.id) : [];
+    }
+    
+    return programs; // For submitters, show all programs
+  };
+  
+  const accessiblePrograms = getAccessiblePrograms();
   
   const initialValues: ProjectFormValues = {
     title: '',
     description: '',
     budget: 0,
     timeline: '',
+    programId: '',
     tags: [''],
   };
   
@@ -72,6 +105,7 @@ const CreateProjectPage: React.FC = () => {
         budget: values.budget,
         timeline: values.timeline,
         submitterId: user.id,
+        programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
       });
       
@@ -178,6 +212,36 @@ const CreateProjectPage: React.FC = () => {
                       <ErrorMessage name="timeline" component="div" className="mt-1 text-sm text-error-600" />
                     </div>
                   </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="programId" className="block text-sm font-medium text-gray-700">
+                    Programme*
+                  </label>
+                  <div className="mt-1">
+                    <Field
+                      as="select"
+                      id="programId"
+                      name="programId"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    >
+                      <option value="">Sélectionnez un programme</option>
+                      {accessiblePrograms.map(program => {
+                        const partner = partners.find(p => p.id === program.partnerId);
+                        return (
+                          <option key={program.id} value={program.id}>
+                            {program.name} {partner && `(${partner.name})`}
+                          </option>
+                        );
+                      })}
+                    </Field>
+                    <ErrorMessage name="programId" component="div" className="mt-1 text-sm text-error-600" />
+                  </div>
+                  {accessiblePrograms.length === 0 && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      Aucun programme disponible. Contactez l'administrateur.
+                    </p>
+                  )}
                 </div>
                 
                 <div>

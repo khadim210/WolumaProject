@@ -21,6 +21,7 @@ export interface Project {
   budget: number;
   timeline: string;
   submitterId: string;
+  programId: string; // Projet soumis pour un programme spécifique
   createdAt: Date;
   updatedAt: Date;
   submissionDate?: Date;
@@ -55,6 +56,7 @@ const mockProjects: Project[] = [
     budget: 150000000, // 150 millions FCFA
     timeline: '18 mois',
     submitterId: '3',
+    programId: '1', // Programme Innovation Tech 2025
     createdAt: new Date('2025-01-15'),
     updatedAt: new Date('2025-01-15'),
     submissionDate: new Date('2025-01-15'),
@@ -68,6 +70,7 @@ const mockProjects: Project[] = [
     budget: 75000000, // 75 millions FCFA
     timeline: '12 mois',
     submitterId: '3',
+    programId: '2', // Fonds Développement Durable
     createdAt: new Date('2025-01-10'),
     updatedAt: new Date('2025-01-20'),
     submissionDate: new Date('2025-01-10'),
@@ -84,6 +87,7 @@ const mockProjects: Project[] = [
     budget: 300000000, // 300 millions FCFA
     timeline: '24 mois',
     submitterId: '3',
+    programId: '1', // Programme Innovation Tech 2025
     createdAt: new Date('2024-12-05'),
     updatedAt: new Date('2025-01-25'),
     submissionDate: new Date('2024-12-05'),
@@ -100,6 +104,7 @@ const mockProjects: Project[] = [
     budget: 200000000, // 200 millions FCFA
     timeline: '18 mois',
     submitterId: '3',
+    programId: '2', // Fonds Développement Durable
     createdAt: new Date('2024-11-20'),
     updatedAt: new Date('2025-01-30'),
     submissionDate: new Date('2024-11-20'),
@@ -225,18 +230,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   
   filterProjectsByUser: (user) => {
+    const projects = get().projects;
+    
     if (user.role === 'manager') {
-      // Managers can see all projects
-      return get().projects;
+      // Managers can see projects from their assigned partners' programs
+      // For now, return all projects (will be filtered by program access)
+      return projects;
     } else if (user.role === 'submitter') {
       // Submitters can only see their own projects
-      return get().projects.filter(p => p.submitterId === user.id);
+      return projects.filter(p => p.submitterId === user.id);
     } else if (user.role === 'partner') {
       // Partners can see all submitted and later stage projects
-      return get().projects.filter(p => 
+      return projects.filter(p => 
         p.status !== 'draft'
       );
+    } else if (user.role === 'admin') {
+      // Admins can see all projects
+      return projects;
     }
     return [];
+  },
+  
+  filterProjectsByProgram: (programId) => {
+    return get().projects.filter(p => p.programId === programId);
   }
 }));
