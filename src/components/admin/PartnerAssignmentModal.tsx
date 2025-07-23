@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-+import { useUserManagementStore } from '../../stores/userManagementStore';
-+import { useProgramStore, Partner } from '../../stores/programStore';
-+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
-+import Button from '../ui/Button';
+import { useUserManagementStore } from '../../stores/userManagementStore';
+import { useProgramStore, Partner } from '../../stores/programStore';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
+import Button from '../ui/Button';
 +import { X, Save, Users, Building, UserCheck } from 'lucide-react';
 
 interface PartnerAssignmentModalProps {
