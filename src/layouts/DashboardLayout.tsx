@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { usePermissions } from '../hooks/usePermissions';
 import { 
   LayoutDashboard, 
   FolderKanban, 
@@ -45,6 +46,7 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => {
 
 const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
+  const { checkPermission } = usePermissions();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -86,20 +88,32 @@ const DashboardLayout: React.FC = () => {
               <span className="ml-3 text-white font-bold text-lg">Flow</span>
             </div>
             <nav className="mt-5 px-2 space-y-1">
-              <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
-              <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" onClick={() => setSidebarOpen(false)} />
-              <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" onClick={() => setSidebarOpen(false)} />
-              <NavItem to="/dashboard/formalization" icon={<FileText />} label="Formalisation" onClick={() => setSidebarOpen(false)} />
-              <NavItem to="/dashboard/monitoring" icon={<BarChart3 />} label="Suivi" onClick={() => setSidebarOpen(false)} />
-              <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" onClick={() => setSidebarOpen(false)} />
-              {user?.role === 'manager' && (
+              {checkPermission('dashboard.view') && (
+                <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('projects.view') && (
+                <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('evaluation.view') && (
+                <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('formalization.view') && (
+                <NavItem to="/dashboard/formalization" icon={<FileText />} label="Formalisation" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('monitoring.view') && (
+                <NavItem to="/dashboard/monitoring" icon={<BarChart3 />} label="Suivi" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('statistics.view') && (
+                <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('form_templates.view') && (
                 <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
               )}
-              {user?.role === 'admin' && (
-                <>
-                  <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
-                  <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
-                </>
+              {checkPermission('users.view') && (
+                <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('parameters.view') && (
+                <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
               )}
             </nav>
           </div>
@@ -137,20 +151,32 @@ const DashboardLayout: React.FC = () => {
                 />
               </div>
               <nav className="mt-5 flex-1 px-2 space-y-1">
-                <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
-                <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
-                <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" />
-                <NavItem to="/dashboard/formalization" icon={<FileText />} label="Formalisation" />
-                <NavItem to="/dashboard/monitoring" icon={<BarChart3 />} label="Suivi" />
-                <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" />
-                {user?.role === 'manager' && (
+                {checkPermission('dashboard.view') && (
+                  <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
+                )}
+                {checkPermission('projects.view') && (
+                  <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
+                )}
+                {checkPermission('evaluation.view') && (
+                  <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" />
+                )}
+                {checkPermission('formalization.view') && (
+                  <NavItem to="/dashboard/formalization" icon={<FileText />} label="Formalisation" />
+                )}
+                {checkPermission('monitoring.view') && (
+                  <NavItem to="/dashboard/monitoring" icon={<BarChart3 />} label="Suivi" />
+                )}
+                {checkPermission('statistics.view') && (
+                  <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" />
+                )}
+                {checkPermission('form_templates.view') && (
                   <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" />
                 )}
-                {user?.role === 'admin' && (
-                  <>
-                    <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" />
-                    <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" />
-                  </>
+                {checkPermission('users.view') && (
+                  <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" />
+                )}
+                {checkPermission('parameters.view') && (
+                  <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" />
                 )}
               </nav>
             </div>
@@ -217,23 +243,23 @@ const DashboardLayout: React.FC = () => {
                       >
                         Profil
                       </NavLink>
-                      {user?.role === 'admin' && (
-                        <>
-                          <NavLink 
-                            to="/dashboard/users" 
-                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => setUserMenuOpen(false)}
-                          >
-                            Gestion des utilisateurs
-                          </NavLink>
-                          <NavLink 
-                            to="/dashboard/parameters" 
-                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => setUserMenuOpen(false)}
-                          >
-                            Paramètres
-                          </NavLink>
-                        </>
+                      {checkPermission('users.view') && (
+                        <NavLink 
+                          to="/dashboard/users" 
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          Gestion des utilisateurs
+                        </NavLink>
+                      )}
+                      {checkPermission('parameters.view') && (
+                        <NavLink 
+                          to="/dashboard/parameters" 
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          Paramètres
+                        </NavLink>
                       )}
                       <button
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

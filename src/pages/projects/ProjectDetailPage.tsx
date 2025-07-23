@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { 
   Card, 
@@ -27,6 +28,7 @@ const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { checkPermission } = usePermissions();
   const { projects, getProject, updateProject } = useProjectStore();
   
   const [project, setProject] = useState(id ? getProject(id) : undefined);
@@ -75,7 +77,7 @@ const ProjectDetailPage: React.FC = () => {
   }
   
   const canSubmit = project.status === 'draft' && user?.id === project.submitterId;
-  const canEdit = project.status === 'draft' && user?.id === project.submitterId;
+  const canEdit = project.status === 'draft' && user?.id === project.submitterId && checkPermission('projects.edit');
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -94,7 +96,7 @@ const ProjectDetailPage: React.FC = () => {
           </h1>
           
           <div className="flex space-x-3">
-            {canEdit && (
+            {canEdit && checkPermission('projects.edit') && (
               <Button
                 variant="outline"
                 leftIcon={<Edit className="h-4 w-4" />}
@@ -104,7 +106,7 @@ const ProjectDetailPage: React.FC = () => {
               </Button>
             )}
             
-            {canSubmit && (
+            {canSubmit && checkPermission('projects.submit') && (
               <Button
                 variant="primary"
                 leftIcon={<Send className="h-4 w-4" />}

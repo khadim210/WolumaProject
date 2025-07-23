@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { 
   Card, 
@@ -57,6 +58,7 @@ interface EvaluationFormValues {
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
+  const { checkPermission } = usePermissions();
   const { projects, updateProject } = useProjectStore();
   const navigate = useNavigate();
   
@@ -66,10 +68,10 @@ const EvaluationPage: React.FC = () => {
   
   // Ensure user is a manager
   useEffect(() => {
-    if (user?.role !== 'manager') {
+    if (!checkPermission('evaluation.evaluate')) {
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [checkPermission, navigate]);
   
   // Get projects in submitted status
   const submittedProjects = projects.filter(project => 
@@ -150,6 +152,7 @@ const EvaluationPage: React.FC = () => {
   };
   
   if (!user || user.role !== 'manager') {
+  if (!checkPermission('evaluation.evaluate')) {
     return null;
   }
   

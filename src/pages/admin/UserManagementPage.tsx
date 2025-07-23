@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUserManagementStore, User, UserRole } from '../../stores/userManagementStore';
+import RoleManagementModal from '../../components/admin/RoleManagementModal';
 import { 
   Card, 
   CardHeader, 
@@ -12,6 +13,7 @@ import Button from '../../components/ui/Button';
 import { 
   Users, 
   Plus, 
+  Shield,
   Edit, 
   Trash2, 
   Search, 
@@ -64,6 +66,7 @@ const UserManagementPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showRoleManagement, setShowRoleManagement] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -172,13 +175,22 @@ const UserManagementPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestion des utilisateurs</h1>
           <p className="mt-1 text-gray-600">Gérez les utilisateurs et leurs privilèges</p>
         </div>
-        <Button
-          variant="primary"
-          leftIcon={<Plus className="h-4 w-4" />}
-          onClick={() => setShowCreateModal(true)}
-        >
-          Nouvel utilisateur
-        </Button>
+        <div className="flex space-x-3">
+          <Button
+            variant="secondary"
+            leftIcon={<Shield className="h-4 w-4" />}
+            onClick={() => setShowRoleManagement(true)}
+          >
+            Gestion des rôles
+          </Button>
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => setShowCreateModal(true)}
+          >
+            Nouvel utilisateur
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -573,6 +585,12 @@ const UserManagementPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Role Management Modal */}
+      <RoleManagementModal
+        isOpen={showRoleManagement}
+        onClose={() => setShowRoleManagement(false)}
+      />
     </div>
   );
 };

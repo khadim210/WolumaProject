@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useParametersStore } from '../../stores/parametersStore';
 import { 
   Card, 
@@ -35,6 +36,7 @@ const parametersSchema = Yup.object().shape({
 
 const ParametersPage: React.FC = () => {
   const { user: currentUser } = useAuthStore();
+  const { checkPermission } = usePermissions();
   const { parameters, updateParameters, resetToDefaults } = useParametersStore();
   const [activeTab, setActiveTab] = useState('general');
   const [isResetting, setIsResetting] = useState(false);
@@ -61,6 +63,7 @@ const ParametersPage: React.FC = () => {
   };
 
   if (currentUser?.role !== 'admin') {
+  if (!checkPermission('parameters.edit')) {
     return (
       <div className="text-center py-12">
         <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />

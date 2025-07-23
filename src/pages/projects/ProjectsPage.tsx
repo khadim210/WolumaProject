@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { 
   Card, 
@@ -14,6 +15,7 @@ import { FolderPlus, Search, Filter } from 'lucide-react';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
+  const { checkPermission } = usePermissions();
   const { projects, fetchProjects, filterProjectsByUser } = useProjectStore();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,7 +44,7 @@ const ProjectsPage: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
         
-        {user?.role === 'submitter' && (
+        {checkPermission('projects.create') && (
           <Link to="/dashboard/projects/create">
             <Button 
               variant="primary" 
@@ -154,7 +156,7 @@ const ProjectsPage: React.FC = () => {
               : "Aucun projet n'est disponible pour le moment"}
           </div>
           
-          {user?.role === 'submitter' && (
+          {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create" className="mt-4 inline-block">
               <Button 
                 variant="primary" 
