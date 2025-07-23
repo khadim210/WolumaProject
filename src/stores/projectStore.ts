@@ -243,9 +243,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       return projects.filter(p => p.submitterId === user.id);
     } else if (user.role === 'partner') {
       // Partners can see all submitted and later stage projects
-      return projects.filter(p => 
-        p.status !== 'draft'
-      );
+      return projects.filter(p => p.status !== 'draft');
     } else if (user.role === 'admin') {
       // Admins can see all projects
       return projects;

@@ -46,8 +46,15 @@ const ProjectsPage: React.FC = () => {
       return programs.filter(p => partnerIds.includes(p.partnerId));
     } else if (user.role === 'partner') {
       // Partner can see their own programs
-      const userPartner = partners.find(p => p.contactEmail === user.email);
-      return userPartner ? programs.filter(p => p.partnerId === userPartner.id) : [];
+      const userPartner = partners.find(p => 
+        p.contactEmail === user.email || 
+        p.name === user.organization
+      );
+      if (userPartner) {
+        return programs.filter(p => p.partnerId === userPartner.id);
+      }
+      // Fallback: show all programs if partner not found by email/organization
+      return programs;
     }
     
     return programs; // For submitters, show all programs

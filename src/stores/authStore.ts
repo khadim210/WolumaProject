@@ -32,9 +32,9 @@ const mockUsers: User[] = [
   {
     id: '2',
     name: 'Partner User',
-    email: 'partner@example.com',
+    email: 'contact@innovation-afrique.org',
     role: 'partner',
-    organization: 'Partner Organization'
+    organization: 'Fondation Innovation Afrique'
   },
   {
     id: '3',
