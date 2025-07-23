@@ -15,7 +15,8 @@ import {
   User,
   FileInput,
   Users,
-  Settings
+  Settings,
+  Target
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -109,6 +110,9 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('form_templates.view') && (
                 <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
               )}
+              {checkPermission('parameters.edit') && (
+                <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
+              )}
               {checkPermission('users.view') && (
                 <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
               )}
@@ -171,6 +175,9 @@ const DashboardLayout: React.FC = () => {
                 )}
                 {checkPermission('form_templates.view') && (
                   <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" />
+                )}
+                {checkPermission('parameters.edit') && (
+                  <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" />
                 )}
                 {checkPermission('users.view') && (
                   <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" />

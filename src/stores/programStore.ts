@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type CriterionType = 'number' | 'text' | 'select' | 'boolean' | 'date' | 'range';
+
+export interface SelectionCriterion {
+  id: string;
+  name: string;
+  description: string;
+  type: CriterionType;
+  required: boolean;
+  // For number and range types
+  minValue?: number;
+  maxValue?: number;
+  // For text type
+  maxLength?: number;
+  // For select type
+  options?: string[];
+  // For boolean type
+  defaultValue?: boolean;
+}
+
 export interface Partner {
   id: string;
   name: string;
@@ -24,6 +43,7 @@ export interface Program {
   isActive: boolean;
   createdAt: Date;
   managerId?: string; // Manager responsable du programme
+  selectionCriteria: SelectionCriterion[];
 }
 
 interface ProgramState {
@@ -97,6 +117,34 @@ const mockPrograms: Program[] = [
     isActive: true,
     createdAt: new Date('2024-12-01'),
     managerId: '2',
+    selectionCriteria: [
+      {
+        id: 'c1',
+        name: 'Budget maximum',
+        description: 'Budget maximum autorisé pour le projet',
+        type: 'number',
+        required: true,
+        minValue: 10000,
+        maxValue: 1000000
+      },
+      {
+        id: 'c2',
+        name: 'Secteur d\'activité',
+        description: 'Secteur d\'activité du projet',
+        type: 'select',
+        required: true,
+        options: ['Technologies', 'Santé', 'Environnement', 'Education', 'Agriculture']
+      },
+      {
+        id: 'c3',
+        name: 'Durée du projet',
+        description: 'Durée maximale du projet en mois',
+        type: 'range',
+        required: true,
+        minValue: 6,
+        maxValue: 36
+      }
+    ]
   },
   {
     id: '2',
@@ -109,6 +157,33 @@ const mockPrograms: Program[] = [
     isActive: true,
     createdAt: new Date('2024-11-15'),
     managerId: '2',
+    selectionCriteria: [
+      {
+        id: 'c4',
+        name: 'Impact environnemental',
+        description: 'Le projet doit avoir un impact environnemental positif',
+        type: 'boolean',
+        required: true,
+        defaultValue: true
+      },
+      {
+        id: 'c5',
+        name: 'Zone géographique',
+        description: 'Zone géographique d\'intervention',
+        type: 'select',
+        required: true,
+        options: ['Urbaine', 'Rurale', 'Côtière', 'Forestière']
+      },
+      {
+        id: 'c6',
+        name: 'Nombre de bénéficiaires',
+        description: 'Nombre minimum de bénéficiaires directs',
+        type: 'number',
+        required: true,
+        minValue: 100,
+        maxValue: 50000
+      }
+    ]
   },
   {
     id: '3',
@@ -120,6 +195,33 @@ const mockPrograms: Program[] = [
     endDate: new Date('2025-08-31'),
     isActive: true,
     createdAt: new Date('2024-12-10'),
+    selectionCriteria: [
+      {
+        id: 'c7',
+        name: 'Âge du porteur',
+        description: 'Âge maximum du porteur de projet',
+        type: 'number',
+        required: true,
+        minValue: 18,
+        maxValue: 35
+      },
+      {
+        id: 'c8',
+        name: 'Expérience entrepreneuriale',
+        description: 'Le porteur a-t-il une expérience entrepreneuriale préalable ?',
+        type: 'boolean',
+        required: false,
+        defaultValue: false
+      },
+      {
+        id: 'c9',
+        name: 'Description du projet',
+        description: 'Description détaillée du projet',
+        type: 'text',
+        required: true,
+        maxLength: 2000
+      }
+    ]
   },
 ];
 
