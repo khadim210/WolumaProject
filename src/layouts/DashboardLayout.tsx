@@ -64,6 +64,7 @@ const DashboardLayout: React.FC = () => {
         />
         
         <div className="relative flex-1 flex flex-col max-w-xs w-full bg-primary-800">
+        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-primary-800 via-primary-700 to-secondary-800">
           <div className="absolute top-0 right-0 -mr-12 pt-2">
             <button
               className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
@@ -123,7 +124,7 @@ const DashboardLayout: React.FC = () => {
       {/* Static sidebar for desktop */}
       <div className="hidden md:flex md:flex-shrink-0">
         <div className="flex flex-col w-64">
-          <div className="flex flex-col h-0 flex-1 bg-primary-800 shadow-xl">
+          <div className="flex flex-col h-0 flex-1 bg-gradient-to-b from-primary-800 via-primary-700 to-secondary-800 shadow-xl">
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
               <div className="flex items-center flex-shrink-0 px-4 mb-8">
                 <img 
