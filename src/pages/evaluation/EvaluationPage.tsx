@@ -152,6 +152,9 @@ const EvaluationPage: React.FC = () => {
   };
   
   if (!user || user.role !== 'manager') {
+    return null;
+  }
+  
   if (!checkPermission('evaluation.evaluate')) {
     return null;
   }
