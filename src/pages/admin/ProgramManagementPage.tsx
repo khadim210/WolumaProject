@@ -22,7 +22,8 @@ import {
   Settings,
   Save,
   X,
-  Target
+  Target,
+  Award
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
@@ -44,6 +45,24 @@ const programSchema = Yup.object().shape({
       required: Yup.boolean(),
     })
   ).min(1, 'Au moins un critère de sélection est requis'),
+  evaluationCriteria: Yup.array().of(
+    Yup.object().shape({
+      name: Yup.string().required('Nom du critère requis'),
+      description: Yup.string().required('Description requise'),
+      weight: Yup.number()
+        .required('Poids requis')
+        .min(1, 'Le poids doit être au moins 1%')
+        .max(100, 'Le poids ne peut pas dépasser 100%'),
+      maxScore: Yup.number()
+        .required('Score maximum requis')
+        .min(1, 'Le score maximum doit être au moins 1'),
+    })
+  ).min(1, 'Au moins un critère d\'évaluation est requis')
+  .test('total-weight', 'Le poids total ne doit pas dépasser 100%', function(value) {
+    if (!value) return true;
+    const totalWeight = value.reduce((sum, criterion) => sum + (criterion.weight || 0), 0);
+    return totalWeight <= 100;
+  }),
 });
 
 interface ProgramFormValues {
@@ -55,6 +74,7 @@ interface ProgramFormValues {
   endDate: string;
   isActive: boolean;
   selectionCriteria: SelectionCriterion[];
+  evaluationCriteria: EvaluationCriterion[];
 }
 
 const criterionTypes: { value: CriterionType; label: string }[] = [
@@ -171,6 +191,10 @@ const ProgramManagementPage: React.FC = () => {
   const generateCriterionId = () => {
     return `c${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
+  
+  const generateEvaluationId = () => {
+    return `e${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
 
   if (currentUser?.role !== 'admin') {
     if (!checkPermission('parameters.edit')) {
@@ -199,6 +223,13 @@ const ProgramManagementPage: React.FC = () => {
       type: 'text',
       required: true,
     }],
+    evaluationCriteria: [{
+      id: generateEvaluationId(),
+      name: '',
+      description: '',
+      weight: 0,
+      maxScore: 20,
+    }],
   };
 
   const getEditFormValues = (program: Program): ProgramFormValues => ({
@@ -210,6 +241,7 @@ const ProgramManagementPage: React.FC = () => {
     endDate: program.endDate.toISOString().split('T')[0],
     isActive: program.isActive,
     selectionCriteria: program.selectionCriteria,
+    evaluationCriteria: program.evaluationCriteria,
   });
 
   return (
@@ -338,6 +370,34 @@ const ProgramManagementPage: React.FC = () => {
                           +{program.selectionCriteria.length - 3} autres critères...
                         </div>
                       )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <Award className="h-4 w-4 mr-1" />
+                      Critères d'évaluation ({program.evaluationCriteria.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {program.evaluationCriteria.slice(0, 3).map(criterion => (
+                        <div key={criterion.id} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center">
+                            <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-secondary-100 text-secondary-800 mr-2">
+                              {criterion.weight}%
+                            </span>
+                            <span className="text-gray-700">{criterion.name}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">/{criterion.maxScore}</span>
+                        </div>
+                      ))}
+                      {program.evaluationCriteria.length > 3 && (
+                        <div className="text-xs text-gray-500">
+                          +{program.evaluationCriteria.length - 3} autres critères...
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-600 font-medium">
+                        Poids total: {program.evaluationCriteria.reduce((sum, c) => sum + c.weight, 0)}%
+                      </div>
                     </div>
                   </div>
                 </div>

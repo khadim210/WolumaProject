@@ -3,6 +3,14 @@ import { persist } from 'zustand/middleware';
 
 export type CriterionType = 'number' | 'text' | 'select' | 'boolean' | 'date' | 'range';
 
+export interface EvaluationCriterion {
+  id: string;
+  name: string;
+  description: string;
+  weight: number; // Poids en pourcentage (0-100)
+  maxScore: number; // Score maximum possible
+}
+
 export interface SelectionCriterion {
   id: string;
   name: string;
@@ -44,6 +52,7 @@ export interface Program {
   createdAt: Date;
   managerId?: string; // Manager responsable du programme
   selectionCriteria: SelectionCriterion[];
+  evaluationCriteria: EvaluationCriterion[];
 }
 
 interface ProgramState {
@@ -145,6 +154,43 @@ const mockPrograms: Program[] = [
         maxValue: 36
       }
     ]
+    evaluationCriteria: [
+      {
+        id: 'e1',
+        name: 'Innovation et originalité',
+        description: 'Niveau d\'innovation et d\'originalité du projet',
+        weight: 25,
+        maxScore: 20
+      },
+      {
+        id: 'e2',
+        name: 'Faisabilité technique',
+        description: 'Capacité technique à réaliser le projet',
+        weight: 20,
+        maxScore: 20
+      },
+      {
+        id: 'e3',
+        name: 'Impact et pertinence',
+        description: 'Impact potentiel et pertinence du projet',
+        weight: 25,
+        maxScore: 20
+      },
+      {
+        id: 'e4',
+        name: 'Réalisme budgétaire',
+        description: 'Réalisme et justification du budget demandé',
+        weight: 15,
+        maxScore: 20
+      },
+      {
+        id: 'e5',
+        name: 'Compétence de l\'équipe',
+        description: 'Compétences et expérience de l\'équipe projet',
+        weight: 15,
+        maxScore: 20
+      }
+    ]
   },
   {
     id: '2',
@@ -184,6 +230,43 @@ const mockPrograms: Program[] = [
         maxValue: 50000
       }
     ]
+    evaluationCriteria: [
+      {
+        id: 'e6',
+        name: 'Impact environnemental',
+        description: 'Mesure de l\'impact positif sur l\'environnement',
+        weight: 30,
+        maxScore: 20
+      },
+      {
+        id: 'e7',
+        name: 'Durabilité du projet',
+        description: 'Capacité du projet à perdurer dans le temps',
+        weight: 25,
+        maxScore: 20
+      },
+      {
+        id: 'e8',
+        name: 'Nombre de bénéficiaires',
+        description: 'Étendue de l\'impact sur les populations',
+        weight: 20,
+        maxScore: 20
+      },
+      {
+        id: 'e9',
+        name: 'Innovation sociale',
+        description: 'Caractère innovant de l\'approche sociale',
+        weight: 15,
+        maxScore: 20
+      },
+      {
+        id: 'e10',
+        name: 'Partenariats locaux',
+        description: 'Qualité des partenariats avec les acteurs locaux',
+        weight: 10,
+        maxScore: 20
+      }
+    ]
   },
   {
     id: '3',
@@ -220,6 +303,36 @@ const mockPrograms: Program[] = [
         type: 'text',
         required: true,
         maxLength: 2000
+      }
+    ]
+    evaluationCriteria: [
+      {
+        id: 'e11',
+        name: 'Potentiel entrepreneurial',
+        description: 'Évaluation du potentiel entrepreneurial du porteur',
+        weight: 35,
+        maxScore: 20
+      },
+      {
+        id: 'e12',
+        name: 'Viabilité économique',
+        description: 'Viabilité économique du modèle proposé',
+        weight: 30,
+        maxScore: 20
+      },
+      {
+        id: 'e13',
+        name: 'Innovation du concept',
+        description: 'Caractère innovant du concept d\'entreprise',
+        weight: 20,
+        maxScore: 20
+      },
+      {
+        id: 'e14',
+        name: 'Capacité d\'exécution',
+        description: 'Capacité à exécuter le plan d\'affaires',
+        weight: 15,
+        maxScore: 20
       }
     ]
   },
