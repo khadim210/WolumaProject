@@ -121,6 +121,7 @@ const DashboardLayout: React.FC = () => {
           </div>
         </div>
         </div>
+        </div>
       </div>
       
       {/* Static sidebar for desktop */}
