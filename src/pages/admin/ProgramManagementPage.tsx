@@ -612,8 +612,9 @@ const ProgramManagementPage: React.FC = () => {
                   </div>
 
 
-                  {/* Criteria Tabs */}
+                  {/* Criteria Section */}
                   <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Configuration des critères</h3>
                     <div className="border-b border-gray-200 mb-6">
                       <nav className="-mb-px flex space-x-8">
                         <button
@@ -645,14 +646,29 @@ const ProgramManagementPage: React.FC = () => {
 
                     {/* Selection Criteria Tab */}
                     {activeTab === 'selection' && (
-                      <div>
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="mb-6">
+                          <h4 className="text-md font-medium text-gray-900 mb-2 flex items-center">
+                            <Target className="h-5 w-5 mr-2 text-primary-600" />
+                            Critères de sélection des projets
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Définissez les critères que les projets doivent respecter pour être éligibles à ce programme.
+                          </p>
+                        </div>
+                        
                         <FieldArray name="selectionCriteria">
                           {({ push, remove }) => (
                             <div className="space-y-4">
                               {values.selectionCriteria.map((criterion, index) => (
-                                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                                   <div className="flex justify-between items-center mb-4">
-                                    <h4 className="text-sm font-medium text-gray-900">Critère de sélection #{index + 1}</h4>
+                                    <h5 className="text-sm font-medium text-gray-900 flex items-center">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-100 text-primary-600 text-xs font-bold mr-2">
+                                        {index + 1}
+                                      </span>
+                                      Critère de sélection
+                                    </h5>
                                     {index > 0 && (
                                       <Button
                                         type="button"
@@ -784,7 +800,8 @@ const ProgramManagementPage: React.FC = () => {
 
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="primary"
+                                size="sm"
                                 onClick={() => push({
                                   id: generateCriterionId(),
                                   name: '',
@@ -804,14 +821,29 @@ const ProgramManagementPage: React.FC = () => {
 
                     {/* Evaluation Criteria Tab */}
                     {activeTab === 'evaluation' && (
-                      <div>
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="mb-6">
+                          <h4 className="text-md font-medium text-gray-900 mb-2 flex items-center">
+                            <Award className="h-5 w-5 mr-2 text-secondary-600" />
+                            Critères d'évaluation des projets
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Définissez les critères et leur pondération pour l'évaluation des projets soumis.
+                          </p>
+                        </div>
+                        
                         <FieldArray name="evaluationCriteria">
                           {({ push, remove }) => (
                             <div className="space-y-4">
                               {values.evaluationCriteria.map((criterion, index) => (
-                                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                                   <div className="flex justify-between items-center mb-4">
-                                    <h4 className="text-sm font-medium text-gray-900">Critère d'évaluation #{index + 1}</h4>
+                                    <h5 className="text-sm font-medium text-gray-900 flex items-center">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-secondary-100 text-secondary-600 text-xs font-bold mr-2">
+                                        {index + 1}
+                                      </span>
+                                      Critère d'évaluation
+                                    </h5>
                                     {index > 0 && (
                                       <Button
                                         type="button"
@@ -876,7 +908,8 @@ const ProgramManagementPage: React.FC = () => {
 
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => push({
                                   id: generateEvaluationId(),
                                   name: '',
@@ -890,7 +923,7 @@ const ProgramManagementPage: React.FC = () => {
                               </Button>
 
                               {/* Total Weight Display */}
-                              <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-secondary-50 rounded-lg border border-primary-200">
+                              <div className="mt-6 p-4 bg-gradient-to-r from-secondary-50 to-accent-50 rounded-lg border border-secondary-200">
                                 <div className="flex items-center justify-between">
                                   <span className="text-sm font-medium text-gray-900">Poids total des critères</span>
                                   <span className={`text-lg font-bold ${
