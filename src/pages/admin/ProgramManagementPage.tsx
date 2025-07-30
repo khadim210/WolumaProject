@@ -587,13 +587,13 @@ const ProgramManagementPage: React.FC = () => {
                         Ce lien leur permettra d'accéder directement au formulaire de soumission et aux informations du programme.
                       </p>
                       
-                      {values.name && selectedPartner ? (
+                      {values.name && values.partner ? (
                         <div className="space-y-3">
                           <div className="flex items-center space-x-2">
                             <div className="flex-1">
                               <div className="relative">
-                                <input
-                                  type="text"
+                                  const subject = encodeURIComponent(`Participation au programme: ${values.name}`);
+                                  const body = encodeURIComponent(`Bonjour,\n\nVous êtes invité(e) à participer au programme "${values.name}" organisé par ${values.partner}.\n\n${values.description ? `Description: ${values.description}\n\n` : ''}Pour soumettre votre projet, veuillez cliquer sur le lien suivant:\n${link}\n\nCordialement`);
                                   readOnly
                                   value={`${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`}
                                   className="block w-full pr-12 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-sm font-mono text-gray-700 focus:ring-primary-500 focus:border-primary-500"
@@ -1088,7 +1088,7 @@ const ProgramManagementPage: React.FC = () => {
                                       ? 'Le poids total dépasse 100%. Veuillez ajuster les poids.'
                                       : 'Le poids total doit être égal à 100% pour une évaluation équilibrée.'}
                                   </p>
-                                )}
+                                <span className="font-medium">{values.partner}</span>
                               </div>
                             </div>
                           )}
