@@ -108,6 +108,9 @@ const DashboardLayout: React.FC = () => {
                 <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('form_templates.view') && (
+                <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" />
+              )}
+              {checkPermission('form_templates.view') && (
                 <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('parameters.edit') && (
@@ -157,6 +160,9 @@ const DashboardLayout: React.FC = () => {
               <nav className="mt-5 flex-1 px-2 space-y-1">
                 {checkPermission('dashboard.view') && (
                   <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
+                )}
+                {checkPermission('form_templates.view') && (
+                  <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
                 )}
                 {checkPermission('parameters.edit') && (
                   <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
