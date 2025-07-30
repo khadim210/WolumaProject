@@ -18,7 +18,9 @@ const fieldTypes: { value: FieldType; label: string }[] = [
   { value: 'select', label: 'Liste déroulante' },
   { value: 'radio', label: 'Choix unique' },
   { value: 'checkbox', label: 'Case à cocher' },
-  { value: 'date', label: 'Date' }
+  { value: 'date', label: 'Date' },
+  { value: 'file', label: 'Upload de fichiers' },
+  { value: 'multiple_select', label: 'Choix multiples' }
 ];
 
 const FormBuilderPage: React.FC = () => {
