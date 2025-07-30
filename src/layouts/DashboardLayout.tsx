@@ -158,6 +158,12 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('dashboard.view') && (
                   <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
                 )}
+                {checkPermission('parameters.edit') && (
+                  <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
+                )}
+                {checkPermission('parameters.edit') && (
+                  <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" />
+                )}
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
                 )}
@@ -172,12 +178,6 @@ const DashboardLayout: React.FC = () => {
                 )}
                 {checkPermission('statistics.view') && (
                   <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" />
-                )}
-                {checkPermission('form_templates.view') && (
-                  <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" />
-                )}
-                {checkPermission('parameters.edit') && (
-                  <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" />
                 )}
                 {checkPermission('users.view') && (
                   <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" />
