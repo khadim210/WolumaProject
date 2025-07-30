@@ -67,6 +67,7 @@ function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="form-templates" element={<FormTemplatesPage />} />
           <Route path="form-templates/create" element={<FormBuilderPage />} />
+          <Route path="form-templates/:id/edit" element={<FormBuilderPage />} />
           <Route path="programs" element={<ProgramManagementPage />} />
           <Route path="users" element={<UserManagementPage />} />
           <Route path="parameters" element={<ParametersPage />} />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useFormTemplateStore, FormField, FieldType } from '../../stores/formTemplateStore';
 import { 
   Card, 
@@ -25,11 +25,16 @@ const fieldTypes: { value: FieldType; label: string }[] = [
 
 const FormBuilderPage: React.FC = () => {
   const navigate = useNavigate();
-  const { addTemplate } = useFormTemplateStore();
+  const { id } = useParams<{ id: string }>();
+  const { templates, addTemplate, updateTemplate, getTemplate } = useFormTemplateStore();
   
-  const [formName, setFormName] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [fields, setFields] = useState<FormField[]>([]);
+  // Check if we're editing an existing template
+  const existingTemplate = id ? getTemplate(id) : null;
+  const isEditing = !!existingTemplate;
+  
+  const [formName, setFormName] = useState(existingTemplate?.name || '');
+  const [formDescription, setFormDescription] = useState(existingTemplate?.description || '');
+  const [fields, setFields] = useState<FormField[]>(existingTemplate?.fields || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleAddField = () => {
@@ -106,16 +111,24 @@ const FormBuilderPage: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      await addTemplate({
-        name: formName,
-        description: formDescription,
-        fields,
-        isActive: true
-      });
+      if (isEditing && id) {
+        await updateTemplate(id, {
+          name: formName,
+          description: formDescription,
+          fields
+        });
+      } else {
+        await addTemplate({
+          name: formName,
+          description: formDescription,
+          fields,
+          isActive: true
+        });
+      }
       
       navigate('/dashboard/form-templates');
     } catch (error) {
-      console.error('Error creating form template:', error);
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} form template:`, error);
     } finally {
       setIsSubmitting(false);
     }
@@ -124,9 +137,14 @@ const FormBuilderPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Créer un modèle de formulaire</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {isEditing ? 'Modifier le modèle de formulaire' : 'Créer un modèle de formulaire'}
+        </h1>
         <p className="mt-1 text-gray-600">
-          Créez un nouveau modèle de formulaire d'évaluation qui pourra être utilisé pour les soumissions de projets.
+          {isEditing 
+            ? 'Modifiez ce modèle de formulaire d\'évaluation.'
+            : 'Créez un nouveau modèle de formulaire d\'évaluation qui pourra être utilisé pour les soumissions de projets.'
+          }
         </p>
       </div>
       
@@ -325,7 +343,7 @@ const FormBuilderPage: React.FC = () => {
               disabled={!formName || fields.length === 0 || isSubmitting}
               leftIcon={<Save className="h-4 w-4" />}
             >
-              Enregistrer le modèle
+              {isEditing ? 'Mettre à jour le modèle' : 'Enregistrer le modèle'}
             </Button>
           </CardFooter>
         </Card>
