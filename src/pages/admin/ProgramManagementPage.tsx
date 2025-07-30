@@ -112,6 +112,7 @@ const ProgramManagementPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'selection' | 'evaluation'>('selection');
 
   useEffect(() => {
     fetchPrograms();
@@ -595,172 +596,326 @@ const ProgramManagementPage: React.FC = () => {
                     </label>
                   </div>
 
-                  {/* Selection Criteria */}
+                  {/* Criteria Tabs */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-4">
-                      Critères de sélection
-                    </label>
-                    <FieldArray name="selectionCriteria">
-                      {({ push, remove }) => (
-                        <div className="space-y-4">
-                          {values.selectionCriteria.map((criterion, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-center mb-4">
-                                <h4 className="text-sm font-medium text-gray-900">Critère #{index + 1}</h4>
-                                {index > 0 && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => remove(index)}
-                                    leftIcon={<Trash2 className="h-4 w-4" />}
-                                  >
-                                    Supprimer
-                                  </Button>
+                    <div className="border-b border-gray-200 mb-6">
+                      <nav className="-mb-px flex space-x-8">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('selection')}
+                          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                            activeTab === 'selection'
+                              ? 'border-primary-500 text-primary-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          <Target className="h-4 w-4 inline mr-2" />
+                          Critères de sélection ({values.selectionCriteria.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('evaluation')}
+                          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                            activeTab === 'evaluation'
+                              ? 'border-primary-500 text-primary-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          <Award className="h-4 w-4 inline mr-2" />
+                          Critères d'évaluation ({values.evaluationCriteria.length})
+                        </button>
+                      </nav>
+                    </div>
+
+                    {/* Selection Criteria Tab */}
+                    {activeTab === 'selection' && (
+                      <div>
+                        <FieldArray name="selectionCriteria">
+                          {({ push, remove }) => (
+                            <div className="space-y-4">
+                              {values.selectionCriteria.map((criterion, index) => (
+                                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                  <div className="flex justify-between items-center mb-4">
+                                    <h4 className="text-sm font-medium text-gray-900">Critère de sélection #{index + 1}</h4>
+                                    {index > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => remove(index)}
+                                        leftIcon={<Trash2 className="h-4 w-4" />}
+                                      >
+                                        Supprimer
+                                      </Button>
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700">Nom</label>
+                                      <Field
+                                        name={`selectionCriteria.${index}.name`}
+                                        type="text"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      />
+                                      <ErrorMessage name={`selectionCriteria.${index}.name`} component="div" className="mt-1 text-sm text-error-600" />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700">Type</label>
+                                      <Field
+                                        as="select"
+                                        name={`selectionCriteria.${index}.type`}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      >
+                                        {criterionTypes.map(type => (
+                                          <option key={type.value} value={type.value}>
+                                            {type.label}
+                                          </option>
+                                        ))}
+                                      </Field>
+                                    </div>
+                                  </div>
+
+                                  <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                                    <Field
+                                      as="textarea"
+                                      name={`selectionCriteria.${index}.description`}
+                                      rows={2}
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    />
+                                    <ErrorMessage name={`selectionCriteria.${index}.description`} component="div" className="mt-1 text-sm text-error-600" />
+                                  </div>
+
+                                  {/* Type-specific fields */}
+                                  {(criterion.type === 'number' || criterion.type === 'range') && (
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700">Valeur minimum</label>
+                                        <Field
+                                          name={`selectionCriteria.${index}.minValue`}
+                                          type="number"
+                                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700">Valeur maximum</label>
+                                        <Field
+                                          name={`selectionCriteria.${index}.maxValue`}
+                                          type="number"
+                                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {criterion.type === 'text' && (
+                                    <div className="mb-4">
+                                      <label className="block text-sm font-medium text-gray-700">Longueur maximum</label>
+                                      <Field
+                                        name={`selectionCriteria.${index}.maxLength`}
+                                        type="number"
+                                        min="1"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {criterion.type === 'select' && (
+                                    <div className="mb-4">
+                                      <label className="block text-sm font-medium text-gray-700">Options (une par ligne)</label>
+                                      <Field
+                                        as="textarea"
+                                        name={`selectionCriteria.${index}.options`}
+                                        rows={3}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                        placeholder="Option 1&#10;Option 2&#10;Option 3"
+                                        value={criterion.options?.join('\n') || ''}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                                          const options = e.target.value.split('\n').filter(opt => opt.trim() !== '');
+                                          values.selectionCriteria[index].options = options;
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {criterion.type === 'boolean' && (
+                                    <div className="mb-4">
+                                      <label className="flex items-center">
+                                        <Field
+                                          name={`selectionCriteria.${index}.defaultValue`}
+                                          type="checkbox"
+                                          className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                        />
+                                        <span className="ml-2 text-sm text-gray-900">Valeur par défaut (Oui)</span>
+                                      </label>
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <label className="flex items-center">
+                                      <Field
+                                        name={`selectionCriteria.${index}.required`}
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                      />
+                                      <span className="ml-2 text-sm text-gray-900">Critère obligatoire</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              ))}
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => push({
+                                  id: generateCriterionId(),
+                                  name: '',
+                                  description: '',
+                                  type: 'text',
+                                  required: true,
+                                })}
+                                leftIcon={<Plus className="h-4 w-4" />}
+                              >
+                                Ajouter un critère de sélection
+                              </Button>
+                            </div>
+                          )}
+                        </FieldArray>
+                      </div>
+                    )}
+
+                    {/* Evaluation Criteria Tab */}
+                    {activeTab === 'evaluation' && (
+                      <div>
+                        <FieldArray name="evaluationCriteria">
+                          {({ push, remove }) => (
+                            <div className="space-y-4">
+                              {values.evaluationCriteria.map((criterion, index) => (
+                                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                  <div className="flex justify-between items-center mb-4">
+                                    <h4 className="text-sm font-medium text-gray-900">Critère d'évaluation #{index + 1}</h4>
+                                    {index > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => remove(index)}
+                                        leftIcon={<Trash2 className="h-4 w-4" />}
+                                      >
+                                        Supprimer
+                                      </Button>
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700">Nom</label>
+                                      <Field
+                                        name={`evaluationCriteria.${index}.name`}
+                                        type="text"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      />
+                                      <ErrorMessage name={`evaluationCriteria.${index}.name`} component="div" className="mt-1 text-sm text-error-600" />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700">Poids (%)</label>
+                                      <Field
+                                        name={`evaluationCriteria.${index}.weight`}
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      />
+                                      <ErrorMessage name={`evaluationCriteria.${index}.weight`} component="div" className="mt-1 text-sm text-error-600" />
+                                    </div>
+                                  </div>
+
+                                  <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                                    <Field
+                                      as="textarea"
+                                      name={`evaluationCriteria.${index}.description`}
+                                      rows={2}
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    />
+                                    <ErrorMessage name={`evaluationCriteria.${index}.description`} component="div" className="mt-1 text-sm text-error-600" />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">Score maximum</label>
+                                    <Field
+                                      name={`evaluationCriteria.${index}.maxScore`}
+                                      type="number"
+                                      min="1"
+                                      max="100"
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    />
+                                    <ErrorMessage name={`evaluationCriteria.${index}.maxScore`} component="div" className="mt-1 text-sm text-error-600" />
+                                  </div>
+                                </div>
+                              ))}
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => push({
+                                  id: generateEvaluationId(),
+                                  name: '',
+                                  description: '',
+                                  weight: 0,
+                                  maxScore: 20,
+                                })}
+                                leftIcon={<Plus className="h-4 w-4" />}
+                              >
+                                Ajouter un critère d'évaluation
+                              </Button>
+
+                              {/* Total Weight Display */}
+                              <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-secondary-50 rounded-lg border border-primary-200">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-900">Poids total des critères</span>
+                                  <span className={`text-lg font-bold ${
+                                    values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0) === 100
+                                      ? 'text-success-600'
+                                      : values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0) > 100
+                                      ? 'text-error-600'
+                                      : 'text-warning-600'
+                                  }`}>
+                                    {values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0)}%
+                                  </span>
+                                </div>
+                                <div className="mt-2">
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`h-2 rounded-full transition-all duration-300 ${
+                                        values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0) === 100
+                                          ? 'bg-success-500'
+                                          : values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0) > 100
+                                          ? 'bg-error-500'
+                                          : 'bg-warning-500'
+                                      }`}
+                                      style={{ 
+                                        width: `${Math.min(100, values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0))}%` 
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                {values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0) !== 100 && (
+                                  <p className="mt-2 text-xs text-gray-600">
+                                    {values.evaluationCriteria.reduce((sum, c) => sum + (c.weight || 0), 0) > 100
+                                      ? 'Le poids total dépasse 100%. Veuillez ajuster les poids.'
+                                      : 'Le poids total doit être égal à 100% pour une évaluation équilibrée.'}
+                                  </p>
                                 )}
                               </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700">Nom</label>
-                                  <Field
-                                    name={`selectionCriteria.${index}.name`}
-                                    type="text"
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                  />
-                                  <ErrorMessage name={`selectionCriteria.${index}.name`} component="div" className="mt-1 text-sm text-error-600" />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700">Type</label>
-                                  <Field
-                                    as="select"
-                                    name={`selectionCriteria.${index}.type`}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                  >
-                                    {criterionTypes.map(type => (
-                                      <option key={type.value} value={type.value}>
-                                        {type.label}
-                                      </option>
-                                    ))}
-                                  </Field>
-                                </div>
-                              </div>
-
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700">Description</label>
-                                <Field
-                                  as="textarea"
-                                  name={`selectionCriteria.${index}.description`}
-                                  rows={2}
-                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                />
-                                <ErrorMessage name={`selectionCriteria.${index}.description`} component="div" className="mt-1 text-sm text-error-600" />
-                              </div>
-
-                              {/* Type-specific fields */}
-                              {(criterion.type === 'number' || criterion.type === 'range') && (
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700">Valeur minimum</label>
-                                    <Field
-                                      name={`selectionCriteria.${index}.minValue`}
-                                      type="number"
-                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700">Valeur maximum</label>
-                                    <Field
-                                      name={`selectionCriteria.${index}.maxValue`}
-                                      type="number"
-                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                              {criterion.type === 'text' && (
-                                <div className="mb-4">
-                                  <label className="block text-sm font-medium text-gray-700">Longueur maximum</label>
-                                  <Field
-                                    name={`selectionCriteria.${index}.maxLength`}
-                                    type="number"
-                                    min="1"
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                  />
-                                </div>
-                              )}
-
-                              {criterion.type === 'select' && (
-                                <div className="mb-4">
-                                  <label className="block text-sm font-medium text-gray-700">Options (une par ligne)</label>
-                                  <Field
-                                    as="textarea"
-                                    name={`selectionCriteria.${index}.options`}
-                                    rows={3}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                    placeholder="Option 1&#10;Option 2&#10;Option 3"
-                                    value={criterion.options?.join('\n') || ''}
-                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                                      const options = e.target.value.split('\n').filter(opt => opt.trim() !== '');
-                                      // Update the field value
-                                      const event = {
-                                        target: {
-                                          name: `selectionCriteria.${index}.options`,
-                                          value: options
-                                        }
-                                      };
-                                      // This is a workaround for Formik field arrays
-                                      values.selectionCriteria[index].options = options;
-                                    }}
-                                  />
-                                </div>
-                              )}
-
-                              {criterion.type === 'boolean' && (
-                                <div className="mb-4">
-                                  <label className="flex items-center">
-                                    <Field
-                                      name={`selectionCriteria.${index}.defaultValue`}
-                                      type="checkbox"
-                                      className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-900">Valeur par défaut (Oui)</span>
-                                  </label>
-                                </div>
-                              )}
-
-                              <div>
-                                <label className="flex items-center">
-                                  <Field
-                                    name={`selectionCriteria.${index}.required`}
-                                    type="checkbox"
-                                    className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                  />
-                                  <span className="ml-2 text-sm text-gray-900">Critère obligatoire</span>
-                                </label>
-                              </div>
                             </div>
-                          ))}
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => push({
-                              id: generateCriterionId(),
-                              name: '',
-                              description: '',
-                              type: 'text',
-                              required: true,
-                            })}
-                            leftIcon={<Plus className="h-4 w-4" />}
-                          >
-                            Ajouter un critère
-                          </Button>
-                        </div>
-                      )}
-                    </FieldArray>
+                          )}
+                        </FieldArray>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
@@ -770,6 +925,7 @@ const ProgramManagementPage: React.FC = () => {
                       onClick={() => {
                         setShowCreateModal(false);
                         setEditingProgram(null);
+                        setActiveTab('selection');
                       }}
                     >
                       Annuler
