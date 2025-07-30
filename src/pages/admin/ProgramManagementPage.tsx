@@ -567,6 +567,136 @@ const ProgramManagementPage: React.FC = () => {
                     <ErrorMessage name="formTemplateId" component="div" className="mt-1 text-sm text-error-600" />
                   </div>
 
+
+                {/* Générateur de lien de participation */}
+                <div className="bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-lg p-6">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary-100">
+                        <svg className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-4 flex-1">
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">
+                        Lien de participation au programme
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Générez un lien unique que vous pourrez partager avec les porteurs de projets. 
+                        Ce lien leur permettra d'accéder directement au formulaire de soumission et aux informations du programme.
+                      </p>
+                      
+                      {values.name && selectedPartner ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="flex-1">
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={`${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                                  className="block w-full pr-12 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-sm font-mono text-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const link = `${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`;
+                                    navigator.clipboard.writeText(link);
+                                    // Vous pourriez ajouter une notification toast ici
+                                  }}
+                                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-primary-600 transition-colors"
+                                  title="Copier le lien"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex space-x-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const link = `${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`;
+                                navigator.clipboard.writeText(link);
+                                alert('Lien copié dans le presse-papiers !');
+                              }}
+                              className="inline-flex items-center px-3 py-2 border border-primary-300 shadow-sm text-sm leading-4 font-medium rounded-md text-primary-700 bg-white hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                            >
+                              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Copier le lien
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const link = `${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`;
+                                const subject = `Participation au programme: ${values.name}`;
+                                const body = `Bonjour,\n\nVous êtes invité(e) à participer au programme "${values.name}" organisé par ${selectedPartner.name}.\n\nPour soumettre votre projet, veuillez cliquer sur le lien suivant :\n${link}\n\nCe lien vous donnera accès au formulaire de soumission ainsi qu'aux informations détaillées du programme.\n\nCordialement`;
+                                window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                              }}
+                              className="inline-flex items-center px-3 py-2 border border-secondary-300 shadow-sm text-sm leading-4 font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500 transition-colors"
+                            >
+                              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              Partager par email
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const link = `${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`;
+                                window.open(link, '_blank');
+                              }}
+                              className="inline-flex items-center px-3 py-2 border border-accent-300 shadow-sm text-sm leading-4 font-medium rounded-md text-accent-700 bg-white hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-500 transition-colors"
+                            >
+                              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M7 7l10 10M17 7v4m0 0h-4" />
+                              </svg>
+                              Prévisualiser
+                            </button>
+                          </div>
+                          
+                          <div className="bg-white rounded-md p-4 border border-gray-200">
+                            <h5 className="text-sm font-medium text-gray-900 mb-2">
+                              Informations affichées aux porteurs de projets :
+                            </h5>
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• <strong>Nom du programme :</strong> {values.name}</li>
+                              <li>• <strong>Partenaire :</strong> {selectedPartner.name}</li>
+                              <li>• <strong>Description :</strong> {values.description || 'À renseigner'}</li>
+                              <li>• <strong>Budget disponible :</strong> {values.budget ? `${values.budget.toLocaleString()} FCFA` : 'À renseigner'}</li>
+                              <li>• <strong>Période :</strong> {values.startDate && values.endDate ? `Du ${new Date(values.startDate).toLocaleDateString()} au ${new Date(values.endDate).toLocaleDateString()}` : 'À renseigner'}</li>
+                              <li>• <strong>Critères de sélection :</strong> {values.selectionCriteria?.length || 0} critère(s)</li>
+                              <li>• <strong>Critères d'évaluation :</strong> {values.evaluationCriteria?.length || 0} critère(s)</li>
+                            </ul>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                          <div className="flex">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <p className="text-sm text-yellow-800">
+                                <strong>Informations requises :</strong> Veuillez renseigner le nom du programme et sélectionner un partenaire pour générer le lien de participation.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Description</label>
                     <Field
