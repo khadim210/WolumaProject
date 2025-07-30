@@ -550,6 +550,23 @@ export const useProgramStore = create<ProgramState>()(
     }),
     {
       name: 'program-storage',
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Convert date strings back to Date objects for partners
+          state.partners = state.partners.map(partner => ({
+            ...partner,
+            createdAt: new Date(partner.createdAt)
+          }));
+          
+          // Convert date strings back to Date objects for programs
+          state.programs = state.programs.map(program => ({
+            ...program,
+            startDate: new Date(program.startDate),
+            endDate: new Date(program.endDate),
+            createdAt: new Date(program.createdAt)
+          }));
+        }
+      },
     }
   )
 );
