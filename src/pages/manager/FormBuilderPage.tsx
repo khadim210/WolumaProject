@@ -274,44 +274,7 @@ const FormBuilderPage: React.FC = () => {
                           </div>
                         ))}
                         <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAddOption(index)}
-                          leftIcon={<Plus className="h-4 w-4" />}
-                        >
-                          Ajouter une option
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="mt-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={(e) => handleFieldChange(index, { required: e.target.checked })}
-                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-900">Champ requis</span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleAddField}
-                leftIcon={<Plus className="h-4 w-4" />}
-              >
-                Ajouter un champ
-              </Button>
-            </div>
-          </CardContent>
-          
-          <CardFooter className="bg-gray-50 flex justify-between">
+                        {renderFieldSpecificOptions(field, index)}
             <Button
               type="button"
               variant="outline"

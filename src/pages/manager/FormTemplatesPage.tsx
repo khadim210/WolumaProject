@@ -41,7 +41,9 @@ const FormTemplatesPage: React.FC = () => {
       select: 'Liste déroulante',
       radio: 'Choix unique',
       checkbox: 'Case à cocher',
-      date: 'Date'
+      date: 'Date',
+      file: 'Upload de fichiers',
+      multiple_select: 'Choix multiples'
     };
     return labels[type];
   };
