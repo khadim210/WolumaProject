@@ -522,6 +522,32 @@ const ProgramManagementPage: React.FC = () => {
                   </div>
 
                   <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Statut du programme</label>
+                        <p className="text-sm text-gray-500">Activer ou désactiver ce programme</p>
+                      </div>
+                      <Field name="isActive">
+                        {({ field, form }: any) => (
+                          <button
+                            type="button"
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                              field.value ? 'bg-primary-600' : 'bg-gray-200'
+                            }`}
+                            onClick={() => form.setFieldValue('isActive', !field.value)}
+                          >
+                            <span className="sr-only">Activer le programme</span>
+                            <span
+                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                field.value ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        )}
+                      </Field>
+                    </div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700">Modèle de formulaire (optionnel)</label>
                     <Field
                       as="select"
@@ -585,16 +611,6 @@ const ProgramManagementPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="flex items-center">
-                      <Field
-                        name="isActive"
-                        type="checkbox"
-                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-900">Programme actif</span>
-                    </label>
-                  </div>
 
                   {/* Criteria Tabs */}
                   <div>
