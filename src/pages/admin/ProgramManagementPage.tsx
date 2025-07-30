@@ -118,7 +118,7 @@ const ProgramManagementPage: React.FC = () => {
     fetchPrograms();
     fetchPartners();
     fetchTemplates();
-  }, [fetchPrograms, fetchPartners]);
+  }, [fetchPrograms, fetchPartners, fetchTemplates]);
 
   const managers = users.filter(user => user.role === 'manager' && user.isActive);
 
@@ -587,13 +587,13 @@ const ProgramManagementPage: React.FC = () => {
                         Ce lien leur permettra d'accéder directement au formulaire de soumission et aux informations du programme.
                       </p>
                       
-                      {values.name && values.partner ? (
+                      {values.name && values.partnerId ? (
                         <div className="space-y-3">
                           <div className="flex items-center space-x-2">
                             <div className="flex-1">
                               <div className="relative">
-                                  const subject = encodeURIComponent(`Participation au programme: ${values.name}`);
-                                  const body = encodeURIComponent(`Bonjour,\n\nVous êtes invité(e) à participer au programme "${values.name}" organisé par ${values.partner}.\n\n${values.description ? `Description: ${values.description}\n\n` : ''}Pour soumettre votre projet, veuillez cliquer sur le lien suivant:\n${link}\n\nCordialement`);
+                                <input
+                                  type="text"
                                   readOnly
                                   value={`${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`}
                                   className="block w-full pr-12 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-sm font-mono text-gray-700 focus:ring-primary-500 focus:border-primary-500"
@@ -636,8 +636,9 @@ const ProgramManagementPage: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 const link = `${window.location.origin}/participate/${encodeURIComponent(values.name.toLowerCase().replace(/\s+/g, '-'))}`;
+                                const selectedPartner = partners.find(p => p.id === values.partnerId);
                                 const subject = `Participation au programme: ${values.name}`;
-                                const body = `Bonjour,\n\nVous êtes invité(e) à participer au programme "${values.name}" organisé par ${selectedPartner.name}.\n\nPour soumettre votre projet, veuillez cliquer sur le lien suivant :\n${link}\n\nCe lien vous donnera accès au formulaire de soumission ainsi qu'aux informations détaillées du programme.\n\nCordialement`;
+                                const body = `Bonjour,\n\nVous êtes invité(e) à participer au programme "${values.name}" organisé par ${selectedPartner?.name}.\n\nPour soumettre votre projet, veuillez cliquer sur le lien suivant :\n${link}\n\nCe lien vous donnera accès au formulaire de soumission ainsi qu'aux informations détaillées du programme.\n\nCordialement`;
                                 window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
                               }}
                               className="inline-flex items-center px-3 py-2 border border-secondary-300 shadow-sm text-sm leading-4 font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500 transition-colors"
@@ -669,7 +670,7 @@ const ProgramManagementPage: React.FC = () => {
                             </h5>
                             <ul className="text-sm text-gray-600 space-y-1">
                               <li>• <strong>Nom du programme :</strong> {values.name}</li>
-                              <li>• <strong>Partenaire :</strong> {selectedPartner.name}</li>
+                              <li>• <strong>Partenaire :</strong> {getPartnerName(values.partnerId)}</li>
                               <li>• <strong>Description :</strong> {values.description || 'À renseigner'}</li>
                               <li>• <strong>Budget disponible :</strong> {values.budget ? `${values.budget.toLocaleString()} FCFA` : 'À renseigner'}</li>
                               <li>• <strong>Période :</strong> {values.startDate && values.endDate ? `Du ${new Date(values.startDate).toLocaleDateString()} au ${new Date(values.endDate).toLocaleDateString()}` : 'À renseigner'}</li>
@@ -1088,7 +1089,7 @@ const ProgramManagementPage: React.FC = () => {
                                       ? 'Le poids total dépasse 100%. Veuillez ajuster les poids.'
                                       : 'Le poids total doit être égal à 100% pour une évaluation équilibrée.'}
                                   </p>
-                                <span className="font-medium">{values.partner}</span>
+                                )}
                               </div>
                             </div>
                           )}
