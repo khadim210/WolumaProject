@@ -14,7 +14,7 @@ const AuthLayout: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-6">
           <img 
-            src="/src/assets/logo_couleur.png" 
+            src="/logo_couleur.png" 
             alt="Woluma" 
             className="h-20 w-auto"
           />
