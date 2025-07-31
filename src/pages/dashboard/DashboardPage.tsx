@@ -139,7 +139,7 @@ const DashboardPage: React.FC = () => {
       <div className="mb-8">
         <div className="flex items-center mb-4">
           <img 
-            src="/src/assets/logo_couleur.png" 
+            src="/logo_couleur.png" 
             alt="Woluma" 
             className="h-12 w-auto mr-4"
           />
