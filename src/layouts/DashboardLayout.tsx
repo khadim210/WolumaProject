@@ -140,7 +140,6 @@ const DashboardLayout: React.FC = () => {
             </button>
           </div>
         </div>
-        </div>
       </div>
       
       {/* Static sidebar for desktop */}
