@@ -67,7 +67,6 @@ const DashboardLayout: React.FC = () => {
         />
         
         <div className="relative flex-1 flex flex-col max-w-xs w-full bg-primary-800">
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-primary-800 via-primary-700 to-secondary-800">
         <div className="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-accent-600 via-accent-500 to-accent-700">
           <div className="absolute top-0 right-0 -mr-12 pt-2">
             <button
@@ -141,8 +140,6 @@ const DashboardLayout: React.FC = () => {
             </button>
           </div>
         </div>
-        </div>
-        </div>
       </div>
       
       {/* Static sidebar for desktop */}
@@ -156,6 +153,7 @@ const DashboardLayout: React.FC = () => {
                   alt="Woluma" 
                   className="h-8 w-auto"
                 />
+              </div>
               <nav className="mt-5 flex-1 px-2 space-y-1">
                 {checkPermission('dashboard.view') && (
                   <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
