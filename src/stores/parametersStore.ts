@@ -154,10 +154,20 @@ export const useParametersStore = create<ParametersState>()(
       initializeDatabase: async () => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          const { parameters } = get();
           
-          // In a real app, this would create all necessary tables
+          const dbManager = new DatabaseManager({
+            type: parameters.databaseType,
+            host: parameters.databaseHost,
+            port: parameters.databasePort,
+            database: parameters.databaseName,
+            username: parameters.databaseUsername,
+            password: parameters.databasePassword,
+            ssl: parameters.databaseSsl
+          });
+          
+          await dbManager.initializeDatabase();
+          
           console.log('Database initialized successfully');
           
           set({ isLoading: false });
@@ -171,10 +181,20 @@ export const useParametersStore = create<ParametersState>()(
       resetDatabase: async () => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          const { parameters } = get();
           
-          // In a real app, this would drop and recreate all tables
+          const dbManager = new DatabaseManager({
+            type: parameters.databaseType,
+            host: parameters.databaseHost,
+            port: parameters.databasePort,
+            database: parameters.databaseName,
+            username: parameters.databaseUsername,
+            password: parameters.databasePassword,
+            ssl: parameters.databaseSsl
+          });
+          
+          await dbManager.resetDatabase();
+          
           console.log('Database reset successfully');
           
           set({ isLoading: false });
@@ -188,15 +208,22 @@ export const useParametersStore = create<ParametersState>()(
       testDatabaseConnection: async () => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // In a real app, this would test the actual connection
           const { parameters } = get();
-          console.log('Testing connection to:', parameters.databaseHost);
+          
+          const dbManager = new DatabaseManager({
+            type: parameters.databaseType,
+            host: parameters.databaseHost,
+            port: parameters.databasePort,
+            database: parameters.databaseName,
+            username: parameters.databaseUsername,
+            password: parameters.databasePassword,
+            ssl: parameters.databaseSsl
+          });
+          
+          const isConnected = await dbManager.testConnection();
           
           set({ isLoading: false });
-          return true;
+          return isConnected;
         } catch (error) {
           console.error('Error testing database connection:', error);
           set({ error: 'Failed to test database connection', isLoading: false });
