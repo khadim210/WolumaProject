@@ -42,6 +42,7 @@ export interface SystemParameters {
 
   // Database
   databaseType: 'mysql' | 'postgresql';
+  databaseMode: 'demo' | 'production';
   databaseHost: string;
   databasePort: number;
   databaseName: string;
@@ -102,6 +103,7 @@ const defaultParameters: SystemParameters = {
 
   // Database
   databaseType: 'postgresql',
+  databaseMode: 'demo',
   databaseHost: 'localhost',
   databasePort: 5432,
   databaseName: 'woluma_flow',
@@ -156,6 +158,14 @@ export const useParametersStore = create<ParametersState>()(
         try {
           const { parameters } = get();
           
+          // If in demo mode, just simulate success
+          if (parameters.databaseMode === 'demo') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log('Demo mode: Database initialization simulated');
+            set({ isLoading: false });
+            return;
+          }
+          
           const dbManager = new DatabaseManager({
             type: parameters.databaseType,
             host: parameters.databaseHost,
@@ -183,6 +193,14 @@ export const useParametersStore = create<ParametersState>()(
         try {
           const { parameters } = get();
           
+          // If in demo mode, just simulate success
+          if (parameters.databaseMode === 'demo') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log('Demo mode: Database reset simulated');
+            set({ isLoading: false });
+            return;
+          }
+          
           const dbManager = new DatabaseManager({
             type: parameters.databaseType,
             host: parameters.databaseHost,
@@ -209,6 +227,12 @@ export const useParametersStore = create<ParametersState>()(
         set({ isLoading: true, error: null });
         try {
           const { parameters } = get();
+          
+          // If in demo mode, always return success
+          if (parameters.databaseMode === 'demo') {
+            set({ isLoading: false });
+            return true;
+          }
           
           const dbManager = new DatabaseManager({
             type: parameters.databaseType,

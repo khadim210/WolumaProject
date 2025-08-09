@@ -587,6 +587,35 @@ const ParametersPage: React.FC = () => {
                     {activeTab === 'database' && (
                       <>
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-3">Mode de base de données</label>
+                          <div className="flex items-center space-x-6">
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseMode"
+                                value="demo"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">Démonstration</span>
+                              <span className="ml-2 text-xs text-gray-500">(données mockées)</span>
+                            </label>
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseMode"
+                                value="production"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">Production</span>
+                              <span className="ml-2 text-xs text-gray-500">(vraie base de données)</span>
+                            </label>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-500">
+                            En mode démonstration, l'application utilise des données fictives. En mode production, elle se connecte à une vraie base de données.
+                          </p>
+                        </div>
+
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-3">Type de base de données</label>
                           <div className="flex items-center space-x-4">
                             <label className="flex items-center">
@@ -616,6 +645,7 @@ const ParametersPage: React.FC = () => {
                             <Field
                               name="databaseHost"
                               type="text"
+                              disabled={values.databaseMode === 'demo'}
                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                               placeholder="localhost"
                             />
@@ -625,6 +655,7 @@ const ParametersPage: React.FC = () => {
                             <Field
                               name="databasePort"
                               type="number"
+                              disabled={values.databaseMode === 'demo'}
                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                               placeholder={values.databaseType === 'mysql' ? '3306' : '5432'}
                             />
@@ -636,6 +667,7 @@ const ParametersPage: React.FC = () => {
                           <Field
                             name="databaseName"
                             type="text"
+                            disabled={values.databaseMode === 'demo'}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                             placeholder="woluma_flow"
                           />
@@ -647,6 +679,7 @@ const ParametersPage: React.FC = () => {
                             <Field
                               name="databaseUsername"
                               type="text"
+                              disabled={values.databaseMode === 'demo'}
                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                               placeholder={values.databaseType === 'mysql' ? 'root' : 'postgres'}
                             />
@@ -656,6 +689,7 @@ const ParametersPage: React.FC = () => {
                             <Field
                               name="databasePassword"
                               type="password"
+                              disabled={values.databaseMode === 'demo'}
                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                               placeholder="••••••••"
                             />
@@ -667,6 +701,7 @@ const ParametersPage: React.FC = () => {
                             <Field
                               name="databaseSsl"
                               type="checkbox"
+                              disabled={values.databaseMode === 'demo'}
                               className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                             />
                             <span className="ml-2 text-sm text-gray-900">Connexion SSL</span>
@@ -681,7 +716,12 @@ const ParametersPage: React.FC = () => {
                             <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
                               <div>
                                 <h5 className="font-medium text-blue-900">Tester la connexion</h5>
-                                <p className="text-sm text-blue-700">Vérifier que les paramètres de connexion sont corrects</p>
+                                <p className="text-sm text-blue-700">
+                                  {values.databaseMode === 'demo' 
+                                    ? 'En mode démonstration, le test retourne toujours succès'
+                                    : 'Vérifier que les paramètres de connexion sont corrects'
+                                  }
+                                </p>
                               </div>
                               <div className="flex items-center space-x-3">
                                 {connectionStatus === 'success' && (
@@ -705,7 +745,12 @@ const ParametersPage: React.FC = () => {
                             <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
                               <div>
                                 <h5 className="font-medium text-green-900">Initialiser la base de données</h5>
-                                <p className="text-sm text-green-700">Créer toutes les tables nécessaires avec les données de base</p>
+                                <p className="text-sm text-green-700">
+                                  {values.databaseMode === 'demo' 
+                                    ? 'En mode démonstration, cette action est simulée'
+                                    : 'Créer toutes les tables nécessaires avec les données de base'
+                                  }
+                                </p>
                               </div>
                               <Button
                                 type="button"
@@ -721,7 +766,12 @@ const ParametersPage: React.FC = () => {
                             <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
                               <div>
                                 <h5 className="font-medium text-red-900">Réinitialiser la base de données</h5>
-                                <p className="text-sm text-red-700">⚠️ ATTENTION : Supprime toutes les données existantes</p>
+                                <p className="text-sm text-red-700">
+                                  {values.databaseMode === 'demo' 
+                                    ? '⚠️ En mode démonstration, cette action est simulée'
+                                    : '⚠️ ATTENTION : Supprime toutes les données existantes'
+                                  }
+                                </p>
                               </div>
                               <Button
                                 type="button"
