@@ -39,6 +39,15 @@ export interface SystemParameters {
   enableMaintenanceMode: boolean;
   enableRegistration: boolean;
   enableBackups: boolean;
+
+  // Database
+  databaseType: 'mysql' | 'postgresql';
+  databaseHost: string;
+  databasePort: number;
+  databaseName: string;
+  databaseUsername: string;
+  databasePassword: string;
+  databaseSsl: boolean;
 }
 
 interface ParametersState {
@@ -47,6 +56,9 @@ interface ParametersState {
   error: string | null;
   updateParameters: (updates: Partial<SystemParameters>) => Promise<void>;
   resetToDefaults: () => Promise<void>;
+  initializeDatabase: () => Promise<void>;
+  resetDatabase: () => Promise<void>;
+  testDatabaseConnection: () => Promise<boolean>;
 }
 
 const defaultParameters: SystemParameters = {
@@ -87,6 +99,15 @@ const defaultParameters: SystemParameters = {
   enableMaintenanceMode: false,
   enableRegistration: true,
   enableBackups: true,
+
+  // Database
+  databaseType: 'postgresql',
+  databaseHost: 'localhost',
+  databasePort: 5432,
+  databaseName: 'woluma_flow',
+  databaseUsername: 'postgres',
+  databasePassword: '',
+  databaseSsl: false,
 };
 
 export const useParametersStore = create<ParametersState>()(
@@ -127,6 +148,59 @@ export const useParametersStore = create<ParametersState>()(
           console.error('Error resetting parameters:', error);
           set({ error: 'Failed to reset parameters', isLoading: false });
           throw error;
+        }
+      },
+
+      initializeDatabase: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // Simulate API delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // In a real app, this would create all necessary tables
+          console.log('Database initialized successfully');
+          
+          set({ isLoading: false });
+        } catch (error) {
+          console.error('Error initializing database:', error);
+          set({ error: 'Failed to initialize database', isLoading: false });
+          throw error;
+        }
+      },
+
+      resetDatabase: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // Simulate API delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // In a real app, this would drop and recreate all tables
+          console.log('Database reset successfully');
+          
+          set({ isLoading: false });
+        } catch (error) {
+          console.error('Error resetting database:', error);
+          set({ error: 'Failed to reset database', isLoading: false });
+          throw error;
+        }
+      },
+
+      testDatabaseConnection: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // Simulate API delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // In a real app, this would test the actual connection
+          const { parameters } = get();
+          console.log('Testing connection to:', parameters.databaseHost);
+          
+          set({ isLoading: false });
+          return true;
+        } catch (error) {
+          console.error('Error testing database connection:', error);
+          set({ error: 'Failed to test database connection', isLoading: false });
+          return false;
         }
       },
     }),

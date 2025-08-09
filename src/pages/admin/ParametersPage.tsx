@@ -37,9 +37,21 @@ const parametersSchema = Yup.object().shape({
 const ParametersPage: React.FC = () => {
   const { user: currentUser } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const { parameters, updateParameters, resetToDefaults } = useParametersStore();
+  const { 
+    parameters, 
+    updateParameters, 
+    resetToDefaults, 
+    initializeDatabase, 
+    resetDatabase, 
+    testDatabaseConnection,
+    isLoading 
+  } = useParametersStore();
   const [activeTab, setActiveTab] = useState('general');
   const [isResetting, setIsResetting] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isResettingDb, setIsResettingDb] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'success' | 'error' | null>(null);
 
   const handleSaveParameters = async (values: any, { setSubmitting }: any) => {
     try {
@@ -62,6 +74,54 @@ const ParametersPage: React.FC = () => {
     }
   };
 
+  const handleInitializeDatabase = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir initialiser la base de données ? Cette action créera toutes les tables nécessaires.')) {
+      return;
+    }
+    
+    setIsInitializing(true);
+    try {
+      await initializeDatabase();
+      alert('Base de données initialisée avec succès !');
+    } catch (error) {
+      console.error('Error initializing database:', error);
+      alert('Erreur lors de l\'initialisation de la base de données');
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  const handleResetDatabase = async () => {
+    if (!confirm('ATTENTION : Cette action supprimera TOUTES les données existantes et recréera les tables. Êtes-vous absolument sûr ?')) {
+      return;
+    }
+    
+    setIsResettingDb(true);
+    try {
+      await resetDatabase();
+      alert('Base de données réinitialisée avec succès !');
+    } catch (error) {
+      console.error('Error resetting database:', error);
+      alert('Erreur lors de la réinitialisation de la base de données');
+    } finally {
+      setIsResettingDb(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setConnectionStatus(null);
+    try {
+      const success = await testDatabaseConnection();
+      setConnectionStatus(success ? 'success' : 'error');
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      setConnectionStatus('error');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   if (currentUser?.role !== 'admin') {
     if (!checkPermission('parameters.edit')) {
       return (
@@ -80,6 +140,7 @@ const ParametersPage: React.FC = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'appearance', label: 'Apparence', icon: Palette },
     { id: 'system', label: 'Système', icon: Database },
+    { id: 'database', label: 'Base de données', icon: Database },
   ];
 
   return (
@@ -520,6 +581,160 @@ const ParametersPage: React.FC = () => {
                             </div>
                           </div>
                         )}
+                      </>
+                    )}
+
+                    {activeTab === 'database' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-3">Type de base de données</label>
+                          <div className="flex items-center space-x-4">
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseType"
+                                value="postgresql"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">PostgreSQL</span>
+                            </label>
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseType"
+                                value="mysql"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">MySQL</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Hôte</label>
+                            <Field
+                              name="databaseHost"
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="localhost"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Port</label>
+                            <Field
+                              name="databasePort"
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder={values.databaseType === 'mysql' ? '3306' : '5432'}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Nom de la base de données</label>
+                          <Field
+                            name="databaseName"
+                            type="text"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="woluma_flow"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Nom d'utilisateur</label>
+                            <Field
+                              name="databaseUsername"
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder={values.databaseType === 'mysql' ? 'root' : 'postgres'}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+                            <Field
+                              name="databasePassword"
+                              type="password"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="••••••••"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="databaseSsl"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Connexion SSL</span>
+                          </label>
+                          <p className="mt-1 text-sm text-gray-500">Recommandé pour les connexions en production</p>
+                        </div>
+
+                        <div className="border-t border-gray-200 pt-6">
+                          <h4 className="text-lg font-medium text-gray-900 mb-4">Actions sur la base de données</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                              <div>
+                                <h5 className="font-medium text-blue-900">Tester la connexion</h5>
+                                <p className="text-sm text-blue-700">Vérifier que les paramètres de connexion sont corrects</p>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                {connectionStatus === 'success' && (
+                                  <span className="text-success-600 text-sm font-medium">✓ Connexion réussie</span>
+                                )}
+                                {connectionStatus === 'error' && (
+                                  <span className="text-error-600 text-sm font-medium">✗ Connexion échouée</span>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleTestConnection}
+                                  isLoading={isTesting}
+                                >
+                                  Tester
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                              <div>
+                                <h5 className="font-medium text-green-900">Initialiser la base de données</h5>
+                                <p className="text-sm text-green-700">Créer toutes les tables nécessaires avec les données de base</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="success"
+                                size="sm"
+                                onClick={handleInitializeDatabase}
+                                isLoading={isInitializing}
+                              >
+                                Initialiser
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                              <div>
+                                <h5 className="font-medium text-red-900">Réinitialiser la base de données</h5>
+                                <p className="text-sm text-red-700">⚠️ ATTENTION : Supprime toutes les données existantes</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="danger"
+                                size="sm"
+                                onClick={handleResetDatabase}
+                                isLoading={isResettingDb}
+                              >
+                                Réinitialiser
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </>
                     )}
                   </CardContent>
