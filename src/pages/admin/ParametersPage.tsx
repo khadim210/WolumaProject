@@ -661,6 +661,20 @@ const ParametersPage: React.FC = () => {
                             />
                           </div>
                         </div>
+                        
+                        {values.databaseMode === 'demo' && (
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex">
+                              <Database className="h-5 w-5 text-blue-400" />
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-blue-800">Mode démonstration activé</h3>
+                                <p className="mt-1 text-sm text-blue-700">
+                                  L'application utilise des données fictives. Les paramètres de base de données sont désactivés.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Nom de la base de données</label>
