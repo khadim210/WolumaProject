@@ -26,6 +26,7 @@ export interface Project {
   updatedAt: Date;
   submissionDate?: Date;
   evaluationScores?: Record<string, number>; // Scores par critère d'évaluation
+  evaluationComments?: Record<string, string>; // Commentaires par critère d'évaluation
   totalEvaluationScore?: number;
   evaluationNotes?: string;
   evaluatedBy?: string;

@@ -115,11 +115,14 @@ const EvaluationPage: React.FC = () => {
     try {
       // Calculate scores and total
       const evaluationScores: Record<string, number> = {};
+      const evaluationComments: Record<string, string> = {};
       let totalScore = 0;
       
       program.evaluationCriteria.forEach(criterion => {
         const score = values[`score_${criterion.id}`];
+        const comment = values[`comment_${criterion.id}`] || '';
         evaluationScores[criterion.id] = score;
+        evaluationComments[criterion.id] = comment;
         // Calculate weighted score
         totalScore += (score / criterion.maxScore) * criterion.weight;
       });
@@ -127,6 +130,7 @@ const EvaluationPage: React.FC = () => {
       const updatedProject = await updateProject(selectedProject.id, {
         status: values.decision as ProjectStatus,
         evaluationScores,
+        evaluationComments,
         totalEvaluationScore: Math.round(totalScore),
         evaluationNotes: values.evaluationNotes,
         evaluatedBy: user.id,
@@ -212,6 +216,26 @@ Soyez rigoureux et objectif dans votre évaluation.`;
             if (scoreField && response.scores[criterion.name] !== undefined) {
               scoreField.value = response.scores[criterion.name].toString();
               scoreField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            // Mettre à jour les commentaires avec une justification IA
+            const commentField = document.querySelector(`textarea[name="comment_${criterion.id}"]`) as HTMLTextAreaElement;
+            if (commentField && response.scores[criterion.name] !== undefined) {
+              const score = response.scores[criterion.name];
+              const maxScore = criterion.maxScore;
+              const percentage = (score / maxScore) * 100;
+              
+              let aiComment = '';
+              if (percentage >= 75) {
+                aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
+              } else if (percentage >= 50) {
+                aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+              } else {
+                aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+              }
+              
+              commentField.value = `[IA] ${aiComment}`;
+              commentField.dispatchEvent(new Event('input', { bubbles: true }));
             }
           });
           
@@ -482,6 +506,7 @@ Soyez rigoureux et objectif dans votre évaluation.`;
                 // Initialize scores for each criterion
                 program.evaluationCriteria.forEach(criterion => {
                   initialValues[`score_${criterion.id}`] = 0;
+                  initialValues[`comment_${criterion.id}`] = '';
                 });
                 
                 return (
@@ -611,6 +636,19 @@ Soyez rigoureux et objectif dans votre évaluation.`;
                                             </div>
                                           </div>
                                           <ErrorMessage name={fieldName} component="div" className="mt-1 text-sm text-error-600" />
+                                          
+                                          <div className="mt-3">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                              Justification de la note
+                                            </label>
+                                            <Field
+                                              as="textarea"
+                                              name={`comment_${criterion.id}`}
+                                              rows={2}
+                                              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                              placeholder="Expliquez pourquoi vous attribuez cette note..."
+                                            />
+                                          </div>
                                         </div>
                                       );
                                     })}

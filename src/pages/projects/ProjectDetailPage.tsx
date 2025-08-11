@@ -260,10 +260,11 @@ const ProjectDetailPage: React.FC = () => {
                         
                         return program.evaluationCriteria.map(criterion => {
                           const score = project.evaluationScores![criterion.id] || 0;
+                          const comment = project.evaluationComments?.[criterion.id] || '';
                           const percentage = (score / criterion.maxScore) * 100;
                           
                           return (
-                            <div key={criterion.id} className="flex items-center justify-between">
+                            <div key={criterion.id} className="border border-gray-200 rounded-lg p-3">
                               <div className="flex-1">
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="text-sm font-medium text-gray-700">{criterion.name}</span>
@@ -278,6 +279,11 @@ const ProjectDetailPage: React.FC = () => {
                                     style={{ width: `${percentage}%` }}
                                   ></div>
                                 </div>
+                                {comment && (
+                                  <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                    <span className="font-medium">Justification:</span> {comment}
+                                  </div>
+                                )}
                               </div>
                               <span className="ml-4 text-xs text-gray-500 w-12 text-right">
                                 {criterion.weight}%
