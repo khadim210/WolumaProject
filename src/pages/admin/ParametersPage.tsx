@@ -10,6 +10,7 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import AIConfigModal from '../../components/admin/AIConfigModal';
 import { 
   Settings, 
   Shield, 
@@ -20,7 +21,8 @@ import {
   Globe,
   Save,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Bot
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -52,6 +54,7 @@ const ParametersPage: React.FC = () => {
   const [isResettingDb, setIsResettingDb] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'success' | 'error' | null>(null);
+  const [showAIConfig, setShowAIConfig] = useState(false);
 
   const handleSaveParameters = async (values: any, { setSubmitting }: any) => {
     try {
@@ -137,6 +140,7 @@ const ParametersPage: React.FC = () => {
   const tabs = [
     { id: 'general', label: 'Général', icon: Settings },
     { id: 'security', label: 'Sécurité', icon: Shield },
+    { id: 'ai', label: 'Intelligence Artificielle', icon: Bot },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'appearance', label: 'Apparence', icon: Palette },
     { id: 'system', label: 'Système', icon: Database },
@@ -328,6 +332,45 @@ const ParametersPage: React.FC = () => {
                             />
                             <span className="ml-2 text-sm text-gray-900">Politique de mot de passe stricte</span>
                           </label>
+                        </div>
+                      </>
+                    )}
+
+                    {activeTab === 'ai' && (
+                      <>
+                        <div className="text-center py-8">
+                          <Bot className="h-16 w-16 text-primary-600 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            Configuration de l'Intelligence Artificielle
+                          </h3>
+                          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                            Configurez les paramètres d'évaluation automatique des projets par IA. 
+                            Choisissez votre fournisseur d'IA et configurez les clés API nécessaires.
+                          </p>
+                          <Button
+                            variant="primary"
+                            leftIcon={<Bot className="h-4 w-4" />}
+                            onClick={() => setShowAIConfig(true)}
+                          >
+                            Configurer l'IA d'évaluation
+                          </Button>
+                        </div>
+                        
+                        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex">
+                            <Bot className="h-5 w-5 text-blue-400" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">À propos de l'évaluation IA</h3>
+                              <div className="mt-2 text-sm text-blue-700">
+                                <ul className="list-disc list-inside space-y-1">
+                                  <li>L'IA analyse automatiquement les projets selon vos critères d'évaluation</li>
+                                  <li>Supporte Google Gemini et OpenAI ChatGPT</li>
+                                  <li>Évaluation individuelle ou en lot disponible</li>
+                                  <li>Les évaluations IA sont clairement marquées dans le système</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </>
                     )}
@@ -819,6 +862,11 @@ const ParametersPage: React.FC = () => {
           </Formik>
         </div>
       </div>
+      
+      <AIConfigModal
+        isOpen={showAIConfig}
+        onClose={() => setShowAIConfig(false)}
+      />
     </div>
   );
 };
