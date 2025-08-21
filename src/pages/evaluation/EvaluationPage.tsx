@@ -33,6 +33,13 @@ const EvaluationPage: React.FC = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAIEvaluating, setIsAIEvaluating] = useState(false);
   const [showAIConfig, setShowAIConfig] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [isBulkEvaluating, setIsBulkEvaluating] = useState(false);
+  const [bulkEvaluationProgress, setBulkEvaluationProgress] = useState<{
+    current: number;
+    total: number;
+    currentProject: string;
+  } | null>(null);
   
   useEffect(() => {
     fetchPrograms();
@@ -77,7 +84,7 @@ const EvaluationPage: React.FC = () => {
            matchesProgram;
   });
   
-  const handleSelectProject = (project: Project) => {
+  const handleSelectProjectForEvaluation = (project: Project) => {
     setSelectedProject(project);
     setIsEvaluating(true);
   };
@@ -85,6 +92,124 @@ const EvaluationPage: React.FC = () => {
   const handleCancelEvaluation = () => {
     setIsEvaluating(false);
     setSelectedProject(null);
+  };
+  
+  const handleSelectProject = (projectId: string, selected: boolean) => {
+    setSelectedProjects(prev => 
+      selected 
+        ? [...prev, projectId]
+        : prev.filter(id => id !== projectId)
+    );
+  };
+  
+  const handleSelectAll = () => {
+    const allProjectIds = submittedProjects.map(p => p.id);
+    setSelectedProjects(allProjectIds);
+  };
+  
+  const handleDeselectAll = () => {
+    setSelectedProjects([]);
+  };
+  
+  const handleBulkAIEvaluation = async () => {
+    if (selectedProjects.length === 0) return;
+    
+    setIsBulkEvaluating(true);
+    setBulkEvaluationProgress({
+      current: 0,
+      total: selectedProjects.length,
+      currentProject: ''
+    });
+    
+    try {
+      for (let i = 0; i < selectedProjects.length; i++) {
+        const projectId = selectedProjects[i];
+        const project = submittedProjects.find(p => p.id === projectId);
+        const program = project ? programs.find(p => p.id === project.programId) : null;
+        
+        if (!project || !program || !user) continue;
+        
+        setBulkEvaluationProgress({
+          current: i + 1,
+          total: selectedProjects.length,
+          currentProject: project.title
+        });
+        
+        try {
+          const request = {
+            projectData: {
+              title: project.title,
+              description: project.description,
+              budget: project.budget,
+              timeline: project.timeline,
+              tags: project.tags,
+              submissionDate: project.submissionDate?.toLocaleDateString()
+            },
+            evaluationCriteria: program.evaluationCriteria.map((criterion: any) => ({
+              id: criterion.id,
+              name: criterion.name,
+              description: criterion.description,
+              maxScore: criterion.maxScore,
+              weight: criterion.weight
+            }))
+          };
+
+          const response = await aiEvaluationService.evaluateProject(request);
+          
+          // Préparer les scores et commentaires
+          const evaluationScores: Record<string, number> = {};
+          const evaluationComments: Record<string, string> = {};
+          let totalScore = 0;
+          
+          program.evaluationCriteria.forEach((criterion: any) => {
+            const score = response.scores[criterion.name] || 0;
+            evaluationScores[criterion.id] = score;
+            
+            const percentage = (score / criterion.maxScore) * 100;
+            let comment = '';
+            if (percentage >= 75) {
+              comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+            } else if (percentage >= 50) {
+              comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+            } else {
+              comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+            }
+            
+            evaluationComments[criterion.id] = `[IA] ${comment}`;
+            totalScore += (score / criterion.maxScore) * criterion.weight;
+          });
+          
+          // Mettre à jour le projet
+          await updateProject(project.id, {
+            status: response.recommendation as ProjectStatus,
+            evaluationScores,
+            evaluationComments,
+            totalEvaluationScore: Math.round(totalScore),
+            evaluationNotes: `[Évaluation IA en lot] ${response.notes}`,
+            evaluatedBy: user.id,
+            evaluationDate: new Date(),
+          });
+          
+          // Petite pause entre les évaluations pour éviter les limites de taux
+          if (i < selectedProjects.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+        } catch (error) {
+          console.error(`Erreur lors de l'évaluation du projet ${project.title}:`, error);
+          // Continuer avec le projet suivant même en cas d'erreur
+        }
+      }
+      
+      // Réinitialiser la sélection après évaluation
+      setSelectedProjects([]);
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'évaluation en lot:', error);
+    } finally {
+      setIsBulkEvaluating(false);
+      setBulkEvaluationProgress(null);
+    }
   };
   
   const createEvaluationSchema = (program: any) => {
@@ -417,6 +542,80 @@ const EvaluationPage: React.FC = () => {
             </CardContent>
           </Card>
           
+          {/* Bulk Evaluation Controls */}
+          {submittedProjects.length > 0 && (
+            <Card className="mb-6 border-l-4 border-l-secondary-500">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-secondary-600" />
+                  Évaluation IA en lot
+                </CardTitle>
+                <CardDescription>
+                  Sélectionnez plusieurs projets pour les évaluer automatiquement par IA
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                      disabled={isBulkEvaluating}
+                    >
+                      Tout sélectionner
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeselectAll}
+                      disabled={isBulkEvaluating}
+                    >
+                      Tout désélectionner
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      {selectedProjects.length} projet(s) sélectionné(s)
+                    </span>
+                  </div>
+                  
+                  <Button
+                    variant="secondary"
+                    onClick={handleBulkAIEvaluation}
+                    disabled={selectedProjects.length === 0 || isBulkEvaluating}
+                    isLoading={isBulkEvaluating}
+                    leftIcon={<Sparkles className="h-4 w-4" />}
+                  >
+                    {isBulkEvaluating ? 'Évaluation en cours...' : 'Évaluer par IA'}
+                  </Button>
+                </div>
+                
+                {bulkEvaluationProgress && (
+                  <div className="bg-secondary-50 border border-secondary-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-secondary-800">
+                        Évaluation en cours...
+                      </span>
+                      <span className="text-sm text-secondary-600">
+                        {bulkEvaluationProgress.current}/{bulkEvaluationProgress.total}
+                      </span>
+                    </div>
+                    <div className="w-full bg-secondary-200 rounded-full h-2 mb-2">
+                      <div 
+                        className="bg-secondary-600 h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${(bulkEvaluationProgress.current / bulkEvaluationProgress.total) * 100}%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-secondary-700">
+                      Projet actuel: {bulkEvaluationProgress.currentProject}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Projets à évaluer</h2>
             
@@ -425,16 +624,38 @@ const EvaluationPage: React.FC = () => {
                 {submittedProjects.map(project => {
                   const program = programs.find(p => p.id === project.programId);
                   const partner = program ? partners.find(p => p.id === program.partnerId) : null;
+                  const isSelected = selectedProjects.includes(project.id);
                   
                   return (
                     <div 
                       key={project.id} 
-                      className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => handleSelectProject(project)}
+                      className={`border rounded-md p-4 transition-colors ${
+                        isSelected 
+                          ? 'border-secondary-300 bg-secondary-50' 
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
                     >
-                      <div className="flex justify-between items-start">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex items-center pt-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleSelectProject(project.id, e.target.checked);
+                            }}
+                            disabled={isBulkEvaluating}
+                            className="h-4 w-4 text-secondary-600 border-gray-300 rounded focus:ring-secondary-500"
+                          />
+                        </div>
+                        
                         <div>
-                          <h3 className="text-md font-medium text-gray-900">{project.title}</h3>
+                          <h3 
+                            className="text-md font-medium text-gray-900 cursor-pointer hover:text-primary-600"
+                            onClick={() => handleSelectProjectForEvaluation(project)}
+                          >
+                            {project.title}
+                          </h3>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.description}</p>
                           
                           {program && (
@@ -455,9 +676,32 @@ const EvaluationPage: React.FC = () => {
                             <span>Budget: {project.budget.toLocaleString()} FCFA • </span>
                             <span>Durée: {project.timeline}</span>
                           </div>
+                          
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {project.tags.map(tag => (
+                              <span key={tag} className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                          
+                          <div className="mt-3 text-xs text-gray-500">
+                            Soumis le {project.submissionDate?.toLocaleDateString()}
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                          <ProjectStatusBadge status={project.status} />
+                        
+                        <div className="flex flex-col items-end ml-auto">
+                          <div className="flex items-center space-x-2">
+                            <ProjectStatusBadge status={project.status} />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSelectProjectForEvaluation(project)}
+                              disabled={isBulkEvaluating}
+                            >
+                              Évaluer
+                            </Button>
+                          </div>
                           {program && (
                             <div className="mt-2 text-xs text-gray-500 flex items-center">
                               <Award className="h-3 w-3 mr-1" />
@@ -465,18 +709,6 @@ const EvaluationPage: React.FC = () => {
                             </div>
                           )}
                         </div>
-                      </div>
-                      
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {project.tags.map(tag => (
-                          <span key={tag} className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      
-                      <div className="mt-3 text-xs text-gray-500">
-                        Soumis le {project.submissionDate?.toLocaleDateString()}
                       </div>
                     </div>
                   );
