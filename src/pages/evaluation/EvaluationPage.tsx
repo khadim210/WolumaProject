@@ -148,7 +148,7 @@ const EvaluationPage: React.FC = () => {
     }
   };
   
-  const handleAIEvaluation = async (project: Project, program: any) => {
+  const handleAIEvaluation = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
     setIsAIEvaluating(true);
     
     try {
@@ -208,53 +208,48 @@ Soyez rigoureux et objectif dans votre évaluation.`;
       
       // Appliquer les scores suggérés par l'IA
       if (response.scores) {
-        const formik = document.querySelector('form');
-        if (formik) {
-          // Mettre à jour les champs de score
-          program.evaluationCriteria.forEach((criterion: any) => {
-            const scoreField = document.querySelector(`input[name="score_${criterion.id}"]`) as HTMLInputElement;
-            if (scoreField && response.scores[criterion.name] !== undefined) {
-              scoreField.value = response.scores[criterion.name].toString();
-              scoreField.dispatchEvent(new Event('input', { bubbles: true }));
+        // Préparer les nouvelles valeurs
+        const newValues: any = {};
+        
+        // Mettre à jour les scores et commentaires
+        program.evaluationCriteria.forEach((criterion: any) => {
+          if (response.scores[criterion.name] !== undefined) {
+            const score = response.scores[criterion.name];
+            const maxScore = criterion.maxScore;
+            const percentage = (score / maxScore) * 100;
+            
+            // Mettre à jour le score
+            newValues[`score_${criterion.id}`] = score;
+            
+            // Générer un commentaire IA
+            let aiComment = '';
+            if (percentage >= 75) {
+              aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
+            } else if (percentage >= 50) {
+              aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+            } else {
+              aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
             }
             
-            // Mettre à jour les commentaires avec une justification IA
-            const commentField = document.querySelector(`textarea[name="comment_${criterion.id}"]`) as HTMLTextAreaElement;
-            if (commentField && response.scores[criterion.name] !== undefined) {
-              const score = response.scores[criterion.name];
-              const maxScore = criterion.maxScore;
-              const percentage = (score / maxScore) * 100;
-              
-              let aiComment = '';
-              if (percentage >= 75) {
-                aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
-              } else if (percentage >= 50) {
-                aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
-              } else {
-                aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
-              }
-              
-              commentField.value = `[IA] ${aiComment}`;
-              commentField.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-          });
-          
-          // Mettre à jour les notes
-          const notesField = document.querySelector('textarea[name="evaluationNotes"]') as HTMLTextAreaElement;
-          if (notesField && response.notes) {
-            notesField.value = `[Évaluation IA] ${response.notes}`;
-            notesField.dispatchEvent(new Event('input', { bubbles: true }));
+            newValues[`comment_${criterion.id}`] = `[IA] ${aiComment}`;
           }
-          
-          // Mettre à jour la décision
-          if (response.recommendation) {
-            const decisionField = document.querySelector(`input[name="decision"][value="${response.recommendation}"]`) as HTMLInputElement;
-            if (decisionField) {
-              decisionField.checked = true;
-              decisionField.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          }
+        });
+        
+        // Mettre à jour les notes globales
+        if (response.notes) {
+          newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
         }
+        
+        // Mettre à jour la décision
+        if (response.recommendation) {
+          newValues.decision = response.recommendation;
+        }
+        
+        // Appliquer toutes les mises à jour en une fois
+        setValues((prevValues: any) => ({
+          ...prevValues,
+          ...newValues
+        }));
       }
       
     } catch (error) {
@@ -589,7 +584,7 @@ Soyez rigoureux et objectif dans votre évaluation.`;
                           validationSchema={createEvaluationSchema(program)}
                           onSubmit={handleSubmitEvaluation}
                         >
-                          {({ values, isSubmitting, isValid }) => (
+                          {({ values, isSubmitting, isValid, setFieldValue, setValues }) => (
                             <Form>
                               <CardContent className="space-y-6">
                                 <div>
@@ -765,7 +760,7 @@ Soyez rigoureux et objectif dans votre évaluation.`;
                                  <Button
                                    type="button"
                                    variant="secondary"
-                                   onClick={() => handleAIEvaluation(selectedProject, program)}
+                                   onClick={() => handleAIEvaluation(selectedProject, program, setFieldValue, setValues)}
                                    leftIcon={<Sparkles className="h-4 w-4" />}
                                    disabled={isSubmitting || isAIEvaluating}
                                    isLoading={isAIEvaluating}
