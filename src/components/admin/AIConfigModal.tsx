@@ -76,17 +76,32 @@ const AIConfigModal: React.FC<AIConfigModalProps> = ({ isOpen, onClose }) => {
         ]
       };
 
-      // Configurer temporairement le service pour le test
-      const tempService = { ...aiEvaluationService };
-      tempService.setProvider(selectedProvider, apiKey);
+      // Sauvegarder la configuration actuelle
+      const currentProvider = localStorage.getItem('ai_provider');
+      const currentApiKey = localStorage.getItem('ai_api_key');
       
-      await tempService.evaluateProject(testRequest);
+      // Configurer temporairement le service pour le test
+      aiEvaluationService.setProvider(selectedProvider, apiKey);
+      
+      await aiEvaluationService.evaluateProject(testRequest);
+      
+      // Restaurer la configuration précédente si elle existait
+      if (currentProvider) {
+        aiEvaluationService.setProvider(currentProvider as any, currentApiKey || '');
+      }
       
       setTestResult({
         success: true,
         message: 'Connexion réussie ! L\'API fonctionne correctement.'
       });
     } catch (error) {
+      // Restaurer la configuration précédente en cas d'erreur aussi
+      const currentProvider = localStorage.getItem('ai_provider');
+      const currentApiKey = localStorage.getItem('ai_api_key');
+      if (currentProvider) {
+        aiEvaluationService.setProvider(currentProvider as any, currentApiKey || '');
+      }
+      
       setTestResult({
         success: false,
         message: `Erreur de connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
