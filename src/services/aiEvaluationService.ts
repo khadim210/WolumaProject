@@ -120,6 +120,12 @@ class AIEvaluationService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Clé API OpenAI invalide ou expirée. Vérifiez votre clé API dans la configuration.');
+        }
+        if (response.status === 429) {
+          throw new Error('Limite de taux API OpenAI dépassée. Veuillez vérifier votre quota ou réessayer plus tard.');
+        }
         throw new Error(`Erreur API OpenAI: ${response.status}`);
       }
 

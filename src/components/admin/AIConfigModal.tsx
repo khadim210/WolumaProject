@@ -104,7 +104,9 @@ const AIConfigModal: React.FC<AIConfigModalProps> = ({ isOpen, onClose }) => {
       
       setTestResult({
         success: false,
-        message: error instanceof Error && error.message.includes('429') 
+        message: error instanceof Error && error.message.includes('invalide ou expirée')
+          ? 'Clé API invalide ou expirée. Vérifiez que votre clé API OpenAI est correcte et active.'
+          : error instanceof Error && error.message.includes('429') 
           ? 'Limite de taux API dépassée. Vérifiez votre quota OpenAI ou attendez avant de réessayer.'
           : error instanceof Error && error.message.includes('Limite de taux')
           ? error.message
