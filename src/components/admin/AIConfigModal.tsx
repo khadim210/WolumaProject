@@ -104,7 +104,11 @@ const AIConfigModal: React.FC<AIConfigModalProps> = ({ isOpen, onClose }) => {
       
       setTestResult({
         success: false,
-        message: `Erreur de connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+        message: error instanceof Error && error.message.includes('429') 
+          ? 'Limite de taux API dépassée. Vérifiez votre quota OpenAI ou attendez avant de réessayer.'
+          : error instanceof Error && error.message.includes('Limite de taux')
+          ? error.message
+          : `Erreur de connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
       });
     } finally {
       setIsTestingConnection(false);

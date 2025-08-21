@@ -129,7 +129,10 @@ class AIEvaluationService {
       return this.parseAIResponse(aiResponse, request.evaluationCriteria);
     } catch (error) {
       console.error('Erreur ChatGPT:', error);
-      throw new Error('Erreur lors de l\'évaluation avec ChatGPT');
+      if (error instanceof Error && error.message.includes('429')) {
+        throw new Error('Limite de taux API OpenAI dépassée. Veuillez vérifier votre quota ou réessayer plus tard.');
+      }
+      throw new Error(`Erreur lors de l'évaluation avec ChatGPT: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   }
 
