@@ -4,8 +4,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
-import { aiEvaluationService } from '../../services/aiEvaluationService';
-import AIConfigModal from '../../components/admin/AIConfigModal';
 import { 
   Card, 
   CardHeader, 
@@ -16,9 +14,10 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, Sparkles, Settings } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, Sparkles } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
+import { aiEvaluationService } from '../../services/aiEvaluationService';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -32,7 +31,6 @@ const EvaluationPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAIEvaluating, setIsAIEvaluating] = useState(false);
-  const [showAIConfig, setShowAIConfig] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [isBulkEvaluating, setIsBulkEvaluating] = useState(false);
   const [bulkEvaluationProgress, setBulkEvaluationProgress] = useState<{
@@ -483,13 +481,6 @@ const EvaluationPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Évaluation des Projets</h1>
-        <Button
-          variant="outline"
-          leftIcon={<Settings className="h-4 w-4" />}
-          onClick={() => setShowAIConfig(true)}
-        >
-          Configuration IA
-        </Button>
       </div>
       
       {!isEvaluating ? (
@@ -1034,11 +1025,6 @@ const EvaluationPage: React.FC = () => {
           )}
         </>
       )}
-      
-      <AIConfigModal
-        isOpen={showAIConfig}
-        onClose={() => setShowAIConfig(false)}
-      />
     </div>
   );
 };
