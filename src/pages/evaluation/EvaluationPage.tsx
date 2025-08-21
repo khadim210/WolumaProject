@@ -4,6 +4,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { aiEvaluationService } from '../../services/aiEvaluationService';
+import AIConfigModal from '../../components/admin/AIConfigModal';
 import { 
   Card, 
   CardHeader, 
@@ -14,8 +16,7 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target } from 'lucide-react';
-import { Sparkles } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, Sparkles, Settings } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 
@@ -31,6 +32,7 @@ const EvaluationPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAIEvaluating, setIsAIEvaluating] = useState(false);
+  const [showAIConfig, setShowAIConfig] = useState(false);
   
   useEffect(() => {
     fetchPrograms();
@@ -152,129 +154,79 @@ const EvaluationPage: React.FC = () => {
     setIsAIEvaluating(true);
     
     try {
-      // Préparer les données du projet pour l'IA
-      const projectData = {
-        title: project.title,
-        description: project.description,
-        budget: project.budget,
-        timeline: project.timeline,
-        tags: project.tags,
-        submissionDate: project.submissionDate?.toLocaleDateString()
+      const request = {
+        projectData: {
+          title: project.title,
+          description: project.description,
+          budget: project.budget,
+          timeline: project.timeline,
+          tags: project.tags,
+          submissionDate: project.submissionDate?.toLocaleDateString()
+        },
+        evaluationCriteria: program.evaluationCriteria.map((criterion: any) => ({
+          id: criterion.id,
+          name: criterion.name,
+          description: criterion.description,
+          maxScore: criterion.maxScore,
+          weight: criterion.weight
+        }))
       };
+
+      const response = await aiEvaluationService.evaluateProject(request);
       
-      // Préparer les critères d'évaluation
-      const evaluationCriteria = program.evaluationCriteria.map((criterion: any) => ({
-        name: criterion.name,
-        description: criterion.description,
-        maxScore: criterion.maxScore,
-        weight: criterion.weight
-      }));
+      // Préparer les nouvelles valeurs pour Formik
+      const newValues: any = {};
       
-      // Construire le prompt pour ChatGPT
-      const prompt = `
-En tant qu'expert en évaluation de projets, analysez le projet suivant et attribuez un score pour chaque critère d'évaluation.
-
-PROJET À ÉVALUER:
-- Titre: ${projectData.title}
-- Description: ${projectData.description}
-- Budget: ${projectData.budget.toLocaleString()} FCFA
-- Durée: ${projectData.timeline}
-- Tags: ${projectData.tags.join(', ')}
-- Date de soumission: ${projectData.submissionDate}
-
-CRITÈRES D'ÉVALUATION:
-${evaluationCriteria.map((c: any, i: number) => 
-  `${i + 1}. ${c.name} (${c.description}) - Score max: ${c.maxScore}, Poids: ${c.weight}%`
-).join('\n')}
-
-INSTRUCTIONS:
-1. Analysez objectivement le projet selon chaque critère
-2. Attribuez un score entre 0 et le score maximum pour chaque critère
-3. Justifiez brièvement chaque score
-4. Répondez UNIQUEMENT au format JSON suivant:
-
-{
-  "scores": {
-    "${evaluationCriteria.map((c: any) => c.name).join('": X, "')}"
-  },
-  "notes": "Justification détaillée de l'évaluation en 2-3 phrases par critère",
-  "recommendation": "pre_selected|selected|rejected"
-}
-
-Soyez rigoureux et objectif dans votre évaluation.`;
-
-      // Simuler l'appel à l'API ChatGPT (remplacez par un vrai appel API)
-      const response = await simulateAIEvaluation(projectData, evaluationCriteria);
-      
-      // Appliquer les scores suggérés par l'IA
-      if (response.scores) {
-        // Préparer les nouvelles valeurs
-        const newValues: any = {};
-        
-        // Mettre à jour les scores et commentaires
-        program.evaluationCriteria.forEach((criterion: any) => {
-          if (response.scores[criterion.name] !== undefined) {
-            const score = response.scores[criterion.name];
-            const maxScore = criterion.maxScore;
-            const percentage = (score / maxScore) * 100;
-            
-            // Mettre à jour le score
-            newValues[`score_${criterion.id}`] = score;
-            
-            // Générer un commentaire IA
-            let aiComment = '';
-            if (percentage >= 75) {
-              aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
-            } else if (percentage >= 50) {
-              aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
-            } else {
-              aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
-            }
-            
-            newValues[`comment_${criterion.id}`] = `[IA] ${aiComment}`;
+      // Mettre à jour les scores et commentaires
+      program.evaluationCriteria.forEach((criterion: any) => {
+        const score = response.scores[criterion.name];
+        if (score !== undefined) {
+          newValues[`score_${criterion.id}`] = score;
+          
+          // Générer un commentaire basé sur le score
+          const percentage = (score / criterion.maxScore) * 100;
+          let comment = '';
+          if (percentage >= 75) {
+            comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+          } else if (percentage >= 50) {
+            comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+          } else {
+            comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
           }
-        });
-        
-        // Mettre à jour les notes globales
-        if (response.notes) {
-          newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
+          
+          newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
         }
-        
-        // Mettre à jour la décision
-        if (response.recommendation) {
-          newValues.decision = response.recommendation;
-        }
-        
-        // Appliquer toutes les mises à jour en une fois
-        setValues((prevValues: any) => ({
-          ...prevValues,
-          ...newValues
-        }));
-      }
+      });
+      
+      // Mettre à jour les notes globales et la décision
+      newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
+      newValues.decision = response.recommendation;
+      
+      // Appliquer toutes les mises à jour
+      setValues((prevValues: any) => ({
+        ...prevValues,
+        ...newValues
+      }));
       
     } catch (error) {
       console.error('Erreur lors de l\'évaluation IA:', error);
-      alert('Erreur lors de l\'évaluation par IA. Veuillez réessayer.');
+      alert(`Erreur lors de l\'évaluation par IA: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsAIEvaluating(false);
     }
   };
-  
-  // Fonction de simulation de l'API ChatGPT (à remplacer par un vrai appel)
+
+  // Fonction de simulation conservée comme fallback
   const simulateAIEvaluation = async (projectData: any, criteria: any[]) => {
-    // Simuler un délai d'API
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Générer des scores simulés basés sur des heuristiques simples
     const scores: Record<string, number> = {};
     
     criteria.forEach(criterion => {
-      // Logique de scoring simulée basée sur le contenu du projet
       let score = Math.floor(Math.random() * (criterion.maxScore * 0.4)) + Math.floor(criterion.maxScore * 0.6);
       
-      // Ajustements basés sur des mots-clés
-      const description = projectData.description.toLowerCase();
-      const title = projectData.title.toLowerCase();
+      const description = projectData.description?.toLowerCase() || '';
+      const title = projectData.title?.toLowerCase() || '';
       
       if (criterion.name.toLowerCase().includes('innovation')) {
         if (description.includes('nouveau') || description.includes('innovant') || title.includes('ia')) {
@@ -283,13 +235,13 @@ Soyez rigoureux et objectif dans votre évaluation.`;
       }
       
       if (criterion.name.toLowerCase().includes('faisabilité')) {
-        if (projectData.budget > 100000000) { // Budget élevé = plus complexe
+        if (projectData.budget > 100000000) {
           score = Math.max(1, score - 1);
         }
       }
       
       if (criterion.name.toLowerCase().includes('impact')) {
-        if (projectData.tags.some((tag: string) => 
+        if (projectData.tags?.some((tag: string) => 
           ['environnement', 'santé', 'education'].includes(tag.toLowerCase())
         )) {
           score = Math.min(criterion.maxScore, score + 1);
@@ -299,7 +251,6 @@ Soyez rigoureux et objectif dans votre évaluation.`;
       scores[criterion.name] = Math.max(0, Math.min(criterion.maxScore, score));
     });
     
-    // Calculer le score total pour la recommandation
     const totalScore = criteria.reduce((total, criterion) => {
       return total + (scores[criterion.name] / criterion.maxScore) * criterion.weight;
     }, 0);
@@ -317,6 +268,68 @@ Soyez rigoureux et objectif dans votre évaluation.`;
       }`,
       recommendation
     };
+  };
+
+  // Version simplifiée pour la compatibilité
+  const handleAIEvaluationLegacy = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
+    setIsAIEvaluating(true);
+    
+    try {
+      const projectData = {
+        title: project.title,
+        description: project.description,
+        budget: project.budget,
+        timeline: project.timeline,
+        tags: project.tags,
+        submissionDate: project.submissionDate?.toLocaleDateString()
+      };
+      
+      const response = await simulateAIEvaluation(projectData, program.evaluationCriteria);
+      
+      if (response.scores) {
+        const newValues: any = {};
+        
+        program.evaluationCriteria.forEach((criterion: any) => {
+          if (response.scores[criterion.name] !== undefined) {
+            const score = response.scores[criterion.name];
+            const maxScore = criterion.maxScore;
+            const percentage = (score / maxScore) * 100;
+            
+            newValues[`score_${criterion.id}`] = score;
+            
+            let aiComment = '';
+            if (percentage >= 75) {
+              aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
+            } else if (percentage >= 50) {
+              aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+            } else {
+              aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+            }
+            
+            newValues[`comment_${criterion.id}`] = `[IA] ${aiComment}`;
+          }
+        });
+        
+        if (response.notes) {
+          newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
+        }
+        
+        if (response.recommendation) {
+          newValues.decision = response.recommendation;
+        }
+        
+        setValues((prevValues: any) => ({
+          ...prevValues,
+          ...newValues
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'évaluation IA:', error);
+      alert('Erreur lors de l\'évaluation par IA. Veuillez réessayer.');
+    } finally {
+      setIsAIEvaluating(false);
+    }
   };
   
   const renderScoreIndicator = (score: number, maxScore: number) => {
@@ -353,6 +366,13 @@ Soyez rigoureux et objectif dans votre évaluation.`;
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Évaluation des Projets</h1>
+        <Button
+          variant="outline"
+          leftIcon={<Settings className="h-4 w-4" />}
+          onClick={() => setShowAIConfig(true)}
+        >
+          Configuration IA
+        </Button>
       </div>
       
       {!isEvaluating ? (
@@ -790,6 +810,11 @@ Soyez rigoureux et objectif dans votre évaluation.`;
           )}
         </>
       )}
+      
+      <AIConfigModal
+        isOpen={showAIConfig}
+        onClose={() => setShowAIConfig(false)}
+      />
     </div>
   );
 };
