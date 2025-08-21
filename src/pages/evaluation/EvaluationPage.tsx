@@ -94,14 +94,6 @@ const EvaluationPage: React.FC = () => {
     setSelectedProject(null);
   };
   
-  const handleSelectProject = (projectId: string, selected: boolean) => {
-    setSelectedProjects(prev => 
-      selected 
-        ? [...prev, projectId]
-        : prev.filter(id => id !== projectId)
-    );
-  };
-  
   const handleSelectAll = () => {
     const allProjectIds = submittedProjects.map(p => p.id);
     setSelectedProjects(allProjectIds);
