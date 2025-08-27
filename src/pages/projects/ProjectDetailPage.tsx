@@ -34,7 +34,7 @@ const ProjectDetailPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, getProject, updateProject } = useProjectStore();
-  const { programs } = useProgramStore();
+  const { programs, partners } = useProgramStore();
   
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
