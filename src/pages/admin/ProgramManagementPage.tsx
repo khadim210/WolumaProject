@@ -25,7 +25,8 @@ import {
   X,
   Target,
   Award,
-  FileInput
+  FileInput,
+  Bot
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
@@ -79,6 +80,7 @@ interface ProgramFormValues {
   isActive: boolean;
   selectionCriteria: SelectionCriterion[];
   evaluationCriteria: EvaluationCriterion[];
+  customAiPrompt?: string;
 }
 
 const criterionTypes: { value: CriterionType; label: string }[] = [
@@ -112,7 +114,7 @@ const ProgramManagementPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'selection' | 'evaluation'>('selection');
+  const [activeTab, setActiveTab] = useState<'selection' | 'evaluation' | 'ai-prompt'>('selection');
 
   useEffect(() => {
     fetchPrograms();
@@ -145,6 +147,7 @@ const ProgramManagementPage: React.FC = () => {
         endDate: new Date(values.endDate),
         isActive: values.isActive,
         selectionCriteria: values.selectionCriteria,
+        customAiPrompt: values.customAiPrompt,
       });
       resetForm();
       setShowCreateModal(false);
@@ -169,6 +172,7 @@ const ProgramManagementPage: React.FC = () => {
         endDate: new Date(values.endDate),
         isActive: values.isActive,
         selectionCriteria: values.selectionCriteria,
+        customAiPrompt: values.customAiPrompt,
       });
       setEditingProgram(null);
     } catch (error) {
@@ -246,6 +250,7 @@ const ProgramManagementPage: React.FC = () => {
       weight: 0,
       maxScore: 20,
     }],
+    customAiPrompt: '',
   };
 
   const getEditFormValues = (program: Program): ProgramFormValues => ({
@@ -259,6 +264,7 @@ const ProgramManagementPage: React.FC = () => {
     isActive: program.isActive,
     selectionCriteria: program.selectionCriteria,
     evaluationCriteria: program.evaluationCriteria,
+    customAiPrompt: program.customAiPrompt || '',
   });
 
   return (
@@ -751,26 +757,35 @@ const ProgramManagementPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setActiveTab('selection')}
-                          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                          className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                             activeTab === 'selection'
                               ? 'border-primary-500 text-primary-600'
                               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                           }`}
                         >
-                          <Target className="h-4 w-4 inline mr-2" />
                           Critères de sélection ({values.selectionCriteria.length})
                         </button>
                         <button
                           type="button"
                           onClick={() => setActiveTab('evaluation')}
-                          className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                          className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                             activeTab === 'evaluation'
                               ? 'border-primary-500 text-primary-600'
                               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                           }`}
                         >
-                          <Award className="h-4 w-4 inline mr-2" />
                           Critères d'évaluation ({values.evaluationCriteria.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('ai-prompt')}
+                          className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                            activeTab === 'ai-prompt'
+                              ? 'border-primary-500 text-primary-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          Prompt IA personnalisé
                         </button>
                       </nav>
                     </div>
@@ -1094,6 +1109,55 @@ const ProgramManagementPage: React.FC = () => {
                             </div>
                           )}
                         </FieldArray>
+                      </div>
+                    )}
+
+                    {activeTab === 'ai-prompt' && (
+                      <div className="space-y-6">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex">
+                            <Bot className="h-5 w-5 text-blue-400" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">Personnalisation du prompt IA</h3>
+                              <div className="mt-2 text-sm text-blue-700">
+                                <p>Personnalisez les instructions données à l'IA pour l'évaluation des projets de ce programme.</p>
+                                <p className="mt-1">Si aucun prompt personnalisé n'est défini, le prompt par défaut sera utilisé.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Instructions spécifiques pour l'IA
+                          </label>
+                          <Field
+                            as="textarea"
+                            name="customAiPrompt"
+                            rows={12}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="Entrez des instructions spécifiques pour l'évaluation IA de ce programme...
+
+Exemple :
+- Accordez une attention particulière aux aspects environnementaux
+- Privilégiez les projets avec un impact social fort
+- Évaluez la faisabilité technique avec rigueur
+- Considérez le potentiel de scalabilité du projet"
+                          />
+                          <p className="mt-2 text-sm text-gray-500">
+                            Ces instructions seront ajoutées au prompt standard pour personnaliser l'évaluation selon les spécificités de ce programme.
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">Variables disponibles</h4>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><code className="bg-gray-200 px-1 rounded">{'{{program_name}}'}</code> - Nom du programme</p>
+                            <p><code className="bg-gray-200 px-1 rounded">{'{{program_description}}'}</code> - Description du programme</p>
+                            <p><code className="bg-gray-200 px-1 rounded">{'{{partner_name}}'}</code> - Nom du partenaire</p>
+                            <p><code className="bg-gray-200 px-1 rounded">{'{{budget_range}}'}</code> - Fourchette budgétaire du programme</p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

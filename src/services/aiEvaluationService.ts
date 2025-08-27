@@ -16,6 +16,13 @@ export interface AIEvaluationRequest {
     maxScore: number;
     weight: number;
   }[];
+  customPrompt?: string;
+  programContext?: {
+    name: string;
+    description: string;
+    partnerName: string;
+    budgetRange: string;
+  };
 }
 
 export interface AIEvaluationResponse {
@@ -145,7 +152,7 @@ class AIEvaluationService {
   private buildPrompt(request: AIEvaluationRequest): string {
     const { projectData, evaluationCriteria } = request;
 
-    return `
+    let basePrompt = `
 En tant qu'expert en évaluation de projets, analysez le projet suivant et attribuez un score pour chaque critère d'évaluation.
 
 PROJET À ÉVALUER:
@@ -154,12 +161,46 @@ PROJET À ÉVALUER:
 - Budget: ${projectData.budget.toLocaleString()} FCFA
 - Durée: ${projectData.timeline}
 - Tags: ${projectData.tags.join(', ')}
-- Date de soumission: ${projectData.submissionDate || 'Non spécifiée'}
+- Date de soumission: ${projectData.submissionDate || 'Non spécifiée'}`;
+
+    // Ajouter le contexte du programme si disponible
+    if (request.programContext) {
+      basePrompt += `
+
+CONTEXTE DU PROGRAMME:
+- Programme: ${request.programContext.name}
+- Description: ${request.programContext.description}
+- Partenaire: ${request.programContext.partnerName}
+- Budget du programme: ${request.programContext.budgetRange}`;
+    }
+
+    basePrompt += `
 
 CRITÈRES D'ÉVALUATION:
 ${evaluationCriteria.map((c, i) => 
   `${i + 1}. ${c.name} (${c.description}) - Score max: ${c.maxScore}, Poids: ${c.weight}%`
-).join('\n')}
+).join('\n')}`;
+
+    // Ajouter les instructions personnalisées si disponibles
+    if (request.customPrompt) {
+      let customInstructions = request.customPrompt;
+      
+      // Remplacer les variables si le contexte du programme est disponible
+      if (request.programContext) {
+        customInstructions = customInstructions
+          .replace(/\{\{program_name\}\}/g, request.programContext.name)
+          .replace(/\{\{program_description\}\}/g, request.programContext.description)
+          .replace(/\{\{partner_name\}\}/g, request.programContext.partnerName)
+          .replace(/\{\{budget_range\}\}/g, request.programContext.budgetRange);
+      }
+      
+      basePrompt += `
+
+INSTRUCTIONS SPÉCIFIQUES POUR CE PROGRAMME:
+${customInstructions}`;
+    }
+
+    basePrompt += `
 
 INSTRUCTIONS:
 1. Analysez objectivement le projet selon chaque critère
@@ -181,6 +222,8 @@ Critères de recommandation:
 - "rejected": Score total pondéré < 60%
 
 Soyez rigoureux et objectif dans votre évaluation.`;
+
+    return basePrompt;
   }
 
   private parseAIResponse(aiResponse: string, criteria: any[]): AIEvaluationResponse {

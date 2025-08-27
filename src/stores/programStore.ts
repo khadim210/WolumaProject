@@ -54,6 +54,7 @@ export interface Program {
   managerId?: string; // Manager responsable du programme
   selectionCriteria: SelectionCriterion[];
   evaluationCriteria: EvaluationCriterion[];
+  customAiPrompt?: string; // Prompt personnalisé pour l'évaluation IA
 }
 
 interface ProgramState {

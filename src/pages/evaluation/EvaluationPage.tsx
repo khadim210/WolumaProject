@@ -272,6 +272,7 @@ const EvaluationPage: React.FC = () => {
     }
   };
   
+      const partner = partners.find(p => p.id === program?.partnerId);
   const handleAIEvaluation = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
     setIsAIEvaluating(true);
     
@@ -285,7 +286,14 @@ const EvaluationPage: React.FC = () => {
           tags: project.tags,
           submissionDate: project.submissionDate?.toLocaleDateString()
         },
-        evaluationCriteria: program.evaluationCriteria.map((criterion: any) => ({
+        evaluationCriteria: program.evaluationCriteria,
+        customPrompt: program.customAiPrompt,
+        programContext: {
+          name: program.name,
+          description: program.description || '',
+          partnerName: partner?.name || 'Non spécifié',
+          budgetRange: `${program.budget.toLocaleString()} FCFA`
+        }
           id: criterion.id,
           name: criterion.name,
           description: criterion.description,
