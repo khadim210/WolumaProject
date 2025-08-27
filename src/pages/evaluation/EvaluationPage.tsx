@@ -20,7 +20,11 @@ import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 
-const EvaluationPage: React.FC = () => {
+  Send,
+  Shield,
+  AlertTriangle,
+  XCircle,
+  X
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, updateProject } = useProjectStore();
