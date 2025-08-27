@@ -14,17 +14,18 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, Sparkles } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, Sparkles,
+  Send,
+  Shield,
+  AlertTriangle,
+  X
+} from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 
-  Send,
-  Shield,
-  AlertTriangle,
-  XCircle,
-  X
+const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, updateProject } = useProjectStore();
