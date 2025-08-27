@@ -117,6 +117,21 @@ const mockProjects: Project[] = [
     evaluationScore: 92,
     evaluationNotes: 'Approche innovante avec un impact environnemental significatif',
     evaluatedBy: '3', // Évalué par le manager ID 3
+    totalEvaluationScore: 92,
+    evaluationScores: {
+      'Impact environnemental': 18,
+      'Durabilité du projet': 17,
+      'Nombre de bénéficiaires': 19,
+      'Innovation sociale': 16,
+      'Partenariats locaux': 18
+    },
+    evaluationComments: {
+      'Impact environnemental': 'Excellent impact sur la réduction de la pollution océanique',
+      'Durabilité du projet': 'Système autonome avec maintenance minimale',
+      'Nombre de bénéficiaires': 'Impact global sur l\'écosystème marin',
+      'Innovation sociale': 'Sensibilisation et engagement communautaire',
+      'Partenariats locaux': 'Collaboration avec ONG environnementales'
+    },
     formalizationCompleted: true,
     ndaSigned: true,
     tags: ['environnement', 'nettoyage', 'océan', 'développement durable'],

@@ -243,7 +243,7 @@ const ProjectDetailPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          {(project.totalEvaluationScore !== undefined || project.evaluationScores) && (
+          {(project.totalEvaluationScore !== undefined || project.evaluationScores || project.evaluationScore !== undefined) && (
             <Card className="mt-6 border-l-4 border-l-primary-500">
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -263,7 +263,7 @@ const ProjectDetailPage: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {project.totalEvaluationScore !== undefined && (
+                {(project.totalEvaluationScore !== undefined || project.evaluationScore !== undefined) && (
                   <div className="bg-gradient-to-r from-primary-50 to-secondary-50 p-6 rounded-lg border border-primary-200">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -272,14 +272,14 @@ const ProjectDetailPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-3xl font-bold text-primary-700">
-                          {project.totalEvaluationScore}%
+                          {project.totalEvaluationScore || project.evaluationScore}%
                         </div>
                         <div className={`text-sm font-medium ${
-                          project.totalEvaluationScore >= 80 ? 'text-success-600' :
-                          project.totalEvaluationScore >= 60 ? 'text-warning-600' : 'text-error-600'
+                          (project.totalEvaluationScore || project.evaluationScore || 0) >= 80 ? 'text-success-600' :
+                          (project.totalEvaluationScore || project.evaluationScore || 0) >= 60 ? 'text-warning-600' : 'text-error-600'
                         }`}>
-                          {project.totalEvaluationScore >= 80 ? 'Excellent' :
-                           project.totalEvaluationScore >= 60 ? 'Satisfaisant' : 'À améliorer'}
+                          {(project.totalEvaluationScore || project.evaluationScore || 0) >= 80 ? 'Excellent' :
+                           (project.totalEvaluationScore || project.evaluationScore || 0) >= 60 ? 'Satisfaisant' : 'À améliorer'}
                         </div>
                       </div>
                     </div>
@@ -287,10 +287,10 @@ const ProjectDetailPage: React.FC = () => {
                     <div className="relative">
                       <div className="overflow-hidden h-3 text-xs flex rounded-full bg-white shadow-inner">
                         <div 
-                          style={{ width: `${Math.min(100, project.totalEvaluationScore)}%` }} 
+                          style={{ width: `${Math.min(100, project.totalEvaluationScore || project.evaluationScore || 0)}%` }} 
                           className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center transition-all duration-500 ${
-                            project.totalEvaluationScore >= 80 ? 'bg-gradient-to-r from-success-500 to-success-600' :
-                            project.totalEvaluationScore >= 60 ? 'bg-gradient-to-r from-warning-500 to-warning-600' :
+                            (project.totalEvaluationScore || project.evaluationScore || 0) >= 80 ? 'bg-gradient-to-r from-success-500 to-success-600' :
+                            (project.totalEvaluationScore || project.evaluationScore || 0) >= 60 ? 'bg-gradient-to-r from-warning-500 to-warning-600' :
                             'bg-gradient-to-r from-error-500 to-error-600'
                           }`}
                         ></div>
