@@ -35,6 +35,8 @@ export interface Project {
   ndaSigned?: boolean;
   tags: string[];
   formData?: Record<string, any>; // Données du formulaire soumis
+  recommendedStatus?: ProjectStatus; // Status recommandé après évaluation
+  manuallySubmitted?: boolean; // Indique si le projet a été soumis manuellement après évaluation
 }
 
 interface ProjectState {

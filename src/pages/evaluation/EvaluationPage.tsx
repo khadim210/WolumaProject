@@ -18,6 +18,7 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
+import { generateEvaluationReport } from '../../utils/pdfGenerator';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -38,6 +39,7 @@ const EvaluationPage: React.FC = () => {
     total: number;
     currentProject: string;
   } | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   
   useEffect(() => {
     fetchPrograms();
@@ -69,14 +71,18 @@ const EvaluationPage: React.FC = () => {
   
   const accessiblePrograms = getAccessiblePrograms();
   
-  // Get projects in submitted status
+  // Get projects in submitted status or evaluated but not yet submitted to next stage
   const submittedProjects = projects.filter(project => {
     const isAccessible = accessiblePrograms.some(p => p.id === project.programId);
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          project.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesProgram = programFilter === 'all' || project.programId === programFilter;
     
-    return project.status === 'submitted' && 
+    // Include projects that are submitted OR evaluated but waiting for manual submission
+    const isEvaluationPending = project.status === 'submitted' || 
+                               (project.evaluationScores && !project.manuallySubmitted);
+    
+    return isEvaluationPending && 
            isAccessible && 
            matchesSearch && 
            matchesProgram;
@@ -171,13 +177,13 @@ const EvaluationPage: React.FC = () => {
           
           // Mettre à jour le projet
           await updateProject(project.id, {
-            status: response.recommendation as ProjectStatus,
             evaluationScores,
             evaluationComments,
             totalEvaluationScore: Math.round(totalScore),
             evaluationNotes: `[Évaluation IA en lot] ${response.notes}`,
             evaluatedBy: user.id,
             evaluationDate: new Date(),
+            // Don't change status automatically - wait for manual submission
           });
           
           // Petite pause entre les évaluations pour éviter les limites de taux
@@ -245,13 +251,14 @@ const EvaluationPage: React.FC = () => {
       });
       
       const updatedProject = await updateProject(selectedProject.id, {
-        status: values.decision as ProjectStatus,
         evaluationScores,
         evaluationComments,
         totalEvaluationScore: Math.round(totalScore),
         evaluationNotes: values.evaluationNotes,
         evaluatedBy: user.id,
         evaluationDate: new Date(),
+        recommendedStatus: values.decision as ProjectStatus,
+        // Don't change status automatically - wait for manual submission
       });
       
       if (updatedProject) {
@@ -328,6 +335,40 @@ const EvaluationPage: React.FC = () => {
       alert(`Erreur lors de l\'évaluation par IA: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsAIEvaluating(false);
+    }
+  };
+  
+  const handleSubmitEvaluatedProject = async (project: Project) => {
+    if (!project.recommendedStatus) return;
+    
+    try {
+      await updateProject(project.id, {
+        status: project.recommendedStatus,
+        manuallySubmitted: true,
+      });
+    } catch (error) {
+      console.error('Error submitting evaluated project:', error);
+    }
+  };
+  
+  const handleGenerateReport = async (project: Project) => {
+    const program = programs.find(p => p.id === project.programId);
+    const partner = program ? partners.find(p => p.id === program.partnerId) : null;
+    
+    if (!program) {
+      alert('Programme non trouvé pour ce projet');
+      return;
+    }
+    
+    setIsGeneratingReport(true);
+    
+    try {
+      await generateEvaluationReport(project, program, partner);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Erreur lors de la génération du rapport');
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
@@ -608,6 +649,7 @@ const EvaluationPage: React.FC = () => {
                   const program = programs.find(p => p.id === project.programId);
                   const partner = program ? partners.find(p => p.id === program.partnerId) : null;
                   const isSelected = selectedProjects.includes(project.id);
+                  const isEvaluated = project.evaluationScores && project.evaluatedBy;
                   
                   return (
                     <div 
@@ -615,6 +657,8 @@ const EvaluationPage: React.FC = () => {
                       className={`border rounded-md p-4 transition-colors ${
                         isSelected 
                           ? 'border-secondary-300 bg-secondary-50' 
+                          : isEvaluated
+                          ? 'border-success-300 bg-success-50'
                           : 'border-gray-200 hover:bg-gray-50'
                       }`}
                     >
@@ -625,7 +669,11 @@ const EvaluationPage: React.FC = () => {
                             checked={isSelected}
                             onChange={(e) => {
                               e.stopPropagation();
-                              handleSelectProject(project.id, e.target.checked);
+                              if (e.target.checked) {
+                                setSelectedProjects(prev => [...prev, project.id]);
+                              } else {
+                                setSelectedProjects(prev => prev.filter(id => id !== project.id));
+                              }
                             }}
                             disabled={isBulkEvaluating}
                             className="h-4 w-4 text-secondary-600 border-gray-300 rounded focus:ring-secondary-500"
@@ -671,19 +719,52 @@ const EvaluationPage: React.FC = () => {
                           <div className="mt-3 text-xs text-gray-500">
                             Soumis le {project.submissionDate?.toLocaleDateString()}
                           </div>
+                          
+                          {isEvaluated && (
+                            <div className="mt-2 p-2 bg-success-100 border border-success-200 rounded-md">
+                              <div className="text-xs text-success-800 font-medium">
+                                ✅ Évalué le {project.evaluationDate?.toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-success-700">
+                                Score: {project.totalEvaluationScore}% • 
+                                Recommandation: {project.recommendedStatus === 'selected' ? 'Sélectionné' : 
+                                                project.recommendedStatus === 'pre_selected' ? 'Présélectionné' : 'Rejeté'}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="flex flex-col items-end ml-auto">
                           <div className="flex items-center space-x-2">
                             <ProjectStatusBadge status={project.status} />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSelectProjectForEvaluation(project)}
-                              disabled={isBulkEvaluating}
-                            >
-                              Évaluer
-                            </Button>
+                            {!isEvaluated ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSelectProjectForEvaluation(project)}
+                                disabled={isBulkEvaluating}
+                              >
+                                Évaluer
+                              </Button>
+                            ) : (
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGenerateReport(project)}
+                                  disabled={isGeneratingReport}
+                                >
+                                  📄 Rapport PDF
+                                </Button>
+                                <Button
+                                  variant="success"
+                                  size="sm"
+                                  onClick={() => handleSubmitEvaluatedProject(project)}
+                                >
+                                  ✅ Soumettre
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           {program && (
                             <div className="mt-2 text-xs text-gray-500 flex items-center">
@@ -730,7 +811,7 @@ const EvaluationPage: React.FC = () => {
                 
                 const initialValues: any = {
                   evaluationNotes: '',
-                  decision: 'pre_selected',
+                  decision: 'pre_selected', // This will be stored as recommendedStatus
                 };
                 
                 // Initialize scores for each criterion
