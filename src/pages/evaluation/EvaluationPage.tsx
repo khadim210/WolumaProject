@@ -419,7 +419,10 @@ import { generateEvaluationReport } from '../../utils/pdfGenerator';
     
     let recommendation = 'rejected';
     if (totalScore >= 80) recommendation = 'selected';
-    else if (totalScore >= 60) recommendation = 'pre_selected';
+
+    )
+  }
+}    else if (totalScore >= 60) recommendation = 'pre_selected';
     
     return {
       scores,
