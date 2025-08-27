@@ -272,11 +272,11 @@ const EvaluationPage: React.FC = () => {
     }
   };
   
-      const partner = partners.find(p => p.id === program?.partnerId);
   const handleAIEvaluation = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
     setIsAIEvaluating(true);
     
     try {
+      const partner = partners.find(p => p.id === program?.partnerId);
       const request = {
         projectData: {
           title: project.title,
@@ -294,12 +294,6 @@ const EvaluationPage: React.FC = () => {
           partnerName: partner?.name || 'Non spécifié',
           budgetRange: `${program.budget.toLocaleString()} FCFA`
         }
-          id: criterion.id,
-          name: criterion.name,
-          description: criterion.description,
-          maxScore: criterion.maxScore,
-          weight: criterion.weight
-        }))
       };
 
       const response = await aiEvaluationService.evaluateProject(request);
