@@ -82,7 +82,7 @@ const ProgramManagementPage: React.FC = () => {
   const [expandedProgram, setExpandedProgram] = useState<string | null>(null);
 
   const getTotalWeight = (criteria: any[]) => {
-    return criteria.reduce((total, criterion) => total + (parseInt(criterion.weight) || 0), 0);
+    return (criteria || []).reduce((total, criterion) => total + (parseInt(criterion.weight) || 0), 0);
   };
 
   useEffect(() => {
