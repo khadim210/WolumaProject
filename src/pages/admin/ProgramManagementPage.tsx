@@ -27,7 +27,7 @@ import {
   Eye,
   EyeOff,
   Download,
-  GripVertical
+  GripVertical,
   Lightbulb
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
