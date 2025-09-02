@@ -770,7 +770,7 @@ const ProgramManagementPage: React.FC = () => {
                 validationSchema={programSchema}
                 onSubmit={handleCreateProgram}
               >
-                {({ isSubmitting }) => (
+                {({ values, isSubmitting }) => (
                   <Form className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Nom du programme</label>
@@ -902,7 +902,7 @@ const ProgramManagementPage: React.FC = () => {
                 validationSchema={programSchema}
                 onSubmit={handleUpdateProgram}
               >
-                {({ isSubmitting }) => (
+                {({ values, isSubmitting }) => (
                   <Form className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Nom du programme</label>
