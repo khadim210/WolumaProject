@@ -899,11 +899,13 @@ const ProgramManagementPage: React.FC = () => {
                   endDate: editingProgram.endDate.toISOString().split('T')[0],
                   managerId: editingProgram.managerId || '',
                   isActive: editingProgram.isActive,
+                  selectionCriteria: editingProgram.selectionCriteria || [],
+                  evaluationCriteria: editingProgram.evaluationCriteria || [],
                 }}
                 validationSchema={programSchema}
                 onSubmit={handleUpdateProgram}
               >
-                {({ values, isSubmitting }) => (
+                {({ values, isSubmitting, setFieldValue }) => (
                   <Form className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Nom du programme</label>
@@ -1018,7 +1020,7 @@ const ProgramManagementPage: React.FC = () => {
                               type: 'text' as const,
                               required: false
                             };
-                            setFieldValue('selectionCriteria', [...values.selectionCriteria, newCriterion]);
+                            setFieldValue('selectionCriteria', [...(values.selectionCriteria || []), newCriterion]);
                           }}
                           leftIcon={<Plus className="h-4 w-4" />}
                         >
@@ -1029,7 +1031,7 @@ const ProgramManagementPage: React.FC = () => {
                       <FieldArray name="selectionCriteria">
                         {({ remove }) => (
                           <div className="space-y-4">
-                            {values.selectionCriteria.map((criterion, index) => (
+                            {(values.selectionCriteria || []).map((criterion, index) => (
                               <div key={criterion.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center">
@@ -1045,7 +1047,7 @@ const ProgramManagementPage: React.FC = () => {
                                         variant="outline"
                                         size="sm"
                                         onClick={() => {
-                                          const newCriteria = [...values.selectionCriteria];
+                                          const newCriteria = [...(values.selectionCriteria || [])];
                                           [newCriteria[index], newCriteria[index - 1]] = [newCriteria[index - 1], newCriteria[index]];
                                           setFieldValue('selectionCriteria', newCriteria);
                                         }}
@@ -1053,13 +1055,13 @@ const ProgramManagementPage: React.FC = () => {
                                       >
                                       </Button>
                                     )}
-                                    {index < values.selectionCriteria.length - 1 && (
+                                    {index < (values.selectionCriteria || []).length - 1 && (
                                       <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={() => {
-                                          const newCriteria = [...values.selectionCriteria];
+                                          const newCriteria = [...(values.selectionCriteria || [])];
                                           [newCriteria[index], newCriteria[index + 1]] = [newCriteria[index + 1], newCriteria[index]];
                                           setFieldValue('selectionCriteria', newCriteria);
                                         }}
@@ -1146,11 +1148,11 @@ const ProgramManagementPage: React.FC = () => {
                         <h3 className="text-lg font-medium text-gray-900">Critères d'évaluation</h3>
                         <div className="flex items-center space-x-3">
                           <span className={`text-sm font-medium ${
-                            getTotalWeight(values.evaluationCriteria) === 100 
+                            getTotalWeight(values.evaluationCriteria || []) === 100 
                               ? 'text-success-600' 
                               : 'text-error-600'
                           }`}>
-                            Total: {getTotalWeight(values.evaluationCriteria)}%
+                            Total: {getTotalWeight(values.evaluationCriteria || [])}%
                           </span>
                           <Button
                             type="button"
@@ -1164,7 +1166,7 @@ const ProgramManagementPage: React.FC = () => {
                                 weight: 0,
                                 maxScore: 20
                               };
-                              setFieldValue('evaluationCriteria', [...values.evaluationCriteria, newCriterion]);
+                              setFieldValue('evaluationCriteria', [...(values.evaluationCriteria || []), newCriterion]);
                             }}
                             leftIcon={<Plus className="h-4 w-4" />}
                           >
@@ -1173,13 +1175,13 @@ const ProgramManagementPage: React.FC = () => {
                         </div>
                       </div>
                       
-                      {getTotalWeight(values.evaluationCriteria) !== 100 && (
+                      {getTotalWeight(values.evaluationCriteria || []) !== 100 && (
                         <div className="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-md">
                           <div className="flex">
                             <AlertTriangle className="h-5 w-5 text-warning-400" />
                             <div className="ml-3">
                               <p className="text-sm text-warning-700">
-                                Le total des poids doit être égal à 100%. Actuellement: {getTotalWeight(values.evaluationCriteria)}%
+                                Le total des poids doit être égal à 100%. Actuellement: {getTotalWeight(values.evaluationCriteria || [])}%
                               </p>
                             </div>
                           </div>
@@ -1189,7 +1191,7 @@ const ProgramManagementPage: React.FC = () => {
                       <FieldArray name="evaluationCriteria">
                         {({ remove }) => (
                           <div className="space-y-4">
-                            {values.evaluationCriteria.map((criterion, index) => (
+                            {(values.evaluationCriteria || []).map((criterion, index) => (
                               <div key={criterion.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center">
@@ -1205,7 +1207,7 @@ const ProgramManagementPage: React.FC = () => {
                                         variant="outline"
                                         size="sm"
                                         onClick={() => {
-                                          const newCriteria = [...values.evaluationCriteria];
+                                          const newCriteria = [...(values.evaluationCriteria || [])];
                                           [newCriteria[index], newCriteria[index - 1]] = [newCriteria[index - 1], newCriteria[index]];
                                           setFieldValue('evaluationCriteria', newCriteria);
                                         }}
@@ -1213,13 +1215,13 @@ const ProgramManagementPage: React.FC = () => {
                                       >
                                       </Button>
                                     )}
-                                    {index < values.evaluationCriteria.length - 1 && (
+                                    {index < (values.evaluationCriteria || []).length - 1 && (
                                       <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={() => {
-                                          const newCriteria = [...values.evaluationCriteria];
+                                          const newCriteria = [...(values.evaluationCriteria || [])];
                                           [newCriteria[index], newCriteria[index + 1]] = [newCriteria[index + 1], newCriteria[index]];
                                           setFieldValue('evaluationCriteria', newCriteria);
                                         }}
