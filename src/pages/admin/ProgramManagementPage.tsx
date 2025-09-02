@@ -997,6 +997,303 @@ const ProgramManagementPage: React.FC = () => {
                       </label>
                     </div>
 
+                    {/* Critères d'éligibilité */}
+                    <div className="border-t border-gray-200 pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Critères d'éligibilité</h3>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newCriterion = {
+                              id: `c${Date.now()}`,
+                              name: '',
+                              description: '',
+                              type: 'text' as const,
+                              required: false
+                            };
+                            setFieldValue('selectionCriteria', [...values.selectionCriteria, newCriterion]);
+                          }}
+                          leftIcon={<Plus className="h-4 w-4" />}
+                        >
+                          Ajouter un critère
+                        </Button>
+                      </div>
+                      
+                      <FieldArray name="selectionCriteria">
+                        {({ remove }) => (
+                          <div className="space-y-4">
+                            {values.selectionCriteria.map((criterion, index) => (
+                              <div key={criterion.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center">
+                                    <GripVertical className="h-5 w-5 text-gray-400 mr-2" />
+                                    <span className="text-sm font-medium text-gray-900">
+                                      Critère #{index + 1}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    {index > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newCriteria = [...values.selectionCriteria];
+                                          [newCriteria[index], newCriteria[index - 1]] = [newCriteria[index - 1], newCriteria[index]];
+                                          setFieldValue('selectionCriteria', newCriteria);
+                                        }}
+                                        leftIcon={<ArrowUp className="h-3 w-3" />}
+                                      >
+                                      </Button>
+                                    )}
+                                    {index < values.selectionCriteria.length - 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newCriteria = [...values.selectionCriteria];
+                                          [newCriteria[index], newCriteria[index + 1]] = [newCriteria[index + 1], newCriteria[index]];
+                                          setFieldValue('selectionCriteria', newCriteria);
+                                        }}
+                                        leftIcon={<ArrowDown className="h-3 w-3" />}
+                                      >
+                                      </Button>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => remove(index)}
+                                      leftIcon={<Trash2 className="h-3 w-3" />}
+                                    >
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Nom du critère*
+                                    </label>
+                                    <Field
+                                      name={`selectionCriteria.${index}.name`}
+                                      type="text"
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      placeholder="ex: Budget maximum"
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Type de critère*
+                                    </label>
+                                    <Field
+                                      as="select"
+                                      name={`selectionCriteria.${index}.type`}
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    >
+                                      <option value="text">Texte</option>
+                                      <option value="number">Nombre</option>
+                                      <option value="select">Liste déroulante</option>
+                                      <option value="boolean">Oui/Non</option>
+                                      <option value="date">Date</option>
+                                      <option value="range">Plage de valeurs</option>
+                                    </Field>
+                                  </div>
+                                </div>
+                                
+                                <div className="mt-4">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Description
+                                  </label>
+                                  <Field
+                                    as="textarea"
+                                    name={`selectionCriteria.${index}.description`}
+                                    rows={2}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    placeholder="Description détaillée du critère"
+                                  />
+                                </div>
+                                
+                                <div className="mt-4">
+                                  <label className="flex items-center">
+                                    <Field
+                                      name={`selectionCriteria.${index}.required`}
+                                      type="checkbox"
+                                      className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-900">Critère obligatoire</span>
+                                  </label>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </FieldArray>
+                    </div>
+
+                    {/* Critères d'évaluation */}
+                    <div className="border-t border-gray-200 pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Critères d'évaluation</h3>
+                        <div className="flex items-center space-x-3">
+                          <span className={`text-sm font-medium ${
+                            getTotalWeight(values.evaluationCriteria) === 100 
+                              ? 'text-success-600' 
+                              : 'text-error-600'
+                          }`}>
+                            Total: {getTotalWeight(values.evaluationCriteria)}%
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newCriterion = {
+                                id: `e${Date.now()}`,
+                                name: '',
+                                description: '',
+                                weight: 0,
+                                maxScore: 20
+                              };
+                              setFieldValue('evaluationCriteria', [...values.evaluationCriteria, newCriterion]);
+                            }}
+                            leftIcon={<Plus className="h-4 w-4" />}
+                          >
+                            Ajouter un critère
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {getTotalWeight(values.evaluationCriteria) !== 100 && (
+                        <div className="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-md">
+                          <div className="flex">
+                            <AlertTriangle className="h-5 w-5 text-warning-400" />
+                            <div className="ml-3">
+                              <p className="text-sm text-warning-700">
+                                Le total des poids doit être égal à 100%. Actuellement: {getTotalWeight(values.evaluationCriteria)}%
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <FieldArray name="evaluationCriteria">
+                        {({ remove }) => (
+                          <div className="space-y-4">
+                            {values.evaluationCriteria.map((criterion, index) => (
+                              <div key={criterion.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center">
+                                    <GripVertical className="h-5 w-5 text-gray-400 mr-2" />
+                                    <span className="text-sm font-medium text-gray-900">
+                                      Critère #{index + 1}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    {index > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newCriteria = [...values.evaluationCriteria];
+                                          [newCriteria[index], newCriteria[index - 1]] = [newCriteria[index - 1], newCriteria[index]];
+                                          setFieldValue('evaluationCriteria', newCriteria);
+                                        }}
+                                        leftIcon={<ArrowUp className="h-3 w-3" />}
+                                      >
+                                      </Button>
+                                    )}
+                                    {index < values.evaluationCriteria.length - 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newCriteria = [...values.evaluationCriteria];
+                                          [newCriteria[index], newCriteria[index + 1]] = [newCriteria[index + 1], newCriteria[index]];
+                                          setFieldValue('evaluationCriteria', newCriteria);
+                                        }}
+                                        leftIcon={<ArrowDown className="h-3 w-3" />}
+                                      >
+                                      </Button>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => remove(index)}
+                                      leftIcon={<Trash2 className="h-3 w-3" />}
+                                    >
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Nom du critère*
+                                    </label>
+                                    <Field
+                                      name={`evaluationCriteria.${index}.name`}
+                                      type="text"
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      placeholder="ex: Innovation et originalité"
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Score maximum*
+                                    </label>
+                                    <Field
+                                      name={`evaluationCriteria.${index}.maxScore`}
+                                      type="number"
+                                      min="1"
+                                      max="100"
+                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                      placeholder="20"
+                                    />
+                                  </div>
+                                </div>
+                                
+                                <div className="mt-4">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Poids (%)*
+                                  </label>
+                                  <Field
+                                    name={`evaluationCriteria.${index}.weight`}
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    placeholder="25"
+                                  />
+                                </div>
+                                
+                                <div className="mt-4">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Description
+                                  </label>
+                                  <Field
+                                    as="textarea"
+                                    name={`evaluationCriteria.${index}.description`}
+                                    rows={2}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    placeholder="Description détaillée du critère d'évaluation"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </FieldArray>
+                    </div>
+
                     <div className="flex justify-end space-x-3 pt-4">
                       <Button
                         type="button"
