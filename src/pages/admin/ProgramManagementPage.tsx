@@ -3,6 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProgramStore, Program, Partner, SelectionCriterion, CriterionType } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
+import jsPDF from 'jspdf';
 import { useUserManagementStore } from '../../stores/userManagementStore';
 import { 
   Card, 
@@ -29,7 +30,8 @@ import {
   Bot
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
-import * as Yup from 'yup';
+  Lightbulb,
+  Download
 
 const programSchema = Yup.object().shape({
   name: Yup.string().required('Nom requis'),
@@ -189,6 +191,144 @@ const ProgramManagementPage: React.FC = () => {
     } catch (error) {
       console.error('Error deleting program:', error);
     }
+  };
+
+  const handleExportPromptToPdf = (programData: any) => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.width;
+    const margin = 20;
+    let yPosition = margin;
+
+    // Helper function to add text with word wrapping
+    const addText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 12) => {
+      pdf.setFontSize(fontSize);
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      pdf.text(lines, x, y);
+      return y + (lines.length * fontSize * 0.4);
+    };
+
+    // Header
+    pdf.setFillColor(0, 51, 102); // Woluma blue
+    pdf.rect(0, 0, pageWidth, 40, 'F');
+    
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('PROMPT D\'ÉVALUATION IA - PROGRAMME', margin, 25);
+    
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(10);
+    pdf.text('Woluma-Flow - Configuration IA pour l\'évaluation automatique', margin, 35);
+
+    yPosition = 60;
+    pdf.setTextColor(0, 0, 0);
+
+    // Program Information
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('INFORMATIONS DU PROGRAMME', margin, yPosition);
+    yPosition += 15;
+
+    pdf.setDrawColor(200, 200, 200);
+    pdf.rect(margin, yPosition - 5, pageWidth - 2 * margin, 40);
+    
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Nom du programme:', margin + 5, yPosition + 5);
+    pdf.setFont('helvetica', 'normal');
+    yPosition = addText(programData.name || 'Non défini', margin + 5, yPosition + 15, pageWidth - 2 * margin - 10, 12);
+    
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Description:', margin + 5, yPosition + 5);
+    pdf.setFont('helvetica', 'normal');
+    yPosition = addText(programData.description || 'Non définie', margin + 5, yPosition + 15, pageWidth - 2 * margin - 10, 12);
+
+    yPosition += 20;
+
+    // Custom AI Prompt
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('PROMPT PERSONNALISÉ', margin, yPosition);
+    yPosition += 15;
+
+    if (programData.customAiPrompt && programData.customAiPrompt.trim()) {
+      pdf.setDrawColor(59, 130, 246);
+      pdf.rect(margin, yPosition - 5, pageWidth - 2 * margin, 80);
+      
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'normal');
+      yPosition = addText(programData.customAiPrompt, margin + 5, yPosition + 5, pageWidth - 2 * margin - 10, 11);
+    } else {
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(128, 128, 128);
+      pdf.text('Aucun prompt personnalisé défini - Le prompt standard sera utilisé', margin, yPosition);
+      pdf.setTextColor(0, 0, 0);
+    }
+
+    yPosition += 25;
+
+    // Variables disponibles
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('VARIABLES DISPONIBLES', margin, yPosition);
+    yPosition += 15;
+
+    const variables = [
+      '{{program_name}} - Nom du programme',
+      '{{program_description}} - Description du programme',
+      '{{partner_name}} - Nom du partenaire',
+      '{{budget_range}} - Fourchette budgétaire du programme'
+    ];
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    variables.forEach(variable => {
+      pdf.text(`• ${variable}`, margin + 5, yPosition);
+      yPosition += 8;
+    });
+
+    yPosition += 10;
+
+    // Evaluation Criteria
+    if (programData.evaluationCriteria && programData.evaluationCriteria.length > 0) {
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('CRITÈRES D\'ÉVALUATION', margin, yPosition);
+      yPosition += 15;
+
+      programData.evaluationCriteria.forEach((criterion: any, index: number) => {
+        if (yPosition > 250) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${index + 1}. ${criterion.name}`, margin + 5, yPosition);
+        yPosition += 8;
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Description: ${criterion.description}`, margin + 10, yPosition);
+        yPosition += 6;
+        pdf.text(`Score max: ${criterion.maxScore} | Poids: ${criterion.weight}%`, margin + 10, yPosition);
+        yPosition += 12;
+      });
+    }
+
+    // Footer
+    const footerY = pdf.internal.pageSize.height - 20;
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(margin, footerY, pageWidth - margin, footerY);
+    
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Généré le ' + new Date().toLocaleDateString('fr-FR'), margin, footerY + 8);
+    pdf.text('Woluma-Flow - Configuration IA d\'évaluation', pageWidth - margin - 80, footerY + 8);
+
+    // Save the PDF
+    const fileName = `Prompt_IA_${(programData.name || 'Programme').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(fileName);
   };
 
   const getPartnerName = (partnerId: string) => {
@@ -706,6 +846,18 @@ const ProgramManagementPage: React.FC = () => {
                 </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Description</label>
+                    <div className="flex justify-end mb-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportPromptToPdf(values)}
+                        leftIcon={<Download className="h-4 w-4" />}
+                      >
+                        Exporter le prompt en PDF
+                      </Button>
+                    </div>
+                    
                     <Field
                       as="textarea"
                       name="description"
