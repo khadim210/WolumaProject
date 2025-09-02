@@ -34,6 +34,7 @@ import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
   Download,
   Lightbulb
   Lightbulb
+  Lightbulb
 
 const programSchema = Yup.object().shape({
   name: Yup.string().required('Nom requis'),
