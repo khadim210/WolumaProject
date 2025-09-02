@@ -31,7 +31,8 @@ import {
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
   Lightbulb,
-  Download
+  Download,
+  Lightbulb
 
 const programSchema = Yup.object().shape({
   name: Yup.string().required('Nom requis'),
