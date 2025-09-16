@@ -723,7 +723,6 @@ export class ProjectService {
         manually_submitted: updates.manually_submitted || false
       };
     }
-    }
     
     if (!supabase) {
       throw new Error('Supabase not available');
@@ -869,7 +868,6 @@ export class FormTemplateService {
         updated_at: new Date().toISOString()
       };
     }
-    }
     
     if (!supabase) {
       throw new Error('Supabase not available');
@@ -911,9 +909,7 @@ export class FormTemplateService {
 // Service d'authentification
 export class AuthService {
   static async signUp(email: string, password: string, userData: { name: string; role: string; organization?: string }) {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       throw new Error('Demo mode: Sign up not available. Use existing demo accounts.');
     }
     
@@ -943,9 +939,7 @@ export class AuthService {
   }
 
   static async signIn(email: string, password: string) {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Simulating sign in');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -991,9 +985,7 @@ export class AuthService {
   }
 
   static async signOut() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Simulating sign out');
       currentDemoUser = null;
       return;
@@ -1008,9 +1000,7 @@ export class AuthService {
   }
 
   static async getCurrentUser() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       return null; // Demo mode doesn't maintain auth state
     }
     
@@ -1023,9 +1013,7 @@ export class AuthService {
   }
 
   static async getCurrentUserProfile(): Promise<SupabaseUser | null> {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       return currentDemoUser;
     }
     
@@ -1058,9 +1046,7 @@ export class AuthService {
 // Utilitaires de migration
 export class MigrationService {
   static async runMigrations() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Skipping migrations');
       return true;
     }
@@ -1068,8 +1054,7 @@ export class MigrationService {
     try {
       console.log('🚀 Starting Supabase migration...');
       
-      const credentials = getSupabaseCredentials();
-      if (!credentials.url || !credentials.anonKey) {
+      if (!supabaseUrl || !supabaseAnonKey) {
         console.error('❌ Missing Supabase configuration');
         return false;
       }
@@ -1100,9 +1085,7 @@ export class MigrationService {
   }
 
   static async seedData() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Demo users already available');
       return true;
     }
