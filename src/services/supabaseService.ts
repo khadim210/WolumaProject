@@ -942,8 +942,7 @@ export class AuthService {
       return null;
     }
     
-    if (supabase === null) {
-    }
+    const { data: { user } } = await supabase.auth.getUser();
     return user;
   }
 
@@ -1104,7 +1103,7 @@ export class MigrationService {
 
   private static async createDemoUser(email: string, password: string, userData: { name: string; role: string; organization?: string }) {
     try {
-      // Vérifier d'abord si le profil utilisateur existe déjà
+      // First check if user profile already exists in our users table
       const { data: existingProfile } = await supabaseAdmin
         .from('users')
         .select('id, auth_user_id')
@@ -1116,7 +1115,9 @@ export class MigrationService {
         return;
       }
 
-      // Tenter de créer l'utilisateur d'authentification
+      let authUserId: string | null = null;
+
+      // Try to create the authentication user
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -1128,31 +1129,50 @@ export class MigrationService {
         email_confirm: true
       });
 
-      if (authError) {
-        // Si l'utilisateur existe déjà dans auth, essayer de le récupérer
-        if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
-          console.log(`Auth user already exists for ${email}, retrieving...`);
-          const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers();
-          const authUser = existingAuthUser.users.find(u => u.email === email);
-          
-          if (authUser) {
-            // Créer le profil utilisateur avec l'ID d'auth existant
-            const { error: profileError } = await supabaseAdmin
-              .from('users')
-              .insert([{
-                name: userData.name,
-                email: email,
-                role: userData.role as any,
-                organization: userData.organization || null,
-                auth_user_id: authUser.id,
-                is_active: true
-              }]);
+      if (authError && (authError.message.includes('already registered') || authError.message.includes('already exists'))) {
+        // User already exists in auth, get the existing user
+        console.log(`Auth user already exists for ${email}, retrieving...`);
+        const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const authUser = existingAuthUsers.users.find(u => u.email === email);
+        
+        if (authUser) {
+          authUserId = authUser.id;
+          console.log(`Found existing auth user ${email} with ID: ${authUserId}`);
+        } else {
+          console.error(`Could not find existing auth user for ${email}`);
+          return;
+        }
+      } else if (authError) {
+        console.error(`Error creating auth user ${email}:`, authError);
+        return;
+      } else if (authData.user) {
+        authUserId = authData.user.id;
+        console.log(`Created new auth user ${email} with ID: ${authUserId}`);
+      }
 
-            if (profileError) {
-              console.error(`Error creating profile for existing auth user ${email}:`, profileError);
-            } else {
-              console.log(`Profile created for existing auth user ${email}`);
-            }
+      // Create user profile if we have an auth user ID
+      if (authUserId) {
+        const { error: profileError } = await supabaseAdmin
+          .from('users')
+          .insert([{
+            name: userData.name,
+            email: email,
+            role: userData.role as any,
+            organization: userData.organization || null,
+            auth_user_id: authUserId,
+            is_active: true
+          }]);
+
+        if (profileError) {
+          console.error(`Error creating profile for ${email}:`, profileError);
+        } else {
+          console.log(`Successfully created profile for ${email}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error in createDemoUser for ${email}:`, error);
+    }
+  }
           }
           return;
         }
