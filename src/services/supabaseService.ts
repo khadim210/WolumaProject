@@ -60,6 +60,9 @@ const demoCredentials = {
   'submitter@example.com': 'password'
 };
 
+// Demo session management
+let currentDemoUser: SupabaseUser | null = null;
+
 // Vérifier que les variables d'environnement sont définies (sauf en mode demo)
 if (!isDemoMode && (!supabaseUrl || !supabaseAnonKey)) {
   console.error('❌ Missing Supabase configuration. Please check your .env file.');
@@ -620,6 +623,9 @@ export class AuthService {
       if (demoCredentials[email as keyof typeof demoCredentials] === password) {
         const user = demoUsers.find(u => u.email === email);
         if (user) {
+          // Store the demo user profile for getCurrentUserProfile
+          currentDemoUser = user;
+          
           return {
             user: {
               id: user.auth_user_id,
@@ -657,6 +663,7 @@ export class AuthService {
   static async signOut() {
     if (isDemoMode) {
       console.log('🎭 Demo mode: Simulating sign out');
+      currentDemoUser = null;
       return;
     }
     
@@ -683,7 +690,7 @@ export class AuthService {
 
   static async getCurrentUserProfile(): Promise<SupabaseUser | null> {
     if (isDemoMode) {
-      return null; // Demo mode doesn't maintain auth state
+      return currentDemoUser;
     }
     
     const user = await this.getCurrentUser();
