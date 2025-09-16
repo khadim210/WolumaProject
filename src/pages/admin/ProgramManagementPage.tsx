@@ -81,6 +81,7 @@ const ProgramManagementPage: React.FC = () => {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ type: 'program' | 'partner'; id: string } | null>(null);
   const [expandedProgram, setExpandedProgram] = useState<string | null>(null);
+  const [formData, setFormData] = useState<any>(null);
 
   const getTotalWeight = (criteria: any[]) => {
     return (criteria || []).reduce((total, criterion) => total + (parseInt(criterion.weight) || 0), 0);
@@ -899,8 +900,12 @@ const ProgramManagementPage: React.FC = () => {
                   endDate: editingProgram.endDate.toISOString().split('T')[0],
                   managerId: editingProgram.managerId || '',
                   isActive: editingProgram.isActive,
-                  selectionCriteria: editingProgram.selectionCriteria || [],
-                  evaluationCriteria: editingProgram.evaluationCriteria || [],
+                  selectionCriteria: editingProgram.selectionCriteria || [
+                    { id: '1', name: '', type: 'text', required: false, options: [] }
+                  ],
+                  evaluationCriteria: editingProgram.evaluationCriteria || [
+                    { id: '1', name: '', weight: 0, maxScore: 100 }
+                  ]
                 }}
                 validationSchema={programSchema}
                 onSubmit={handleUpdateProgram}
