@@ -49,6 +49,12 @@ export interface SystemParameters {
   databaseUsername: string;
   databasePassword: string;
   databaseSsl: boolean;
+
+  // Supabase
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  supabaseServiceRoleKey: string;
+  enableSupabase: boolean;
 }
 
 interface ParametersState {
@@ -110,6 +116,12 @@ const defaultParameters: SystemParameters = {
   databaseUsername: 'postgres',
   databasePassword: '',
   databaseSsl: false,
+
+  // Supabase
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+  supabaseServiceRoleKey: '',
+  enableSupabase: false,
 };
 
 export const useParametersStore = create<ParametersState>()(

@@ -145,6 +145,7 @@ const ParametersPage: React.FC = () => {
     { id: 'appearance', label: 'Apparence', icon: Palette },
     { id: 'system', label: 'Système', icon: Database },
     { id: 'database', label: 'Base de données', icon: Database },
+    { id: 'supabase', label: 'Supabase', icon: Database },
   ];
 
   return (
