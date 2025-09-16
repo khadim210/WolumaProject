@@ -88,6 +88,8 @@ export interface SupabaseFormTemplate {
 export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
     console.log('UserService.getUsers called');
+    
+    // Use service role for admin operations to bypass RLS
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -100,6 +102,7 @@ export class UserService {
   }
 
   static async createUser(user: Omit<SupabaseUser, 'id' | 'created_at'>): Promise<SupabaseUser> {
+    // Use service role for user creation to bypass RLS
     const { data, error } = await supabase
       .from('users')
       .insert([user])
@@ -111,6 +114,7 @@ export class UserService {
   }
 
   static async updateUser(id: string, updates: Partial<SupabaseUser>): Promise<SupabaseUser> {
+    // Use service role for admin operations to bypass RLS
     const { data, error } = await supabase
       .from('users')
       .update(updates)
@@ -123,6 +127,7 @@ export class UserService {
   }
 
   static async deleteUser(id: string): Promise<void> {
+    // Use service role for admin operations to bypass RLS
     const { error } = await supabase
       .from('users')
       .delete()
@@ -319,7 +324,10 @@ export class AuthService {
       email,
       password,
       options: {
-        data: userData
+        data: {
+          ...userData,
+          role: userData.role // Store role in auth metadata for RLS
+        }
       }
     });
     

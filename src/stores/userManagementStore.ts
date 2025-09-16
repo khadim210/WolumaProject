@@ -66,8 +66,12 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   addUser: async (userData) => {
     set({ isLoading: true, error: null });
     try {
-      // First create the auth user
-      const authUser = await AuthService.signUp(userData.email, userData.password);
+      // First create the auth user with role in metadata
+      const authUser = await AuthService.signUp(userData.email, userData.password, {
+        name: userData.name,
+        role: userData.role,
+        organization: userData.organization
+      });
       
       // Then create the profile user with the auth_user_id
       const supabaseUser = await UserService.createUser({
