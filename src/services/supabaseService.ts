@@ -325,8 +325,9 @@ export class AuthService {
       password,
       options: {
         data: {
-          ...userData,
-          role: userData.role // Store role in auth metadata for RLS
+          name: userData.name,
+          role: userData.role,
+          organization: userData.organization || null
         }
       }
     });
