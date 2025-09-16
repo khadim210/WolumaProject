@@ -121,7 +121,7 @@ const defaultParameters: SystemParameters = {
   supabaseUrl: '',
   supabaseAnonKey: '',
   supabaseServiceRoleKey: '',
-  enableSupabase: false,
+  enableSupabase: true,
 };
 
 export const useParametersStore = create<ParametersState>()(
