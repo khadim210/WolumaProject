@@ -909,7 +909,9 @@ export class FormTemplateService {
 // Service d'authentification
 export class AuthService {
   static async signUp(email: string, password: string, userData: { name: string; role: string; organization?: string }) {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       throw new Error('Demo mode: Sign up not available. Use existing demo accounts.');
     }
     
@@ -939,7 +941,9 @@ export class AuthService {
   }
 
   static async signIn(email: string, password: string) {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Simulating sign in');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -985,7 +989,9 @@ export class AuthService {
   }
 
   static async signOut() {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Simulating sign out');
       currentDemoUser = null;
       return;
@@ -1000,7 +1006,9 @@ export class AuthService {
   }
 
   static async getCurrentUser() {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       return null; // Demo mode doesn't maintain auth state
     }
     
@@ -1013,7 +1021,9 @@ export class AuthService {
   }
 
   static async getCurrentUserProfile(): Promise<SupabaseUser | null> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       return currentDemoUser;
     }
     
