@@ -53,6 +53,7 @@ const UserManagementPage: React.FC = () => {
   const { 
     users, 
     isLoading, 
+    error,
     fetchUsers, 
     addUser, 
     updateUser, 
