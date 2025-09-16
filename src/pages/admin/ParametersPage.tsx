@@ -148,6 +148,7 @@ const ParametersPage: React.FC = () => {
     { id: 'appearance', label: 'Apparence', icon: <Palette className="h-4 w-4" /> },
     { id: 'system', label: 'Système', icon: <Server className="h-4 w-4" /> },
     { id: 'database', label: 'Base de données', icon: <Database className="h-4 w-4" /> },
+    { id: 'supabase', label: 'Supabase', icon: <Database className="h-4 w-4" /> },
   ];
 
   return (
@@ -480,6 +481,140 @@ const ParametersPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'supabase' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuration Supabase</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="flex items-center mb-4">
+                      <input
+                        type="checkbox"
+                        checked={formData.enableSupabase}
+                        onChange={(e) => handleInputChange('enableSupabase', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Activer Supabase</span>
+                    </label>
+                  </div>
+
+                  {formData.enableSupabase && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          URL Supabase
+                        </label>
+                        <input
+                          type="url"
+                          value={formData.supabaseUrl}
+                          onChange={(e) => handleInputChange('supabaseUrl', e.target.value)}
+                          placeholder="https://votre-projet.supabase.co"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          URL de votre projet Supabase (disponible dans Settings → API)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé publique anonyme (anon key)
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.supabaseAnonKey}
+                          onChange={(e) => handleInputChange('supabaseAnonKey', e.target.value)}
+                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Clé publique pour les opérations côté client
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé service role (optionnelle)
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.supabaseServiceRoleKey}
+                          onChange={(e) => handleInputChange('supabaseServiceRoleKey', e.target.value)}
+                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Clé secrète pour les opérations administratives (bypass RLS)
+                        </p>
+                      </div>
+
+                      <div className="border-t border-gray-200 pt-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Test de connexion Supabase</h3>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div>
+                              <h4 className="font-medium text-blue-900">Test de connexion</h4>
+                              <p className="text-sm text-blue-700">Vérifiez que la connexion à Supabase fonctionne</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleTestConnection}
+                              isLoading={isTestingConnection}
+                              leftIcon={<TestTube className="h-4 w-4" />}
+                            >
+                              Tester
+                            </Button>
+                          </div>
+
+                          {connectionTestResult && (
+                            <div className={`p-4 rounded-lg border ${
+                              connectionTestResult.success 
+                                ? 'bg-success-50 border-success-200 text-success-800' 
+                                : 'bg-error-50 border-error-200 text-error-800'
+                            }`}>
+                              <div className="flex items-center">
+                                {connectionTestResult.success ? (
+                                  <CheckCircle className="h-5 w-5 mr-2" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 mr-2" />
+                                )}
+                                <span className="text-sm font-medium">
+                                  {connectionTestResult.message}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex">
+                          <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2 mt-0.5" />
+                          <div>
+                            <h4 className="text-sm font-medium text-yellow-800">Configuration Supabase</h4>
+                            <div className="mt-2 text-sm text-yellow-700">
+                              <p className="mb-2">Pour configurer Supabase :</p>
+                              <ol className="list-decimal list-inside space-y-1">
+                                <li>Créez un projet sur <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
+                                <li>Allez dans Settings → API</li>
+                                <li>Copiez l'URL du projet et les clés API</li>
+                                <li>Collez-les dans les champs ci-dessus</li>
+                                <li>Testez la connexion</li>
+                              </ol>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
