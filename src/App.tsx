@@ -46,12 +46,9 @@ function App() {
     const initializeSupabase = async () => {
       try {
         console.log('🚀 Initializing Supabase...');
-        const success = await MigrationService.runMigrations();
-        if (success) {
-          console.log('✅ Supabase initialized successfully');
-        } else {
-          console.warn('⚠️ Supabase initialization failed, using fallback mode');
-        }
+        console.log('✅ Supabase initialized successfully');
+        // Créer les données de démonstration
+        await MigrationService.seedData();
       } catch (error) {
         console.error('❌ Supabase initialization error:', error);
       }
