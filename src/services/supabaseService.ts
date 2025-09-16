@@ -1,17 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
-const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+// Vérifier que les variables d'environnement sont définies
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase configuration. Please check your .env file.');
+  console.error('Required variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+}
+
+if (!supabaseServiceRoleKey) {
+  console.warn('⚠️ Missing VITE_SUPABASE_SERVICE_ROLE_KEY. Admin operations will be limited.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+export const supabaseAdmin = supabaseServiceRoleKey ? createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
   }
-});
+}) : null;
 
 // Types pour les données Supabase
 export interface SupabaseUser {
@@ -96,6 +106,11 @@ export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
     console.log('UserService.getUsers called');
     
+    if (!supabaseAdmin) {
+      console.error('❌ Supabase admin client not available. Check SERVICE_ROLE_KEY.');
+      throw new Error('Admin operations not available');
+    }
+    
     // Use admin client to bypass RLS
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -109,6 +124,10 @@ export class UserService {
   }
 
   static async createUser(user: Omit<SupabaseUser, 'id' | 'created_at'>): Promise<SupabaseUser> {
+    if (!supabaseAdmin) {
+      throw new Error('Admin operations not available');
+    }
+    
     // Use admin client to bypass RLS
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -121,6 +140,10 @@ export class UserService {
   }
 
   static async updateUser(id: string, updates: Partial<SupabaseUser>): Promise<SupabaseUser> {
+    if (!supabaseAdmin) {
+      throw new Error('Admin operations not available');
+    }
+    
     // Use admin client to bypass RLS
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -134,6 +157,10 @@ export class UserService {
   }
 
   static async deleteUser(id: string): Promise<void> {
+    if (!supabaseAdmin) {
+      throw new Error('Admin operations not available');
+    }
+    
     // Use admin client to bypass RLS
     const { error } = await supabaseAdmin
       .from('users')
@@ -371,6 +398,18 @@ export class AuthService {
   static async getCurrentUserProfile(): Promise<SupabaseUser | null> {
     const user = await this.getCurrentUser();
     if (!user) return null;
+    
+    if (!supabaseAdmin) {
+      console.warn('⚠️ Using regular client for user profile (limited access)');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', user.id)
+        .single();
+      
+      if (error) return null;
+      return data;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -388,6 +427,16 @@ export class MigrationService {
   static async runMigrations() {
     try {
       console.log('🚀 Starting Supabase migration...');
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.error('❌ Missing Supabase configuration');
+        return false;
+      }
+      
+      if (!supabaseAdmin) {
+        console.warn('⚠️ Running in limited mode without admin access');
+        return true; // Continue without admin operations
+      }
       
       // Vérifier la connexion
       const { data, error } = await supabaseAdmin
@@ -412,6 +461,11 @@ export class MigrationService {
   static async seedData() {
     try {
       console.log('🌱 Seeding data...');
+      
+      if (!supabaseAdmin) {
+        console.warn('⚠️ Cannot seed data without admin access');
+        return false;
+      }
       
       // Créer les utilisateurs de démonstration
       const demoUsers = [
