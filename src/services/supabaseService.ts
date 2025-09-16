@@ -332,7 +332,12 @@ export class AuthService {
       }
     });
     
-    if (error) throw error;
+    if (error) {
+      if (error.message === 'User already registered') {
+        throw new Error('Un utilisateur avec cette adresse email existe déjà.');
+      }
+      throw error;
+    }
     return data;
   }
 

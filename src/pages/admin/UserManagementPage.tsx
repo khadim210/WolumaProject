@@ -82,6 +82,7 @@ const UserManagementPage: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [showPartnerAssignment, setShowPartnerAssignment] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -105,6 +106,7 @@ const UserManagementPage: React.FC = () => {
   });
 
   const handleCreateUser = async (values: UserFormValues, { resetForm, setSubmitting }: any) => {
+    setCreateUserError(null);
     try {
       await addUser({
         name: values.name,
@@ -117,6 +119,7 @@ const UserManagementPage: React.FC = () => {
       resetForm();
       setShowCreateModal(false);
     } catch (error) {
+      setCreateUserError(error instanceof Error ? error.message : 'Une erreur est survenue lors de la création de l\'utilisateur');
       console.error('Error creating user:', error);
     } finally {
       setSubmitting(false);
@@ -407,6 +410,11 @@ const UserManagementPage: React.FC = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Créer un nouvel utilisateur</h3>
+              {createUserError && (
+                <div className="mb-4 p-3 bg-error-100 border border-error-300 text-error-700 rounded-md">
+                  {createUserError}
+                </div>
+              )}
               <Formik
                 initialValues={{
                   name: '',
@@ -493,7 +501,10 @@ const UserManagementPage: React.FC = () => {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setShowCreateModal(false)}
+                        onClick={() => {
+                          setShowCreateModal(false);
+                          setCreateUserError(null);
+                        }}
                       >
                         Annuler
                       </Button>
