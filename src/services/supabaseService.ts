@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Check if we're in demo mode
-const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+let isDemoModeGlobal = false;
 
 // Function to check if Supabase is enabled from parameters
 function getSupabaseEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     const stored = localStorage.getItem('parameters-storage');
     if (stored) {
@@ -19,6 +20,7 @@ function getSupabaseEnabled(): boolean {
 
 // Function to get Supabase configuration from parameters
 function getSupabaseConfig() {
+  if (typeof window === 'undefined') return null;
   try {
     const stored = localStorage.getItem('parameters-storage');
     if (stored) {
@@ -36,6 +38,11 @@ function getSupabaseConfig() {
     console.error('Error reading Supabase config:', error);
   }
   return null;
+}
+
+// Initialize demo mode safely
+if (typeof window !== 'undefined') {
+  isDemoModeGlobal = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
 }
 
 // Configuration Supabase
@@ -121,18 +128,18 @@ const demoCredentials = {
 let currentDemoUser: SupabaseUser | null = null;
 
 // Vérifier que les variables d'environnement sont définies (sauf en mode demo)
-if (!isDemoMode && (!supabaseUrl || !supabaseAnonKey)) {
+if (!isDemoModeGlobal && (!supabaseUrl || !supabaseAnonKey)) {
   console.error('❌ Missing Supabase configuration. Please check your .env file.');
   console.error('Required variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
   console.log('💡 Tip: Set VITE_DEMO_MODE=true to use demo mode without Supabase');
 }
 
-if (!isDemoMode && !supabaseServiceRoleKey) {
+if (!isDemoModeGlobal && !supabaseServiceRoleKey) {
   console.warn('⚠️ Missing VITE_SUPABASE_SERVICE_ROLE_KEY. Admin operations will be limited.');
 }
 
-export const supabase = isDemoMode ? null : createClient(supabaseUrl, supabaseAnonKey);
-export const supabaseAdmin = (!isDemoMode && supabaseServiceRoleKey) ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+export const supabase = isDemoModeGlobal ? null : createClient(supabaseUrl, supabaseAnonKey);
+export const supabaseAdmin = (!isDemoModeGlobal && supabaseServiceRoleKey) ? createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
@@ -220,7 +227,9 @@ export interface SupabaseFormTemplate {
 // Service pour les utilisateurs
 export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Returning demo users');
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
       return [...demoUsers];
@@ -246,7 +255,9 @@ export class UserService {
   }
 
   static async createUser(user: Omit<SupabaseUser, 'id' | 'created_at'>): Promise<SupabaseUser> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Creating demo user');
       await new Promise(resolve => setTimeout(resolve, 500));
       const newUser: SupabaseUser = {
@@ -274,7 +285,9 @@ export class UserService {
   }
 
   static async updateUser(id: string, updates: Partial<SupabaseUser>): Promise<SupabaseUser> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Updating demo user');
       await new Promise(resolve => setTimeout(resolve, 500));
       const userIndex = demoUsers.findIndex(u => u.id === id);
@@ -300,7 +313,9 @@ export class UserService {
   }
 
   static async deleteUser(id: string): Promise<void> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Deleting demo user');
       await new Promise(resolve => setTimeout(resolve, 500));
       const userIndex = demoUsers.findIndex(u => u.id === id);
@@ -764,7 +779,9 @@ export class ProjectService {
 // Service pour les modèles de formulaires
 export class FormTemplateService {
   static async getFormTemplates(): Promise<SupabaseFormTemplate[]> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Returning empty form templates list');
       await new Promise(resolve => setTimeout(resolve, 300));
       return [];
@@ -784,7 +801,9 @@ export class FormTemplateService {
   }
 
   static async createFormTemplate(template: Omit<SupabaseFormTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<SupabaseFormTemplate> {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       throw new Error('Demo mode: Form template creation not implemented');
     }
     
@@ -800,5 +819,240 @@ export class FormTemplateService {
     
     if (error) throw error;
     return data;
+  }
+}
+
+// Service d'authentification
+export class AuthService {
+  static async signIn(email: string, password: string): Promise<{ user: any; session: any }> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      console.log('🎭 Demo mode: Signing in user', email);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (demoCredentials[email as keyof typeof demoCredentials] === password) {
+        const user = demoUsers.find(u => u.email === email);
+        if (user) {
+          currentDemoUser = user;
+          return {
+            user: { id: user.auth_user_id, email: user.email },
+            session: { access_token: 'demo-token', user: { id: user.auth_user_id, email: user.email } }
+          };
+        }
+      }
+      throw new Error('Invalid credentials');
+    }
+    
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  static async signUp(email: string, password: string, userData: { name: string; organization?: string }): Promise<{ user: any; session: any }> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      console.log('🎭 Demo mode: Signing up user', email);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newUser: SupabaseUser = {
+        id: `demo-${Date.now()}`,
+        name: userData.name,
+        email,
+        role: 'submitter',
+        organization: userData.organization,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        auth_user_id: `auth-demo-${Date.now()}`
+      };
+      
+      demoUsers.push(newUser);
+      currentDemoUser = newUser;
+      
+      return {
+        user: { id: newUser.auth_user_id, email: newUser.email },
+        session: { access_token: 'demo-token', user: { id: newUser.auth_user_id, email: newUser.email } }
+      };
+    }
+    
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  static async signOut(): Promise<void> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      console.log('🎭 Demo mode: Signing out user');
+      currentDemoUser = null;
+      return;
+    }
+    
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+    
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  }
+
+  static async getCurrentUser(): Promise<any> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      return currentDemoUser ? { id: currentDemoUser.auth_user_id, email: currentDemoUser.email } : null;
+    }
+    
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  }
+
+  static async getCurrentUserProfile(): Promise<SupabaseUser | null> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      return currentDemoUser;
+    }
+    
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+}
+
+// Service de migration et seeding
+export class MigrationService {
+  static async seedData(): Promise<void> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      console.log('🎭 Demo mode: Seeding not required');
+      return;
+    }
+    
+    if (supabaseAdmin === null) {
+      console.log('⚠️ Admin client not available, skipping seeding');
+      return;
+    }
+    
+    console.log('🌱 Starting data seeding...');
+    
+    try {
+      // Create demo users
+      for (const user of demoUsers) {
+        await this.createDemoUser(user);
+      }
+      
+      console.log('✅ Data seeding completed successfully');
+    } catch (error) {
+      console.error('❌ Error during data seeding:', error);
+      throw error;
+    }
+  }
+
+  private static async createDemoUser(user: SupabaseUser): Promise<void> {
+    if (supabaseAdmin === null) {
+      throw new Error('Admin client not available');
+    }
+    
+    try {
+      // Check if profile already exists
+      const { data: existingProfile } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+      
+      if (existingProfile) {
+        console.log(`✅ User profile already exists for ${user.email}`);
+        return;
+      }
+      
+      let authUserId: string;
+      
+      try {
+        // Try to create auth user
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: user.email,
+          password: 'password',
+          email_confirm: true
+        });
+        
+        if (authError) {
+          if (authError.message.includes('already been registered')) {
+            // User exists, get the existing user
+            const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+            const existingUser = existingUsers.users.find(u => u.email === user.email);
+            if (existingUser) {
+              authUserId = existingUser.id;
+              console.log(`✅ Using existing auth user for ${user.email}`);
+            } else {
+              throw new Error(`Could not find existing user for ${user.email}`);
+            }
+          } else {
+            throw authError;
+          }
+        } else {
+          authUserId = authData.user.id;
+          console.log(`✅ Created new auth user for ${user.email}`);
+        }
+        
+        // Create user profile
+        const { error: profileError } = await supabaseAdmin
+          .from('users')
+          .insert([{
+            ...user,
+            auth_user_id: authUserId
+          }]);
+        
+        if (profileError) {
+          console.error(`❌ Error creating profile for ${user.email}:`, profileError);
+          throw profileError;
+        }
+        
+        console.log(`✅ Created user profile for ${user.email}`);
+        
+      } catch (error) {
+        console.error(`❌ Error creating demo user ${user.email}:`, error);
+        throw error;
+      }
+    } catch (error) {
+      console.error(`❌ Error creating demo user ${user.email}:`, error);
+      throw error;
+    }
   }
 }
