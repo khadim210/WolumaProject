@@ -40,12 +40,25 @@ const userSchema = Yup.object().shape({
   }),
 });
 
+const createUserSchema = Yup.object().shape({
+  name: Yup.string().required('Nom requis'),
+  email: Yup.string().email('Email invalide').required('Email requis'),
+  password: Yup.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères').required('Mot de passe requis'),
+  role: Yup.string().required('Rôle requis'),
+  organization: Yup.string().when('role', {
+    is: (val: string) => val === 'partner' || val === 'submitter',
+    then: () => Yup.string().required('Organisation requise'),
+    otherwise: () => Yup.string().optional(),
+  }),
+});
+
 interface UserFormValues {
   name: string;
   email: string;
   role: UserRole;
   organization: string;
   isActive: boolean;
+  password?: string;
 }
 
 const UserManagementPage: React.FC = () => {
@@ -96,6 +109,7 @@ const UserManagementPage: React.FC = () => {
       await addUser({
         name: values.name,
         email: values.email,
+        password: values.password!,
         role: values.role,
         organization: values.organization,
         isActive: values.isActive,
@@ -397,11 +411,12 @@ const UserManagementPage: React.FC = () => {
                 initialValues={{
                   name: '',
                   email: '',
+                  password: '',
                   role: 'submitter' as UserRole,
                   organization: '',
                   isActive: true,
                 }}
-                validationSchema={userSchema}
+                validationSchema={createUserSchema}
                 onSubmit={handleCreateUser}
               >
                 {({ values, isSubmitting }) => (
@@ -424,6 +439,16 @@ const UserManagementPage: React.FC = () => {
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       />
                       <ErrorMessage name="email" component="div" className="mt-1 text-sm text-error-600" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+                      <Field
+                        name="password"
+                        type="password"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                      <ErrorMessage name="password" component="div" className="mt-1 text-sm text-error-600" />
                     </div>
 
                     <div>

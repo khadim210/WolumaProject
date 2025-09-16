@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { UserService } from '../services/supabaseService';
+import { UserService, AuthService } from '../services/supabaseService';
 import type { SupabaseUser } from '../services/supabaseService';
 
 export type UserRole = 'admin' | 'partner' | 'manager' | 'submitter';
@@ -33,7 +33,7 @@ interface UserManagementState {
   error: string | null;
   fetchUsers: () => Promise<void>;
   getUser: (id: string) => User | undefined;
-  addUser: (user: Omit<User, 'id' | 'createdAt'>) => Promise<User>;
+  addUser: (user: Omit<User, 'id' | 'createdAt'> & { password: string }) => Promise<User>;
   updateUser: (id: string, updates: Partial<User>) => Promise<User | null>;
   deleteUser: (id: string) => Promise<boolean>;
   toggleUserStatus: (id: string) => Promise<boolean>;
@@ -66,12 +66,17 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   addUser: async (userData) => {
     set({ isLoading: true, error: null });
     try {
+      // First create the auth user
+      const authUser = await AuthService.signUp(userData.email, userData.password);
+      
+      // Then create the profile user with the auth_user_id
       const supabaseUser = await UserService.createUser({
         name: userData.name,
         email: userData.email,
         role: userData.role,
         organization: userData.organization,
-        is_active: userData.isActive
+        is_active: userData.isActive,
+        auth_user_id: authUser.user?.id
       });
       
       const newUser = convertSupabaseUser(supabaseUser);
