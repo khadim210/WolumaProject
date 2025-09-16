@@ -1056,7 +1056,9 @@ export class AuthService {
 // Utilitaires de migration
 export class MigrationService {
   static async runMigrations() {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Skipping migrations');
       return true;
     }
@@ -1064,7 +1066,8 @@ export class MigrationService {
     try {
       console.log('🚀 Starting Supabase migration...');
       
-      if (!supabaseUrl || !supabaseAnonKey) {
+      const credentials = getSupabaseCredentials();
+      if (!credentials.url || !credentials.anonKey) {
         console.error('❌ Missing Supabase configuration');
         return false;
       }
@@ -1095,7 +1098,9 @@ export class MigrationService {
   }
 
   static async seedData() {
-    if (isDemoMode) {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
       console.log('🎭 Demo mode: Demo users already available');
       return true;
     }
