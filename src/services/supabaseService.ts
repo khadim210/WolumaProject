@@ -228,7 +228,7 @@ export class UserService {
     
     console.log('UserService.getUsers called');
     
-    if (!supabaseAdmin) {
+    if (supabaseAdmin === null) {
       console.error('❌ Supabase admin client not available. Check SERVICE_ROLE_KEY.');
       throw new Error('Admin operations not available');
     }
@@ -258,7 +258,7 @@ export class UserService {
       return newUser;
     }
     
-    if (!supabaseAdmin) {
+    if (supabaseAdmin === null) {
       throw new Error('Admin operations not available');
     }
     
@@ -283,7 +283,7 @@ export class UserService {
       return demoUsers[userIndex];
     }
     
-    if (!supabaseAdmin) {
+    if (supabaseAdmin === null) {
       throw new Error('Admin operations not available');
     }
     
@@ -309,7 +309,7 @@ export class UserService {
       return;
     }
     
-    if (!supabaseAdmin) {
+    if (supabaseAdmin === null) {
       throw new Error('Admin operations not available');
     }
     
