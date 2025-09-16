@@ -845,6 +845,175 @@ const ParametersPage: React.FC = () => {
                         </div>
                       </>
                     )}
+
+                    {activeTab === 'supabase' && (
+                      <>
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex">
+                            <Database className="h-5 w-5 text-blue-400" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">Configuration Supabase</h3>
+                              <p className="mt-1 text-sm text-blue-700">
+                                Configurez votre connexion à Supabase pour utiliser une base de données cloud moderne avec authentification intégrée.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center mb-4">
+                            <Field
+                              name="enableSupabase"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900 font-medium">Activer Supabase</span>
+                          </label>
+                          <p className="text-sm text-gray-500 mb-6">
+                            Activez cette option pour utiliser Supabase comme base de données principale
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">URL du projet Supabase</label>
+                          <Field
+                            name="supabaseUrl"
+                            type="url"
+                            disabled={!values.enableSupabase}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="https://votre-projet.supabase.co"
+                          />
+                          <p className="mt-1 text-sm text-gray-500">
+                            URL de votre projet Supabase (disponible dans les paramètres du projet)
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Clé publique anonyme (anon key)</label>
+                          <Field
+                            name="supabaseAnonKey"
+                            type="password"
+                            disabled={!values.enableSupabase}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          />
+                          <p className="mt-1 text-sm text-gray-500">
+                            Clé publique pour l'accès client (safe pour le frontend)
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Clé de service (service_role key)</label>
+                          <Field
+                            name="supabaseServiceRoleKey"
+                            type="password"
+                            disabled={!values.enableSupabase}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          />
+                          <p className="mt-1 text-sm text-gray-500">
+                            Clé de service pour les opérations administratives (à garder secrète)
+                          </p>
+                        </div>
+
+                        {!values.enableSupabase && (
+                          <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                            <div className="flex">
+                              <Database className="h-5 w-5 text-gray-400" />
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-gray-800">Supabase désactivé</h3>
+                                <p className="mt-1 text-sm text-gray-700">
+                                  L'application utilise actuellement la configuration de base de données standard. 
+                                  Activez Supabase pour bénéficier d'une solution cloud complète.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="border-t border-gray-200 pt-6">
+                          <h4 className="text-lg font-medium text-gray-900 mb-4">Actions Supabase</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                              <div>
+                                <h5 className="font-medium text-blue-900">Tester la connexion Supabase</h5>
+                                <p className="text-sm text-blue-700">
+                                  Vérifier que les paramètres de connexion Supabase sont corrects
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={!values.enableSupabase || !values.supabaseUrl || !values.supabaseAnonKey}
+                                onClick={() => {
+                                  // TODO: Implémenter le test de connexion Supabase
+                                  alert('Test de connexion Supabase - À implémenter');
+                                }}
+                              >
+                                Tester
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                              <div>
+                                <h5 className="font-medium text-green-900">Initialiser les tables Supabase</h5>
+                                <p className="text-sm text-green-700">
+                                  Créer automatiquement toutes les tables nécessaires dans Supabase
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="success"
+                                size="sm"
+                                disabled={!values.enableSupabase || !values.supabaseUrl || !values.supabaseServiceRoleKey}
+                                onClick={() => {
+                                  // TODO: Implémenter l'initialisation des tables Supabase
+                                  alert('Initialisation des tables Supabase - À implémenter');
+                                }}
+                              >
+                                Initialiser
+                              </Button>
+                            </div>
+
+                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <div className="flex">
+                                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-yellow-800">Informations importantes</h3>
+                                  <div className="mt-2 text-sm text-yellow-700">
+                                    <ul className="list-disc list-inside space-y-1">
+                                      <li>La clé de service donne un accès administrateur complet</li>
+                                      <li>Ne partagez jamais votre service_role key</li>
+                                      <li>Utilisez les Row Level Security (RLS) policies dans Supabase</li>
+                                      <li>Sauvegardez régulièrement vos données</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex">
+                                <Database className="h-5 w-5 text-blue-400" />
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-blue-800">Comment obtenir vos clés Supabase</h3>
+                                  <div className="mt-2 text-sm text-blue-700">
+                                    <ol className="list-decimal list-inside space-y-1">
+                                      <li>Connectez-vous à <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
+                                      <li>Sélectionnez votre projet</li>
+                                      <li>Allez dans Settings → API</li>
+                                      <li>Copiez l'URL et les clés API</li>
+                                    </ol>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                   
                   <CardFooter className="bg-gray-50 border-t border-gray-200 flex justify-end">
