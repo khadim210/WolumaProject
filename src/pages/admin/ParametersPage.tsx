@@ -60,6 +60,10 @@ const ParametersPage: React.FC = () => {
     setIsSaving(true);
     try {
       await updateParameters(formData);
+      // Force refresh of services when Supabase is enabled
+      if (formData.enableSupabase) {
+        window.location.reload();
+      }
     } catch (error) {
       console.error('Error saving parameters:', error);
     } finally {
@@ -173,7 +177,7 @@ const ParametersPage: React.FC = () => {
             isLoading={isSaving}
             leftIcon={<Save className="h-4 w-4" />}
           >
-            Enregistrer
+            {formData.enableSupabase ? 'Activer Supabase' : 'Enregistrer'}
           </Button>
         </div>
       </div>
