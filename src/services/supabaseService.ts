@@ -905,7 +905,7 @@ export class AuthService {
       throw new Error('Invalid login credentials');
     }
     
-    if (supabase === null) {
+    if (!supabase) {
       throw new Error('Supabase not available');
     }
     
@@ -942,7 +942,8 @@ export class AuthService {
       return null;
     }
     
-    const { data: { user } } = await supabase.auth.getUser();
+    if (supabase === null) {
+    }
     return user;
   }
 
