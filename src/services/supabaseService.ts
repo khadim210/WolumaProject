@@ -346,7 +346,7 @@ export class PartnerService {
       ];
     }
     
-    if (supabase === null) {
+    if (!supabase) {
       throw new Error('Supabase not available');
     }
     
@@ -905,7 +905,7 @@ export class AuthService {
       throw new Error('Invalid login credentials');
     }
     
-    if (!supabase) {
+    if (supabase === null) {
       throw new Error('Supabase not available');
     }
     
