@@ -764,50 +764,10 @@ export class ProjectService {
 // Service pour les modèles de formulaires
 export class FormTemplateService {
   static async getFormTemplates(): Promise<SupabaseFormTemplate[]> {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
-      console.log('🎭 Demo mode: Returning demo form templates list');
+    if (isDemoMode) {
+      console.log('🎭 Demo mode: Returning empty form templates list');
       await new Promise(resolve => setTimeout(resolve, 300));
-      return [
-        {
-          id: 'demo-template-1',
-          name: 'Formulaire Standard de Soumission',
-          description: 'Modèle de formulaire standard pour la soumission de projets',
-          fields: [
-            {
-              id: 'project_summary',
-              type: 'textarea',
-              label: 'Résumé du projet',
-              name: 'project_summary',
-              required: true,
-              placeholder: 'Décrivez brièvement votre projet...',
-              helpText: 'Maximum 500 caractères'
-            },
-            {
-              id: 'target_market',
-              type: 'select',
-              label: 'Marché cible',
-              name: 'target_market',
-              required: true,
-              options: ['B2B', 'B2C', 'B2G', 'Mixte'],
-              helpText: 'Sélectionnez votre marché principal'
-            },
-            {
-              id: 'team_size',
-              type: 'number',
-              label: 'Taille de l\'équipe',
-              name: 'team_size',
-              required: true,
-              placeholder: '5',
-              helpText: 'Nombre de personnes dans l\'équipe projet'
-            }
-          ],
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
+      return [];
     }
     
     if (!supabase) {
@@ -824,18 +784,8 @@ export class FormTemplateService {
   }
 
   static async createFormTemplate(template: Omit<SupabaseFormTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<SupabaseFormTemplate> {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
-      console.log('🎭 Demo mode: Creating demo form template');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const now = new Date().toISOString();
-      return {
-        ...template,
-        id: `demo-template-${Date.now()}`,
-        created_at: now,
-        updated_at: now
-      };
+    if (isDemoMode) {
+      throw new Error('Demo mode: Form template creation not implemented');
     }
     
     if (!supabase) {
@@ -853,20 +803,8 @@ export class FormTemplateService {
   }
 
   static async updateFormTemplate(id: string, updates: Partial<SupabaseFormTemplate>): Promise<SupabaseFormTemplate> {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
-      console.log('🎭 Demo mode: Updating demo form template');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return {
-        id,
-        name: updates.name || 'Updated Template',
-        description: updates.description || 'Updated description',
-        fields: updates.fields || [],
-        is_active: updates.is_active !== undefined ? updates.is_active : true,
-        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date().toISOString()
-      };
+    if (isDemoMode) {
+      throw new Error('Demo mode: Form template update not implemented');
     }
     
     if (!supabase) {
@@ -885,12 +823,8 @@ export class FormTemplateService {
   }
 
   static async deleteFormTemplate(id: string): Promise<void> {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
-      console.log('🎭 Demo mode: Deleting demo form template');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return;
+    if (isDemoMode) {
+      throw new Error('Demo mode: Form template deletion not implemented');
     }
     
     if (!supabase) {
@@ -909,9 +843,7 @@ export class FormTemplateService {
 // Service d'authentification
 export class AuthService {
   static async signUp(email: string, password: string, userData: { name: string; role: string; organization?: string }) {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       throw new Error('Demo mode: Sign up not available. Use existing demo accounts.');
     }
     
@@ -941,9 +873,7 @@ export class AuthService {
   }
 
   static async signIn(email: string, password: string) {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Simulating sign in');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -989,9 +919,7 @@ export class AuthService {
   }
 
   static async signOut() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Simulating sign out');
       currentDemoUser = null;
       return;
@@ -1006,9 +934,7 @@ export class AuthService {
   }
 
   static async getCurrentUser() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       return null; // Demo mode doesn't maintain auth state
     }
     
@@ -1021,9 +947,7 @@ export class AuthService {
   }
 
   static async getCurrentUserProfile(): Promise<SupabaseUser | null> {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       return currentDemoUser;
     }
     
@@ -1056,9 +980,7 @@ export class AuthService {
 // Utilitaires de migration
 export class MigrationService {
   static async runMigrations() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Skipping migrations');
       return true;
     }
@@ -1066,8 +988,7 @@ export class MigrationService {
     try {
       console.log('🚀 Starting Supabase migration...');
       
-      const credentials = getSupabaseCredentials();
-      if (!credentials.url || !credentials.anonKey) {
+      if (!supabaseUrl || !supabaseAnonKey) {
         console.error('❌ Missing Supabase configuration');
         return false;
       }
@@ -1098,9 +1019,7 @@ export class MigrationService {
   }
 
   static async seedData() {
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    if (isDemo) {
+    if (isDemoMode) {
       console.log('🎭 Demo mode: Demo users already available');
       return true;
     }
