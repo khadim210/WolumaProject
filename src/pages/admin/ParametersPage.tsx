@@ -946,7 +946,6 @@ const ParametersPage: React.FC = () => {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                disabled={!values.enableSupabase || !values.supabaseUrl || !values.supabaseAnonKey}
                                 onClick={() => {
                                   // TODO: Implémenter le test de connexion Supabase
                                   alert('Test de connexion Supabase - À implémenter');
@@ -967,7 +966,6 @@ const ParametersPage: React.FC = () => {
                                 type="button"
                                 variant="success"
                                 size="sm"
-                                disabled={!values.enableSupabase || !values.supabaseUrl || !values.supabaseServiceRoleKey}
                                 onClick={() => {
                                   // TODO: Implémenter l'initialisation des tables Supabase
                                   alert('Initialisation des tables Supabase - À implémenter');
