@@ -723,7 +723,6 @@ export class ProjectService {
         manually_submitted: updates.manually_submitted || false
       };
     }
-    }
     
     if (!supabase) {
       throw new Error('Supabase not available');
@@ -787,4 +786,19 @@ export class FormTemplateService {
   static async createFormTemplate(template: Omit<SupabaseFormTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<SupabaseFormTemplate> {
     if (isDemoMode) {
       throw new Error('Demo mode: Form template creation not implemented');
+    }
+    
+    if (!supabase) {
+      throw new Error('Supabase not available');
+    }
+    
+    const { data, error } = await supabase
+      .from('form_templates')
+      .insert([template])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 }
