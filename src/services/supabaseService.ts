@@ -696,7 +696,10 @@ export class ProjectService {
     if (isDemo) {
       console.log('🎭 Demo mode: Updating demo project');
       await new Promise(resolve => setTimeout(resolve, 500));
-      const now = new Date().toISOString();
+      const
+    }
+  }
+} now = new Date().toISOString();
       return {
         id,
         title: updates.title || 'Updated Project',
