@@ -75,44 +75,36 @@ const supabaseServiceRoleKey = credentials.serviceRoleKey;
 // Demo data for offline mode
 const demoUsers: SupabaseUser[] = [
   {
-    id: '1',
     name: 'Admin User',
     email: 'admin@woluma.com',
     role: 'admin',
     organization: 'Woluma',
     is_active: true,
     created_at: new Date().toISOString(),
-    auth_user_id: 'auth-1'
   },
   {
-    id: '2',
     name: 'Partner User',
     email: 'partner@example.com',
     role: 'partner',
     organization: 'Example Partner',
     is_active: true,
     created_at: new Date().toISOString(),
-    auth_user_id: 'auth-2'
   },
   {
-    id: '3',
     name: 'Manager User',
     email: 'manager@example.com',
     role: 'manager',
     organization: 'Example Organization',
     is_active: true,
     created_at: new Date().toISOString(),
-    auth_user_id: 'auth-3'
   },
   {
-    id: '4',
     name: 'Submitter User',
     email: 'submitter@example.com',
     role: 'submitter',
     organization: 'Example Company',
     is_active: true,
     created_at: new Date().toISOString(),
-    auth_user_id: 'auth-4'
   }
 ];
 
@@ -148,7 +140,7 @@ export const supabaseAdmin = (!isDemoModeGlobal && supabaseServiceRoleKey) ? cre
 
 // Types pour les données Supabase
 export interface SupabaseUser {
-  id: string;
+  id?: string;
   name: string;
   email: string;
   role: 'admin' | 'partner' | 'manager' | 'submitter';
@@ -864,23 +856,24 @@ export class AuthService {
       console.log('🎭 Demo mode: Signing up user', email);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      const authUserId = crypto.randomUUID();
       const newUser: SupabaseUser = {
-        id: `demo-${Date.now()}`,
+        id: crypto.randomUUID(),
         name: userData.name,
         email,
         role: 'submitter',
         organization: userData.organization,
         is_active: true,
         created_at: new Date().toISOString(),
-        auth_user_id: `auth-demo-${Date.now()}`
+        auth_user_id: authUserId
       };
       
       demoUsers.push(newUser);
       currentDemoUser = newUser;
       
       return {
-        user: { id: newUser.auth_user_id, email: newUser.email },
-        session: { access_token: 'demo-token', user: { id: newUser.auth_user_id, email: newUser.email } }
+        user: { id: authUserId, email: newUser.email },
+        session: { access_token: 'demo-token', user: { id: authUserId, email: newUser.email } }
       };
     }
     
@@ -943,14 +936,13 @@ export class AuthService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
       .single();
     
-    if (error) throw error;
-    return data;
+    return data || null;
   }
 }
 
@@ -995,7 +987,7 @@ export class MigrationService {
         .from('users')
         .select('id')
         .eq('email', user.email)
-        .single();
+        .maybeSingle();
       
       if (existingProfile) {
         console.log(`✅ User profile already exists for ${user.email}`);
@@ -1005,6 +997,14 @@ export class MigrationService {
       let authUserId: string;
       
       try {
+        // First check if auth user already exists
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingAuthUser = existingUsers.users.find(u => u.email === user.email);
+        
+        if (existingAuthUser) {
+          authUserId = existingAuthUser.id;
+          console.log(`✅ Using existing auth user for ${user.email}`);
+        } else {
         // Try to create auth user
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: user.email,
@@ -1013,29 +1013,19 @@ export class MigrationService {
         });
         
         if (authError) {
-          if (authError.message.includes('already been registered')) {
-            // User exists, get the existing user
-            const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-            const existingUser = existingUsers.users.find(u => u.email === user.email);
-            if (existingUser) {
-              authUserId = existingUser.id;
-              console.log(`✅ Using existing auth user for ${user.email}`);
-            } else {
-              throw new Error(`Could not find existing user for ${user.email}`);
-            }
-          } else {
             throw authError;
-          }
         } else {
           authUserId = authData.user.id;
           console.log(`✅ Created new auth user for ${user.email}`);
         }
+        }
         
         // Create user profile
+        const { id, ...userWithoutId } = user; // Remove id to let Supabase generate it
         const { error: profileError } = await supabaseAdmin
           .from('users')
           .insert([{
-            ...user,
+            ...userWithoutId,
             auth_user_id: authUserId
           }]);
         
