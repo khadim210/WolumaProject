@@ -346,7 +346,7 @@ export class PartnerService {
       ];
     }
     
-    if (!supabase) {
+    if (supabase === null) {
       throw new Error('Supabase not available');
     }
     
