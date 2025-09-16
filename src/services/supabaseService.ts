@@ -87,10 +87,13 @@ export interface SupabaseFormTemplate {
 // Service pour les utilisateurs
 export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
+    console.log('UserService.getUsers called');
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    console.log('Supabase response - data:', data, 'error:', error);
     
     if (error) throw error;
     return data || [];

@@ -73,6 +73,11 @@ const UserManagementPage: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  // Debug: Log users to see if they're being fetched
+  console.log('Users in component:', users);
+  console.log('Is loading:', isLoading);
+  console.log('Error:', error);
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -254,6 +259,25 @@ const UserManagementPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {isLoading && (
+            <div className="flex justify-center items-center py-8">
+              <div className="text-gray-500">Chargement des utilisateurs...</div>
+            </div>
+          )}
+          
+          {error && (
+            <div className="bg-error-100 text-error-700 p-4 rounded-md mb-4">
+              Erreur: {error}
+            </div>
+          )}
+          
+          {!isLoading && !error && filteredUsers.length === 0 && (
+            <div className="text-center py-8">
+              <div className="text-gray-500">Aucun utilisateur trouvé</div>
+            </div>
+          )}
+          
+          {!isLoading && !error && filteredUsers.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead>
@@ -358,6 +382,7 @@ const UserManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
 

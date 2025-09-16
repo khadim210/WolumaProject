@@ -47,8 +47,11 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   fetchUsers: async () => {
     set({ isLoading: true, error: null });
     try {
+      console.log('Fetching users from Supabase...');
       const supabaseUsers = await UserService.getUsers();
+      console.log('Supabase users received:', supabaseUsers);
       const users = supabaseUsers.map(convertSupabaseUser);
+      console.log('Converted users:', users);
       set({ users, isLoading: false });
     } catch (error) {
       console.error('Error fetching users:', error);
