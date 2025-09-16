@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
+import { MigrationService } from './services/supabaseService';
 
 // Layouts
 import AuthLayout from './layouts/AuthLayout';
@@ -40,6 +41,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+  // Initialiser Supabase au démarrage de l'application
+  React.useEffect(() => {
+    const initializeSupabase = async () => {
+      try {
+        console.log('🚀 Initializing Supabase...');
+        const success = await MigrationService.runMigrations();
+        if (success) {
+          console.log('✅ Supabase initialized successfully');
+        } else {
+          console.warn('⚠️ Supabase initialization failed, using fallback mode');
+        }
+      } catch (error) {
+        console.error('❌ Supabase initialization error:', error);
+      }
+    };
+    
+    initializeSupabase();
+  }, []);
+  
   return (
     <Router>
       <Routes>

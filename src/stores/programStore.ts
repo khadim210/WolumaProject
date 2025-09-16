@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { PartnerService, ProgramService } from '../services/supabaseService';
+import type { SupabasePartner, SupabaseProgram } from '../services/supabaseService';
 
 export type CriterionType = 'number' | 'text' | 'select' | 'boolean' | 'date' | 'range';
 
@@ -57,6 +59,36 @@ export interface Program {
   customAiPrompt?: string; // Prompt personnalisé pour l'évaluation IA
 }
 
+// Fonctions utilitaires pour convertir les données Supabase
+const convertSupabasePartner = (supabasePartner: SupabasePartner): Partner => ({
+  id: supabasePartner.id,
+  name: supabasePartner.name,
+  description: supabasePartner.description || '',
+  contactEmail: supabasePartner.contact_email,
+  contactPhone: supabasePartner.contact_phone,
+  address: supabasePartner.address,
+  isActive: supabasePartner.is_active,
+  createdAt: new Date(supabasePartner.created_at),
+  assignedManagerId: supabasePartner.assigned_manager_id
+});
+
+const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
+  id: supabaseProgram.id,
+  name: supabaseProgram.name,
+  description: supabaseProgram.description || '',
+  partnerId: supabaseProgram.partner_id,
+  formTemplateId: supabaseProgram.form_template_id,
+  budget: supabaseProgram.budget,
+  startDate: new Date(supabaseProgram.start_date),
+  endDate: new Date(supabaseProgram.end_date),
+  isActive: supabaseProgram.is_active,
+  createdAt: new Date(supabaseProgram.created_at),
+  managerId: supabaseProgram.manager_id,
+  selectionCriteria: supabaseProgram.selection_criteria || [],
+  evaluationCriteria: supabaseProgram.evaluation_criteria || [],
+  customAiPrompt: supabaseProgram.custom_ai_prompt
+});
+
 interface ProgramState {
   partners: Partner[];
   programs: Program[];
@@ -84,269 +116,11 @@ interface ProgramState {
   getProgramsByManager: (managerId: string) => Program[];
 }
 
-// Mock data
-const mockPartners: Partner[] = [
-  {
-    id: '1',
-    name: 'Fondation Innovation Afrique',
-    description: 'Fondation dédiée à l\'innovation technologique en Afrique',
-    contactEmail: 'contact@innovation-afrique.org',
-    contactPhone: '+225 01 02 03 04',
-    isActive: true,
-    createdAt: new Date('2024-01-15'),
-    assignedManagerId: '3', // Assigné au manager (ID 3)
-  },
-  {
-    id: '2',
-    name: 'Banque de Développement',
-    description: 'Institution financière pour le développement économique',
-    contactEmail: 'projets@banque-dev.ci',
-    contactPhone: '+225 05 06 07 08',
-    isActive: true,
-    createdAt: new Date('2024-02-01'),
-    assignedManagerId: '3', // Assigné au même manager (ID 3)
-  },
-  {
-    id: '3',
-    name: 'Ministère de l\'Innovation',
-    description: 'Ministère en charge de l\'innovation et des nouvelles technologies',
-    contactEmail: 'innovation@gouv.ci',
-    isActive: true,
-    createdAt: new Date('2024-01-10'),
-  },
-];
-
-const mockPrograms: Program[] = [
-  {
-    id: '1',
-    name: 'Programme Innovation Tech 2025',
-    description: 'Programme de financement pour les startups technologiques',
-    partnerId: '1',
-    budget: 500000000, // 500M FCFA
-    startDate: new Date('2025-01-01'),
-    endDate: new Date('2025-12-31'),
-    formTemplateId: '1', // Associé au modèle "Appel à projets innovation"
-    isActive: true,
-    createdAt: new Date('2024-12-01'),
-    managerId: '3', // Manager ID 3
-    selectionCriteria: [
-      {
-        id: 'c1',
-        name: 'Budget maximum',
-        description: 'Budget maximum autorisé pour le projet',
-        type: 'number',
-        required: true,
-        minValue: 10000,
-        maxValue: 1000000
-      },
-      {
-        id: 'c2',
-        name: 'Secteur d\'activité',
-        description: 'Secteur d\'activité du projet',
-        type: 'select',
-        required: true,
-        options: ['Technologies', 'Santé', 'Environnement', 'Education', 'Agriculture']
-      },
-      {
-        id: 'c3',
-        name: 'Durée du projet',
-        description: 'Durée maximale du projet en mois',
-        type: 'range',
-        required: true,
-        minValue: 6,
-        maxValue: 36
-      }
-    ],
-    evaluationCriteria: [
-      {
-        id: 'e1',
-        name: 'Innovation et originalité',
-        description: 'Niveau d\'innovation et d\'originalité du projet',
-        weight: 25,
-        maxScore: 20
-      },
-      {
-        id: 'e2',
-        name: 'Faisabilité technique',
-        description: 'Capacité technique à réaliser le projet',
-        weight: 20,
-        maxScore: 20
-      },
-      {
-        id: 'e3',
-        name: 'Impact et pertinence',
-        description: 'Impact potentiel et pertinence du projet',
-        weight: 25,
-        maxScore: 20
-      },
-      {
-        id: 'e4',
-        name: 'Réalisme budgétaire',
-        description: 'Réalisme et justification du budget demandé',
-        weight: 15,
-        maxScore: 20
-      },
-      {
-        id: 'e5',
-        name: 'Compétence de l\'équipe',
-        description: 'Compétences et expérience de l\'équipe projet',
-        weight: 15,
-        maxScore: 20
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Fonds Développement Durable',
-    description: 'Financement de projets environnementaux et durables',
-    partnerId: '2',
-    budget: 750000000, // 750M FCFA
-    startDate: new Date('2025-02-01'),
-    endDate: new Date('2026-01-31'),
-    formTemplateId: '1', // Associé au modèle "Appel à projets innovation"
-    isActive: true,
-    createdAt: new Date('2024-11-15'),
-    managerId: '3', // Manager ID 3
-    selectionCriteria: [
-      {
-        id: 'c4',
-        name: 'Impact environnemental',
-        description: 'Le projet doit avoir un impact environnemental positif',
-        type: 'boolean',
-        required: true,
-        defaultValue: true
-      },
-      {
-        id: 'c5',
-        name: 'Zone géographique',
-        description: 'Zone géographique d\'intervention',
-        type: 'select',
-        required: true,
-        options: ['Urbaine', 'Rurale', 'Côtière', 'Forestière']
-      },
-      {
-        id: 'c6',
-        name: 'Nombre de bénéficiaires',
-        description: 'Nombre minimum de bénéficiaires directs',
-        type: 'number',
-        required: true,
-        minValue: 100,
-        maxValue: 50000
-      }
-    ],
-    evaluationCriteria: [
-      {
-        id: 'e6',
-        name: 'Impact environnemental',
-        description: 'Mesure de l\'impact positif sur l\'environnement',
-        weight: 30,
-        maxScore: 20
-      },
-      {
-        id: 'e7',
-        name: 'Durabilité du projet',
-        description: 'Capacité du projet à perdurer dans le temps',
-        weight: 25,
-        maxScore: 20
-      },
-      {
-        id: 'e8',
-        name: 'Nombre de bénéficiaires',
-        description: 'Étendue de l\'impact sur les populations',
-        weight: 20,
-        maxScore: 20
-      },
-      {
-        id: 'e9',
-        name: 'Innovation sociale',
-        description: 'Caractère innovant de l\'approche sociale',
-        weight: 15,
-        maxScore: 20
-      },
-      {
-        id: 'e10',
-        name: 'Partenariats locaux',
-        description: 'Qualité des partenariats avec les acteurs locaux',
-        weight: 10,
-        maxScore: 20
-      }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Initiative Jeunes Entrepreneurs',
-    description: 'Programme d\'accompagnement pour jeunes entrepreneurs',
-    partnerId: '1',
-    budget: 200000000, // 200M FCFA
-    startDate: new Date('2025-03-01'),
-    endDate: new Date('2025-08-31'),
-    isActive: true,
-    createdAt: new Date('2024-12-10'),
-    selectionCriteria: [
-      {
-        id: 'c7',
-        name: 'Âge du porteur',
-        description: 'Âge maximum du porteur de projet',
-        type: 'number',
-        required: true,
-        minValue: 18,
-        maxValue: 35
-      },
-      {
-        id: 'c8',
-        name: 'Expérience entrepreneuriale',
-        description: 'Le porteur a-t-il une expérience entrepreneuriale préalable ?',
-        type: 'boolean',
-        required: false,
-        defaultValue: false
-      },
-      {
-        id: 'c9',
-        name: 'Description du projet',
-        description: 'Description détaillée du projet',
-        type: 'text',
-        required: true,
-        maxLength: 2000
-      }
-    ],
-    evaluationCriteria: [
-      {
-        id: 'e11',
-        name: 'Potentiel entrepreneurial',
-        description: 'Évaluation du potentiel entrepreneurial du porteur',
-        weight: 35,
-        maxScore: 20
-      },
-      {
-        id: 'e12',
-        name: 'Viabilité économique',
-        description: 'Viabilité économique du modèle proposé',
-        weight: 30,
-        maxScore: 20
-      },
-      {
-        id: 'e13',
-        name: 'Innovation du concept',
-        description: 'Caractère innovant du concept d\'entreprise',
-        weight: 20,
-        maxScore: 20
-      },
-      {
-        id: 'e14',
-        name: 'Capacité d\'exécution',
-        description: 'Capacité à exécuter le plan d\'affaires',
-        weight: 15,
-        maxScore: 20
-      }
-    ]
-  },
-];
-
 export const useProgramStore = create<ProgramState>()(
   persist(
     (set, get) => ({
-      partners: [...mockPartners],
-      programs: [...mockPrograms],
+      partners: [],
+      programs: [],
       isLoading: false,
       error: null,
 
@@ -354,8 +128,9 @@ export const useProgramStore = create<ProgramState>()(
       fetchPartners: async () => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          set({ partners: [...mockPartners], isLoading: false });
+          const supabasePartners = await PartnerService.getPartners();
+          const partners = supabasePartners.map(convertSupabasePartner);
+          set({ partners, isLoading: false });
         } catch (error) {
           console.error('Error fetching partners:', error);
           set({ error: 'Failed to fetch partners', isLoading: false });
@@ -365,13 +140,17 @@ export const useProgramStore = create<ProgramState>()(
       addPartner: async (partnerData) => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const supabasePartner = await PartnerService.createPartner({
+            name: partnerData.name,
+            description: partnerData.description,
+            contact_email: partnerData.contactEmail,
+            contact_phone: partnerData.contactPhone,
+            address: partnerData.address,
+            is_active: partnerData.isActive,
+            assigned_manager_id: partnerData.assignedManagerId
+          });
           
-          const newPartner: Partner = {
-            ...partnerData,
-            id: `${get().partners.length + 1}`,
-            createdAt: new Date(),
-          };
+          const newPartner = convertSupabasePartner(supabasePartner);
 
           set(state => ({
             partners: [...state.partners, newPartner],
@@ -389,23 +168,23 @@ export const useProgramStore = create<ProgramState>()(
       updatePartner: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const supabaseUpdates: Partial<SupabasePartner> = {};
+          if (updates.name) supabaseUpdates.name = updates.name;
+          if (updates.description) supabaseUpdates.description = updates.description;
+          if (updates.contactEmail) supabaseUpdates.contact_email = updates.contactEmail;
+          if (updates.contactPhone) supabaseUpdates.contact_phone = updates.contactPhone;
+          if (updates.address) supabaseUpdates.address = updates.address;
+          if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
+          if (updates.assignedManagerId) supabaseUpdates.assigned_manager_id = updates.assignedManagerId;
+          
+          const supabasePartner = await PartnerService.updatePartner(id, supabaseUpdates);
+          const updatedPartner = convertSupabasePartner(supabasePartner);
+          
+          set(state => ({
+            partners: state.partners.map(p => p.id === id ? updatedPartner : p),
+            isLoading: false
+          }));
 
-          const partnerIndex = get().partners.findIndex(p => p.id === id);
-          if (partnerIndex === -1) {
-            set({ error: 'Partner not found', isLoading: false });
-            return null;
-          }
-
-          const updatedPartner = {
-            ...get().partners[partnerIndex],
-            ...updates,
-          };
-
-          const updatedPartners = [...get().partners];
-          updatedPartners[partnerIndex] = updatedPartner;
-
-          set({ partners: updatedPartners, isLoading: false });
           return updatedPartner;
         } catch (error) {
           console.error('Error updating partner:', error);
@@ -417,7 +196,7 @@ export const useProgramStore = create<ProgramState>()(
       deletePartner: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await PartnerService.deletePartner(id);
           
           set(state => ({
             partners: state.partners.filter(p => p.id !== id),
@@ -446,8 +225,9 @@ export const useProgramStore = create<ProgramState>()(
       fetchPrograms: async () => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          set({ programs: [...mockPrograms], isLoading: false });
+          const supabasePrograms = await ProgramService.getPrograms();
+          const programs = supabasePrograms.map(convertSupabaseProgram);
+          set({ programs, isLoading: false });
         } catch (error) {
           console.error('Error fetching programs:', error);
           set({ error: 'Failed to fetch programs', isLoading: false });
@@ -457,13 +237,22 @@ export const useProgramStore = create<ProgramState>()(
       addProgram: async (programData) => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const supabaseProgram = await ProgramService.createProgram({
+            name: programData.name,
+            description: programData.description,
+            partner_id: programData.partnerId,
+            form_template_id: programData.formTemplateId,
+            budget: programData.budget,
+            start_date: programData.startDate.toISOString().split('T')[0],
+            end_date: programData.endDate.toISOString().split('T')[0],
+            is_active: programData.isActive,
+            manager_id: programData.managerId,
+            selection_criteria: programData.selectionCriteria,
+            evaluation_criteria: programData.evaluationCriteria,
+            custom_ai_prompt: programData.customAiPrompt
+          });
           
-          const newProgram: Program = {
-            ...programData,
-            id: `${get().programs.length + 1}`,
-            createdAt: new Date(),
-          };
+          const newProgram = convertSupabaseProgram(supabaseProgram);
 
           set(state => ({
             programs: [...state.programs, newProgram],
@@ -481,23 +270,28 @@ export const useProgramStore = create<ProgramState>()(
       updateProgram: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const supabaseUpdates: Partial<SupabaseProgram> = {};
+          if (updates.name) supabaseUpdates.name = updates.name;
+          if (updates.description) supabaseUpdates.description = updates.description;
+          if (updates.partnerId) supabaseUpdates.partner_id = updates.partnerId;
+          if (updates.formTemplateId) supabaseUpdates.form_template_id = updates.formTemplateId;
+          if (updates.budget) supabaseUpdates.budget = updates.budget;
+          if (updates.startDate) supabaseUpdates.start_date = updates.startDate.toISOString().split('T')[0];
+          if (updates.endDate) supabaseUpdates.end_date = updates.endDate.toISOString().split('T')[0];
+          if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
+          if (updates.managerId) supabaseUpdates.manager_id = updates.managerId;
+          if (updates.selectionCriteria) supabaseUpdates.selection_criteria = updates.selectionCriteria;
+          if (updates.evaluationCriteria) supabaseUpdates.evaluation_criteria = updates.evaluationCriteria;
+          if (updates.customAiPrompt) supabaseUpdates.custom_ai_prompt = updates.customAiPrompt;
+          
+          const supabaseProgram = await ProgramService.updateProgram(id, supabaseUpdates);
+          const updatedProgram = convertSupabaseProgram(supabaseProgram);
+          
+          set(state => ({
+            programs: state.programs.map(p => p.id === id ? updatedProgram : p),
+            isLoading: false
+          }));
 
-          const programIndex = get().programs.findIndex(p => p.id === id);
-          if (programIndex === -1) {
-            set({ error: 'Program not found', isLoading: false });
-            return null;
-          }
-
-          const updatedProgram = {
-            ...get().programs[programIndex],
-            ...updates,
-          };
-
-          const updatedPrograms = [...get().programs];
-          updatedPrograms[programIndex] = updatedProgram;
-
-          set({ programs: updatedPrograms, isLoading: false });
           return updatedProgram;
         } catch (error) {
           console.error('Error updating program:', error);
@@ -509,7 +303,7 @@ export const useProgramStore = create<ProgramState>()(
       deleteProgram: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await ProgramService.deleteProgram(id);
           
           set(state => ({
             programs: state.programs.filter(p => p.id !== id),

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { AuthService, UserService } from '../services/supabaseService';
+import type { SupabaseUser } from '../services/supabaseService';
 
 export type UserRole = 'admin' | 'partner' | 'manager' | 'submitter';
 
@@ -11,6 +13,15 @@ export interface User {
   organization?: string;
 }
 
+// Fonction utilitaire pour convertir SupabaseUser vers User
+const convertSupabaseUser = (supabaseUser: SupabaseUser): User => ({
+  id: supabaseUser.id,
+  name: supabaseUser.name,
+  email: supabaseUser.email,
+  role: supabaseUser.role,
+  organization: supabaseUser.organization
+});
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -21,36 +32,6 @@ interface AuthState {
   setUser: (user: User) => void;
 }
 
-// Mock users for demonstration
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@woluma.com',
-    role: 'admin'
-  },
-  {
-    id: '2',
-    name: 'Partner User',
-    email: 'contact@innovation-afrique.org',
-    role: 'partner',
-    organization: 'Fondation Innovation Afrique'
-  },
-  {
-    id: '3',
-    name: 'Portfolio Manager',
-    email: 'manager@example.com',
-    role: 'manager'
-  },
-  {
-    id: '4',
-    name: 'Project Submitter',
-    email: 'submitter@example.com',
-    role: 'submitter',
-    organization: 'Submitter Organization'
-  }
-];
-
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -59,23 +40,27 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       
       login: async (email, password) => {
-        // Mock login - in a real app this would be an API call
         try {
-          // For demo purposes, accept any non-empty password
           if (!password) {
             throw new Error('Password is required');
           }
           
-          const user = mockUsers.find(u => u.email === email);
-          if (!user) {
-            throw new Error('User not found');
+          // Authentification avec Supabase
+          const authData = await AuthService.signIn(email, password);
+          
+          if (!authData.user) {
+            throw new Error('Authentication failed');
           }
           
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Récupérer le profil utilisateur
+          const userProfile = await AuthService.getCurrentUserProfile();
           
-          // Generate a fake token
-          const token = `token-${user.id}-${Date.now()}`;
+          if (!userProfile) {
+            throw new Error('User profile not found');
+          }
+          
+          const user = convertSupabaseUser(userProfile);
+          const token = authData.session?.access_token || '';
           
           set({ user, isAuthenticated: true, token });
           return true;
@@ -86,29 +71,36 @@ export const useAuthStore = create<AuthState>()(
       },
       
       register: async (name, email, password, role, organization) => {
-        // Mock registration - in a real app this would be an API call
         try {
           if (!name || !email || !password || !role) {
             throw new Error('Missing required fields');
           }
           
-          // Check if user already exists
-          if (mockUsers.some(u => u.email === email)) {
-            throw new Error('User already exists');
+          // Inscription avec Supabase
+          const authData = await AuthService.signUp(email, password, {
+            name,
+            role,
+            organization
+          });
+          
+          if (!authData.user) {
+            throw new Error('Registration failed');
           }
           
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Créer le profil utilisateur
+          const userProfile = await UserService.createUser({
+            name,
+            email,
+            role: role as UserRole,
+            organization,
+            is_active: true,
+            auth_user_id: authData.user.id
+          });
           
-          // Create new user
-          const id = `${mockUsers.length + 1}`;
-          const newUser: User = { id, name, email, role, organization };
-          mockUsers.push(newUser);
+          const user = convertSupabaseUser(userProfile);
+          const token = authData.session?.access_token || '';
           
-          // Generate a fake token
-          const token = `token-${id}-${Date.now()}`;
-          
-          set({ user: newUser, isAuthenticated: true, token });
+          set({ user, isAuthenticated: true, token });
           return true;
         } catch (error) {
           console.error('Registration failed:', error);
@@ -117,6 +109,7 @@ export const useAuthStore = create<AuthState>()(
       },
       
       logout: () => {
+        AuthService.signOut().catch(console.error);
         set({ user: null, isAuthenticated: false, token: null });
       },
       

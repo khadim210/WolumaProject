@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { FormTemplateService } from '../services/supabaseService';
+import type { SupabaseFormTemplate } from '../services/supabaseService';
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'multiple_select';
 
@@ -23,6 +25,17 @@ export interface FormTemplate {
   isActive: boolean;
 }
 
+// Fonction utilitaire pour convertir SupabaseFormTemplate vers FormTemplate
+const convertSupabaseFormTemplate = (supabaseTemplate: SupabaseFormTemplate): FormTemplate => ({
+  id: supabaseTemplate.id,
+  name: supabaseTemplate.name,
+  description: supabaseTemplate.description || '',
+  fields: supabaseTemplate.fields,
+  createdAt: new Date(supabaseTemplate.created_at),
+  updatedAt: new Date(supabaseTemplate.updated_at),
+  isActive: supabaseTemplate.is_active
+});
+
 interface FormTemplateState {
   templates: FormTemplate[];
   isLoading: boolean;
@@ -35,63 +48,17 @@ interface FormTemplateState {
   duplicateTemplate: (id: string) => Promise<FormTemplate | null>;
 }
 
-// Mock templates
-const mockTemplates: FormTemplate[] = [
-  {
-    id: '1',
-    name: 'Appel à projets innovation',
-    description: 'Formulaire standard pour les projets d\'innovation technologique',
-    fields: [
-      {
-        id: 'f1',
-        type: 'text',
-        label: 'Titre du projet',
-        name: 'projectTitle',
-        required: true,
-        placeholder: 'Entrez le titre de votre projet'
-      },
-      {
-        id: 'f2',
-        type: 'textarea',
-        label: 'Description du projet',
-        name: 'projectDescription',
-        required: true,
-        placeholder: 'Décrivez votre projet en détail'
-      },
-      {
-        id: 'f3',
-        type: 'number',
-        label: 'Budget demandé',
-        name: 'requestedBudget',
-        required: true,
-        placeholder: 'Montant en euros'
-      },
-      {
-        id: 'f4',
-        type: 'select',
-        label: 'Secteur d\'activité',
-        name: 'sector',
-        required: true,
-        options: ['Technologies', 'Santé', 'Environnement', 'Education', 'Autre']
-      }
-    ],
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-    isActive: true
-  }
-];
-
 export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
-  templates: [...mockTemplates],
+  templates: [],
   isLoading: false,
   error: null,
 
   fetchTemplates: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      set({ templates: [...mockTemplates], isLoading: false });
+      const supabaseTemplates = await FormTemplateService.getFormTemplates();
+      const templates = supabaseTemplates.map(convertSupabaseFormTemplate);
+      set({ templates, isLoading: false });
     } catch (error) {
       console.error('Error fetching templates:', error);
       set({ error: 'Failed to fetch templates', isLoading: false });
@@ -105,14 +72,14 @@ export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
   addTemplate: async (templateData) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const supabaseTemplate = await FormTemplateService.createFormTemplate({
+        name: templateData.name,
+        description: templateData.description,
+        fields: templateData.fields,
+        is_active: templateData.isActive
+      });
       
-      const newTemplate: FormTemplate = {
-        ...templateData,
-        id: `${get().templates.length + 1}`,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      const newTemplate = convertSupabaseFormTemplate(supabaseTemplate);
 
       set(state => ({
         templates: [...state.templates, newTemplate],
@@ -130,24 +97,20 @@ export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
   updateTemplate: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const supabaseUpdates: Partial<SupabaseFormTemplate> = {};
+      if (updates.name) supabaseUpdates.name = updates.name;
+      if (updates.description) supabaseUpdates.description = updates.description;
+      if (updates.fields) supabaseUpdates.fields = updates.fields;
+      if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
+      
+      const supabaseTemplate = await FormTemplateService.updateFormTemplate(id, supabaseUpdates);
+      const updatedTemplate = convertSupabaseFormTemplate(supabaseTemplate);
+      
+      set(state => ({
+        templates: state.templates.map(t => t.id === id ? updatedTemplate : t),
+        isLoading: false
+      }));
 
-      const templateIndex = get().templates.findIndex(t => t.id === id);
-      if (templateIndex === -1) {
-        set({ error: 'Template not found', isLoading: false });
-        return null;
-      }
-
-      const updatedTemplate = {
-        ...get().templates[templateIndex],
-        ...updates,
-        updatedAt: new Date()
-      };
-
-      const updatedTemplates = [...get().templates];
-      updatedTemplates[templateIndex] = updatedTemplate;
-
-      set({ templates: updatedTemplates, isLoading: false });
       return updatedTemplate;
     } catch (error) {
       console.error('Error updating template:', error);
@@ -159,7 +122,7 @@ export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
   deleteTemplate: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await FormTemplateService.deleteFormTemplate(id);
       
       set(state => ({
         templates: state.templates.filter(t => t.id !== id),
@@ -183,13 +146,14 @@ export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
         return null;
       }
 
-      const newTemplate: FormTemplate = {
-        ...template,
-        id: `${get().templates.length + 1}`,
+      const supabaseTemplate = await FormTemplateService.createFormTemplate({
         name: `${template.name} (copie)`,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+        description: template.description,
+        fields: template.fields,
+        is_active: template.isActive
+      });
+      
+      const newTemplate = convertSupabaseFormTemplate(supabaseTemplate);
 
       set(state => ({
         templates: [...state.templates, newTemplate],

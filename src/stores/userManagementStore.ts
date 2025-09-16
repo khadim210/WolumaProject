@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { UserService } from '../services/supabaseService';
+import type { SupabaseUser } from '../services/supabaseService';
 
 export type UserRole = 'admin' | 'partner' | 'manager' | 'submitter';
 
@@ -13,6 +15,18 @@ export interface User {
   lastLogin?: Date;
 }
 
+// Fonction utilitaire pour convertir SupabaseUser vers User
+const convertSupabaseUser = (supabaseUser: SupabaseUser): User => ({
+  id: supabaseUser.id,
+  name: supabaseUser.name,
+  email: supabaseUser.email,
+  role: supabaseUser.role,
+  organization: supabaseUser.organization,
+  isActive: supabaseUser.is_active,
+  createdAt: new Date(supabaseUser.created_at),
+  lastLogin: supabaseUser.last_login ? new Date(supabaseUser.last_login) : undefined
+});
+
 interface UserManagementState {
   users: User[];
   isLoading: boolean;
@@ -25,68 +39,17 @@ interface UserManagementState {
   toggleUserStatus: (id: string) => Promise<boolean>;
 }
 
-// Mock users data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@woluma.com',
-    role: 'admin',
-    isActive: true,
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date('2025-01-15'),
-  },
-  {
-    id: '2',
-    name: 'Portfolio Manager',
-    email: 'manager@example.com',
-    role: 'manager',
-    isActive: true,
-    createdAt: new Date('2024-02-01'),
-    lastLogin: new Date('2025-01-14'),
-  },
-  {
-    id: '3',
-    name: 'Project Submitter',
-    email: 'submitter@example.com',
-    role: 'submitter',
-    organization: 'Tech Startup Inc.',
-    isActive: true,
-    createdAt: new Date('2024-03-01'),
-    lastLogin: new Date('2025-01-13'),
-  },
-  {
-    id: '4',
-    name: 'Partner User',
-    email: 'partner@example.com',
-    role: 'partner',
-    organization: 'Investment Fund Ltd.',
-    isActive: true,
-    createdAt: new Date('2024-04-01'),
-    lastLogin: new Date('2025-01-12'),
-  },
-  {
-    id: '5',
-    name: 'Inactive User',
-    email: 'inactive@example.com',
-    role: 'submitter',
-    organization: 'Old Company',
-    isActive: false,
-    createdAt: new Date('2024-05-01'),
-  },
-];
-
 export const useUserManagementStore = create<UserManagementState>((set, get) => ({
-  users: [...mockUsers],
+  users: [],
   isLoading: false,
   error: null,
 
   fetchUsers: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      set({ users: [...mockUsers], isLoading: false });
+      const supabaseUsers = await UserService.getUsers();
+      const users = supabaseUsers.map(convertSupabaseUser);
+      set({ users, isLoading: false });
     } catch (error) {
       console.error('Error fetching users:', error);
       set({ error: 'Failed to fetch users', isLoading: false });
@@ -100,13 +63,15 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   addUser: async (userData) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const supabaseUser = await UserService.createUser({
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        organization: userData.organization,
+        is_active: userData.isActive
+      });
       
-      const newUser: User = {
-        ...userData,
-        id: `${get().users.length + 1}`,
-        createdAt: new Date(),
-      };
+      const newUser = convertSupabaseUser(supabaseUser);
 
       set(state => ({
         users: [...state.users, newUser],
@@ -124,23 +89,21 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   updateUser: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const supabaseUpdates: Partial<SupabaseUser> = {};
+      if (updates.name) supabaseUpdates.name = updates.name;
+      if (updates.email) supabaseUpdates.email = updates.email;
+      if (updates.role) supabaseUpdates.role = updates.role;
+      if (updates.organization) supabaseUpdates.organization = updates.organization;
+      if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
+      
+      const supabaseUser = await UserService.updateUser(id, supabaseUpdates);
+      const updatedUser = convertSupabaseUser(supabaseUser);
+      
+      set(state => ({
+        users: state.users.map(u => u.id === id ? updatedUser : u),
+        isLoading: false
+      }));
 
-      const userIndex = get().users.findIndex(u => u.id === id);
-      if (userIndex === -1) {
-        set({ error: 'User not found', isLoading: false });
-        return null;
-      }
-
-      const updatedUser = {
-        ...get().users[userIndex],
-        ...updates,
-      };
-
-      const updatedUsers = [...get().users];
-      updatedUsers[userIndex] = updatedUser;
-
-      set({ users: updatedUsers, isLoading: false });
       return updatedUser;
     } catch (error) {
       console.error('Error updating user:', error);
@@ -152,7 +115,7 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   deleteUser: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await UserService.deleteUser(id);
       
       set(state => ({
         users: state.users.filter(u => u.id !== id),
@@ -170,21 +133,23 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   toggleUserStatus: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const userIndex = get().users.findIndex(u => u.id === id);
-      if (userIndex === -1) {
+      const user = get().users.find(u => u.id === id);
+      if (!user) {
         set({ error: 'User not found', isLoading: false });
         return false;
       }
+      
+      const supabaseUser = await UserService.updateUser(id, {
+        is_active: !user.isActive
+      });
+      
+      const updatedUser = convertSupabaseUser(supabaseUser);
+      
+      set(state => ({
+        users: state.users.map(u => u.id === id ? updatedUser : u),
+        isLoading: false
+      }));
 
-      const updatedUsers = [...get().users];
-      updatedUsers[userIndex] = {
-        ...updatedUsers[userIndex],
-        isActive: !updatedUsers[userIndex].isActive,
-      };
-
-      set({ users: updatedUsers, isLoading: false });
       return true;
     } catch (error) {
       console.error('Error toggling user status:', error);
