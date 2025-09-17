@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import Badge from '../../components/ui/Badge';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
