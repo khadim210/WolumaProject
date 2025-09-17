@@ -1019,8 +1019,8 @@ export class MigrationService {
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: user.email,
           password: 'password',
-          email_confirm: true
-            user_metadata: {
+          email_confirm: true,
+          user_metadata: {
               role: user.role,
               name: user.name,
               organization: user.organization
