@@ -46,11 +46,22 @@ function App() {
     const initializeSupabase = async () => {
       try {
         console.log('🚀 Initializing Supabase...');
-        console.log('✅ Supabase initialized successfully');
-        // Créer les données de démonstration
-        await MigrationService.seedData();
+        
+        // Check if Supabase is properly configured
+        const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        if (hasSupabaseConfig) {
+          console.log('✅ Supabase configuration found');
+          // Créer les données de démonstration
+          await MigrationService.seedData();
+          console.log('✅ Supabase initialized successfully');
+        } else {
+          console.log('⚠️ Supabase not configured, running in demo mode');
+          console.log('💡 Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable Supabase');
+        }
       } catch (error) {
         console.error('❌ Supabase initialization error:', error);
+        console.log('💡 The app will continue to work in demo mode');
       }
     };
     

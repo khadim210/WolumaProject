@@ -949,7 +949,15 @@ export class AuthService {
 // Service de migration et seeding
 export class MigrationService {
   static async seedData(): Promise<void> {
+    // Check if we should use demo mode or Supabase
     const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    // If Supabase is not properly configured, enable demo mode
+    const hasSupabaseConfig = supabaseUrl && supabaseAnonKey;
+    if (!hasSupabaseConfig) {
+      console.log('🎭 Supabase not configured, using demo mode');
+      return;
+    }
     
     if (isDemo) {
       console.log('🎭 Demo mode: Seeding not required');
@@ -957,7 +965,8 @@ export class MigrationService {
     }
     
     if (supabaseAdmin === null) {
-      console.log('⚠️ Admin client not available, skipping seeding');
+      console.log('⚠️ Admin client not available (missing SERVICE_ROLE_KEY), skipping seeding');
+      console.log('💡 Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env file to enable user seeding');
       return;
     }
     
@@ -972,7 +981,8 @@ export class MigrationService {
       console.log('✅ Data seeding completed successfully');
     } catch (error) {
       console.error('❌ Error during data seeding:', error);
-      throw error;
+      // Don't throw error to prevent app crash, just log it
+      console.log('💡 Tip: Ensure your Supabase project has the correct configuration and SERVICE_ROLE_KEY');
     }
   }
 
@@ -1010,6 +1020,11 @@ export class MigrationService {
           email: user.email,
           password: 'password',
           email_confirm: true
+            user_metadata: {
+              role: user.role,
+              name: user.name,
+              organization: user.organization
+            }
         });
         
         if (authError) {
@@ -1031,18 +1046,21 @@ export class MigrationService {
         
         if (profileError) {
           console.error(`❌ Error creating profile for ${user.email}:`, profileError);
-          throw profileError;
+          // Don't throw to prevent app crash
+          return;
         }
         
         console.log(`✅ Created user profile for ${user.email}`);
         
       } catch (error) {
         console.error(`❌ Error creating demo user ${user.email}:`, error);
-        throw error;
+        // Don't throw to prevent app crash, just log and continue
+        return;
       }
     } catch (error) {
       console.error(`❌ Error creating demo user ${user.email}:`, error);
-      throw error;
+      // Don't throw to prevent app crash
+      return;
     }
   }
 }
