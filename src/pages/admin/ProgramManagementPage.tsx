@@ -77,6 +77,7 @@ const ProgramManagementPage: React.FC = () => {
     fetchPrograms();
     fetchTemplates();
     fetchUsers();
+  }, [fetchPrograms, fetchTemplates, fetchUsers]);
 
   const handleCreateProgram = async (values: any) => {
     try {
