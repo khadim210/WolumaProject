@@ -60,6 +60,7 @@ const ProgramManagementPage: React.FC = () => {
   const { 
     programs, 
     isLoading, 
+    partners,
     fetchPrograms, 
     createProgram, 
     updateProgram, 
@@ -67,7 +68,7 @@ const ProgramManagementPage: React.FC = () => {
   } = useProgramStore();
 
   const { templates, fetchTemplates } = useFormTemplateStore();
-  const { users, partners, fetchUsers, fetchPartners } = useUserManagementStore();
+  const { users, fetchUsers } = useUserManagementStore();
 
   // Filtrer les managers
   const managers = users.filter(user => user.role === 'manager');
@@ -76,8 +77,6 @@ const ProgramManagementPage: React.FC = () => {
     fetchPrograms();
     fetchTemplates();
     fetchUsers();
-    fetchPartners();
-  }, [fetchPrograms, fetchTemplates, fetchUsers, fetchPartners]);
 
   const handleCreateProgram = async (values: any) => {
     try {
