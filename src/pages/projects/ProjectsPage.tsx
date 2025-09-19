@@ -13,6 +13,7 @@ import {
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import { FolderPlus, Search, Filter, FileSpreadsheet, Printer } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -24,6 +25,10 @@ const ProjectsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [programFilter, setProgramFilter] = useState<string>('all');
+  const [selectedProgramForImport, setSelectedProgramForImport] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string>('');
+  const [importSuccess, setImportSuccess] = useState<string>('');
   
   useEffect(() => {
     fetchProjects();
@@ -141,6 +146,111 @@ const ProjectsPage: React.FC = () => {
     XLSX.writeFile(workbook, `Projets_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
   
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedProgramForImport || !user) {
+      setImportError('Veuillez sélectionner un programme et un fichier');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError('');
+    setImportSuccess('');
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      const selectedProgram = accessiblePrograms.find(p => p.id === selectedProgramForImport);
+      if (!selectedProgram) {
+        throw new Error('Programme sélectionné introuvable');
+      }
+
+      let importedCount = 0;
+      const errors: string[] = [];
+
+      for (const [index, row] of jsonData.entries()) {
+        try {
+          const rowData = row as any;
+          
+          // Validation des champs requis
+          if (!rowData.Titre || !rowData.Description || !rowData.Budget || !rowData.Durée) {
+            errors.push(`Ligne ${index + 2}: Champs requis manquants (Titre, Description, Budget, Durée)`);
+            continue;
+          }
+
+          // Conversion et validation du budget
+          const budget = typeof rowData.Budget === 'number' ? rowData.Budget : parseFloat(String(rowData.Budget).replace(/[^\d.-]/g, ''));
+          if (isNaN(budget) || budget <= 0) {
+            errors.push(`Ligne ${index + 2}: Budget invalide`);
+            continue;
+          }
+
+          // Traitement des tags
+          const tags = rowData.Tags ? String(rowData.Tags).split(',').map((tag: string) => tag.trim()).filter(Boolean) : ['import'];
+
+          // Créer le projet
+          await addProject({
+            title: String(rowData.Titre).trim(),
+            description: String(rowData.Description).trim(),
+            status: 'draft',
+            budget: budget,
+            timeline: String(rowData.Durée).trim(),
+            submitterId: user.id,
+            programId: selectedProgramForImport,
+            tags: tags,
+          });
+
+          importedCount++;
+        } catch (error) {
+          errors.push(`Ligne ${index + 2}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        }
+      }
+
+      if (importedCount > 0) {
+        setImportSuccess(`${importedCount} projet(s) importé(s) avec succès`);
+      }
+
+      if (errors.length > 0) {
+        setImportError(`Erreurs d'importation:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... et ${errors.length - 5} autres erreurs` : ''}`);
+      }
+
+    } catch (error) {
+      setImportError(`Erreur lors de l'importation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        'Titre': 'Exemple de projet',
+        'Description': 'Description détaillée du projet avec ses objectifs et son impact potentiel',
+        'Budget': 150000,
+        'Durée': '18 mois',
+        'Tags': 'innovation, technologie, impact'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modèle');
+
+    // Auto-size columns
+    const colWidths = Object.keys(templateData[0]).map(key => ({
+      wch: Math.max(key.length, 20)
+    }));
+    worksheet['!cols'] = colWidths;
+
+    XLSX.writeFile(workbook, 'Modele_Import_Projets.xlsx');
+  };
+
   const handlePrintPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -355,6 +465,86 @@ const ProjectsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Import Section */}
+      {checkPermission('projects.create') && (
+        <Card className="border-l-4 border-l-secondary-500">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileSpreadsheet className="h-5 w-5 text-secondary-600 mr-2" />
+              Importation de projets
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sélectionner un programme*
+                </label>
+                <select
+                  value={selectedProgramForImport}
+                  onChange={(e) => setSelectedProgramForImport(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
+                >
+                  <option value="">Choisir un programme...</option>
+                  {accessiblePrograms.map(program => {
+                    const partner = partners.find(p => p.id === program.partnerId);
+                    return (
+                      <option key={program.id} value={program.id}>
+                        {program.name} {partner && `(${partner.name})`}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fichier Excel (.xlsx)
+                </label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileImport}
+                  disabled={!selectedProgramForImport || isImporting}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-secondary-50 file:text-secondary-700 hover:file:bg-secondary-100 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <p>Format attendu: Titre, Description, Budget, Durée, Tags (optionnel)</p>
+                <button
+                  onClick={downloadTemplate}
+                  className="text-secondary-600 hover:text-secondary-700 underline"
+                >
+                  Télécharger le modèle Excel
+                </button>
+              </div>
+              
+              {isImporting && (
+                <div className="flex items-center text-secondary-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary-600 mr-2"></div>
+                  Importation en cours...
+                </div>
+              )}
+            </div>
+            
+            {importError && (
+              <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded-md">
+                <pre className="text-sm whitespace-pre-wrap">{importError}</pre>
+              </div>
+            )}
+            
+            {importSuccess && (
+              <div className="bg-success-50 border border-success-200 text-success-700 px-4 py-3 rounded-md">
+                <p className="text-sm">{importSuccess}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
       
       {sortedProjects.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
