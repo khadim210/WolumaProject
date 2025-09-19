@@ -62,7 +62,7 @@ const ProgramManagementPage: React.FC = () => {
     isLoading, 
     partners,
     fetchPrograms, 
-    createProgram, 
+    addProgram, 
     updateProgram, 
     deleteProgram 
   } = useProgramStore();
@@ -81,7 +81,7 @@ const ProgramManagementPage: React.FC = () => {
 
   const handleCreateProgram = async (values: any) => {
     try {
-      await createProgram({
+      await addProgram({
         ...values,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
