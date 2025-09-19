@@ -108,21 +108,172 @@ const ProjectsPage: React.FC = () => {
     b.updatedAt.getTime() - a.updatedAt.getTime()
   );
   
+  const handleExportExcel = () => {
+    const exportData = sortedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      const partner = program ? partners.find(p => p.id === program.partnerId) : null;
+      
+      return {
+        'Titre': project.title,
+        'Description': project.description,
+        'Statut': getStatusLabel(project.status),
+        'Budget (FCFA)': project.budget,
+        'Durée': project.timeline,
+        'Programme': program?.name || 'N/A',
+        'Partenaire': partner?.name || 'N/A',
+        'Tags': project.tags.join(', '),
+        'Date de création': project.createdAt.toLocaleDateString('fr-FR'),
+        'Date de soumission': project.submissionDate?.toLocaleDateString('fr-FR') || 'Non soumis',
+        'Score d\'évaluation': project.totalEvaluationScore ? `${project.totalEvaluationScore}%` : 'Non évalué'
+      };
+    });
+    
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Projets');
+    
+    // Auto-size columns
+    const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+      wch: Math.max(key.length, 15)
+    }));
+    worksheet['!cols'] = colWidths;
+    
+    XLSX.writeFile(workbook, `Projets_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+  
+  const handlePrintPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Liste des Projets - ${new Date().toLocaleDateString('fr-FR')}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #003366; padding-bottom: 20px; }
+            .logo { color: #003366; font-size: 24px; font-weight: bold; }
+            .subtitle { color: #666; margin-top: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+            th { background-color: #f8f9fa; font-weight: bold; }
+            .status { padding: 2px 6px; border-radius: 12px; font-size: 10px; font-weight: bold; }
+            .status-draft { background-color: #f3f4f6; color: #374151; }
+            .status-submitted { background-color: #dbeafe; color: #1e40af; }
+            .status-under_review { background-color: #cffafe; color: #0891b2; }
+            .status-selected { background-color: #dcfce7; color: #166534; }
+            .status-rejected { background-color: #fee2e2; color: #dc2626; }
+            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">Woluma-Flow</div>
+            <div class="subtitle">Liste des Projets - ${new Date().toLocaleDateString('fr-FR')}</div>
+            <div style="margin-top: 10px; font-size: 14px;">Total: ${sortedProjects.length} projet(s)</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Titre</th>
+                <th>Statut</th>
+                <th>Budget (FCFA)</th>
+                <th>Durée</th>
+                <th>Programme</th>
+                <th>Partenaire</th>
+                <th>Date création</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedProjects.map(project => {
+                const program = programs.find(p => p.id === project.programId);
+                const partner = program ? partners.find(p => p.id === program.partnerId) : null;
+                const statusClass = `status status-${project.status}`;
+                
+                return `
+                  <tr>
+                    <td>${project.title}</td>
+                    <td><span class="${statusClass}">${getStatusLabel(project.status)}</span></td>
+                    <td>${project.budget.toLocaleString()}</td>
+                    <td>${project.timeline}</td>
+                    <td>${program?.name || 'N/A'}</td>
+                    <td>${partner?.name || 'N/A'}</td>
+                    <td>${project.createdAt.toLocaleDateString('fr-FR')}</td>
+                    <td>${project.totalEvaluationScore ? `${project.totalEvaluationScore}%` : 'Non évalué'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Généré le ${new Date().toLocaleString('fr-FR')} - Woluma-Flow - Plateforme d'Évaluation et de Financement de Projets
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+  
+  const getStatusLabel = (status: ProjectStatus): string => {
+    const labels: Record<ProjectStatus, string> = {
+      draft: 'Brouillon',
+      submitted: 'Soumis',
+      under_review: 'En revue',
+      pre_selected: 'Présélectionné',
+      selected: 'Sélectionné',
+      formalization: 'Formalisation',
+      financed: 'Financé',
+      monitoring: 'Suivi',
+      closed: 'Clôturé',
+      rejected: 'Rejeté'
+    };
+    return labels[status];
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
         
-        {checkPermission('projects.create') && (
-          <Link to="/dashboard/projects/create">
-            <Button 
-              variant="primary" 
-              leftIcon={<FolderPlus className="h-4 w-4" />}
-            >
-              Nouveau projet
-            </Button>
-          </Link>
-        )}
+        <div className="flex space-x-3">
+          <Button
+            variant="outline"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            disabled={sortedProjects.length === 0}
+          >
+            Exporter Excel
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={handlePrintPDF}
+            leftIcon={<Printer className="h-4 w-4" />}
+            disabled={sortedProjects.length === 0}
+          >
+            Imprimer PDF
+          </Button>
+          
+          {checkPermission('projects.create') && (
+            <Link to="/dashboard/projects/create">
+              <Button 
+                variant="primary" 
+                leftIcon={<FolderPlus className="h-4 w-4" />}
+              >
+                Nouveau projet
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
       
       <Card className="mb-6">
