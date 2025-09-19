@@ -802,11 +802,11 @@ export class FormTemplateService {
       throw new Error('Demo mode: Form template creation not implemented');
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('form_templates')
       .insert([template])
       .select()
