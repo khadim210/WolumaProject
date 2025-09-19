@@ -12,7 +12,7 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { FolderPlus, Search, Filter } from 'lucide-react';
+import { FolderPlus, Search, Filter, FileSpreadsheet, Printer } from 'lucide-react';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
