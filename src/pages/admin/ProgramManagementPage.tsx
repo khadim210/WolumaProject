@@ -81,12 +81,17 @@ const ProgramManagementPage: React.FC = () => {
 
   const handleCreateProgram = async (values: any) => {
     try {
-      await addProgram({
+      // Convert empty strings to null for optional UUID fields
+      const programData = {
         ...values,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
-        budget: Number(values.budget)
-      });
+        budget: Number(values.budget),
+        formTemplateId: values.formTemplateId || null,
+        managerId: values.managerId || null
+      };
+      
+      await addProgram(programData);
       setShowCreateModal(false);
       setActiveTab('general');
     } catch (error) {
@@ -98,12 +103,17 @@ const ProgramManagementPage: React.FC = () => {
     if (!editingProgram) return;
     
     try {
-      await updateProgram(editingProgram.id, {
+      // Convert empty strings to null for optional UUID fields
+      const programData = {
         ...values,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
-        budget: Number(values.budget)
-      });
+        budget: Number(values.budget),
+        formTemplateId: values.formTemplateId || null,
+        managerId: values.managerId || null
+      };
+      
+      await updateProgram(editingProgram.id, programData);
       setEditingProgram(null);
       setShowCreateModal(false);
       setActiveTab('general');
