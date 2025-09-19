@@ -546,11 +546,11 @@ export class ProgramService {
       };
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('programs')
       .insert([program])
       .select()
@@ -584,11 +584,11 @@ export class ProgramService {
       };
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('programs')
       .update(updates)
       .eq('id', id)
@@ -608,11 +608,11 @@ export class ProgramService {
       return;
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('programs')
       .delete()
       .eq('id', id);
