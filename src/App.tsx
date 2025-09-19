@@ -28,6 +28,7 @@ import FormTemplatesPage from './pages/manager/FormTemplatesPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import ParametersPage from './pages/admin/ParametersPage';
 import ProgramManagementPage from './pages/admin/ProgramManagementPage';
+import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -97,6 +98,7 @@ function App() {
           <Route path="form-templates/create" element={<FormBuilderPage />} />
           <Route path="form-templates/:id/edit" element={<FormBuilderPage />} />
           <Route path="programs" element={<ProgramManagementPage />} />
+          <Route path="partners" element={<PartnerManagementPage />} />
           <Route path="users" element={<UserManagementPage />} />
           <Route path="parameters" element={<ParametersPage />} />
         </Route>
