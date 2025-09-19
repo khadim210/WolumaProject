@@ -13,6 +13,10 @@ export interface FormField {
   options?: string[];
   placeholder?: string;
   helpText?: string;
+  defaultValue?: boolean; // Pour les checkboxes
+  acceptedFileTypes?: string; // Pour les champs file
+  maxFileSize?: number; // Pour les champs file (en MB)
+  allowMultipleFiles?: boolean; // Pour les champs file
 }
 
 export interface FormTemplate {
