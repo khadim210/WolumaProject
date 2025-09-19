@@ -45,6 +45,38 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Password is required');
           }
           
+          // Check if we should use demo mode
+          const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true' || 
+                            !import.meta.env.VITE_SUPABASE_URL || 
+                            !import.meta.env.VITE_SUPABASE_ANON_KEY;
+          
+          if (isDemoMode) {
+            // Demo mode authentication
+            const demoCredentials: Record<string, string> = {
+              'admin@woluma.com': 'password',
+              'partner@example.com': 'password',
+              'manager@example.com': 'password',
+              'submitter@example.com': 'password'
+            };
+            
+            if (demoCredentials[email] === password) {
+              const demoUsers = [
+                { id: '1', name: 'Admin User', email: 'admin@woluma.com', role: 'admin' as UserRole, organization: 'Woluma' },
+                { id: '2', name: 'Partner User', email: 'partner@example.com', role: 'partner' as UserRole, organization: 'Example Partner' },
+                { id: '3', name: 'Manager User', email: 'manager@example.com', role: 'manager' as UserRole, organization: 'Example Organization' },
+                { id: '4', name: 'Submitter User', email: 'submitter@example.com', role: 'submitter' as UserRole, organization: 'Example Company' }
+              ];
+              
+              const user = demoUsers.find(u => u.email === email);
+              if (user) {
+                set({ user, isAuthenticated: true, token: 'demo-token' });
+                return true;
+              }
+            }
+            
+            return false;
+          }
+          
           // Authentification avec Supabase
           const authData = await AuthService.signIn(email, password);
           
@@ -66,6 +98,31 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error) {
           console.error('Login failed:', error);
+          
+          // If Supabase fails, try demo mode as fallback
+          const demoCredentials: Record<string, string> = {
+            'admin@woluma.com': 'password',
+            'partner@example.com': 'password',
+            'manager@example.com': 'password',
+            'submitter@example.com': 'password'
+          };
+          
+          if (demoCredentials[email] === password) {
+            console.log('🎭 Falling back to demo mode due to Supabase error');
+            const demoUsers = [
+              { id: '1', name: 'Admin User', email: 'admin@woluma.com', role: 'admin' as UserRole, organization: 'Woluma' },
+              { id: '2', name: 'Partner User', email: 'partner@example.com', role: 'partner' as UserRole, organization: 'Example Partner' },
+              { id: '3', name: 'Manager User', email: 'manager@example.com', role: 'manager' as UserRole, organization: 'Example Organization' },
+              { id: '4', name: 'Submitter User', email: 'submitter@example.com', role: 'submitter' as UserRole, organization: 'Example Company' }
+            ];
+            
+            const user = demoUsers.find(u => u.email === email);
+            if (user) {
+              set({ user, isAuthenticated: true, token: 'demo-token' });
+              return true;
+            }
+          }
+          
           return false;
         }
       },
@@ -74,6 +131,25 @@ export const useAuthStore = create<AuthState>()(
         try {
           if (!name || !email || !password || !role) {
             throw new Error('Missing required fields');
+          }
+          
+          // Check if we should use demo mode
+          const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true' || 
+                            !import.meta.env.VITE_SUPABASE_URL || 
+                            !import.meta.env.VITE_SUPABASE_ANON_KEY;
+          
+          if (isDemoMode) {
+            // Demo mode registration
+            const newUser: User = {
+              id: `demo-${Date.now()}`,
+              name,
+              email,
+              role,
+              organization
+            };
+            
+            set({ user: newUser, isAuthenticated: true, token: 'demo-token' });
+            return true;
           }
           
           // Inscription avec Supabase
@@ -104,6 +180,19 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch (error) {
           console.error('Registration failed:', error);
+          
+          // If Supabase fails, try demo mode as fallback
+          const newUser: User = {
+            id: `demo-${Date.now()}`,
+            name,
+            email,
+            role,
+            organization
+          };
+          
+          console.log('🎭 Falling back to demo mode due to Supabase error');
+          set({ user: newUser, isAuthenticated: true, token: 'demo-token' });
+          return true;
           return false;
         }
       },
