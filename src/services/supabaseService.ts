@@ -379,11 +379,12 @@ export class PartnerService {
       };
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS
+    const { data, error } = await supabaseAdmin
       .from('partners')
       .insert([partner])
       .select()
@@ -413,11 +414,12 @@ export class PartnerService {
       };
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS
+    const { data, error } = await supabaseAdmin
       .from('partners')
       .update(updates)
       .eq('id', id)
@@ -437,11 +439,12 @@ export class PartnerService {
       return;
     }
     
-    if (!supabase) {
-      throw new Error('Supabase not available');
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
     }
     
-    const { error } = await supabase
+    // Use admin client to bypass RLS
+    const { error } = await supabaseAdmin
       .from('partners')
       .delete()
       .eq('id', id);
