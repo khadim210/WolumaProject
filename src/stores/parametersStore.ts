@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { DatabaseManager } from '../utils/database';
 
 export interface SystemParameters {
   // General
