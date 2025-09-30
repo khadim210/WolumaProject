@@ -173,6 +173,10 @@ export const useParametersStore = create<ParametersState>()(
           return { success: false, message: 'Supabase n\'est pas activé' };
         }
 
+        if (!parameters.supabaseUrl || !parameters.supabaseAnonKey) {
+          return { success: false, message: 'URL Supabase et clé anonyme requis' };
+        }
+
         try {
           // Test basic connection with a simple query
           const response = await fetch(`${parameters.supabaseUrl}/rest/v1/`, {
@@ -183,7 +187,7 @@ export const useParametersStore = create<ParametersState>()(
               'Content-Type': 'application/json'
             }
           });
-        if (!parameters.supabaseUrl || !parameters.supabaseAnonKey) {
+
           if (response.ok) {
             return { success: true, message: 'Connexion Supabase réussie' };
           } else {
@@ -193,7 +197,6 @@ export const useParametersStore = create<ParametersState>()(
         } catch (error) {
           return { success: false, message: `Erreur réseau: ${error instanceof Error ? error.message : 'Erreur inconnue'}` };
         }
-      },
           return { success: false, message: 'URL Supabase et clé anonyme requis' };
       initializeDatabase: async () => {
         // Placeholder for database initialization
