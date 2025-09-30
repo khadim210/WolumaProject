@@ -1023,32 +1023,32 @@ export class AuthService {
 // Service de migration et seeding
 export class MigrationService {
   static async seedData(): Promise<void> {
-    // Check if we should use demo mode or Supabase
-    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-    
-    // If Supabase is not properly configured, enable demo mode
-    const hasSupabaseConfig = supabaseUrl && supabaseAnonKey;
-    if (!hasSupabaseConfig) {
-      console.log('🎭 Supabase not configured, using demo mode');
-      return;
-    }
-    
-    if (isDemo) {
-      console.log('🎭 Demo mode: Seeding not required');
-      return;
-    }
-    
-    if (supabaseAdmin === null) {
-      console.log('⚠️ Admin client not available (missing SERVICE_ROLE_KEY), skipping seeding');
-      console.log('💡 Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env file to enable user seeding');
-      return;
-    }
-    
     console.log('🌱 Starting data seeding...');
     
     try {
-      // Create default form templates first
+      // Always try to create default form templates first
       await this.createDefaultFormTemplates();
+      
+      // Check if we should use demo mode or Supabase for users
+      const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+      
+      // If Supabase is not properly configured, enable demo mode for users
+      const hasSupabaseConfig = supabaseUrl && supabaseAnonKey;
+      if (!hasSupabaseConfig) {
+        console.log('🎭 Supabase not configured for users, using demo mode');
+        return;
+      }
+      
+      if (isDemo) {
+        console.log('🎭 Demo mode: User seeding not required');
+        return;
+      }
+      
+      if (supabaseAdmin === null) {
+        console.log('⚠️ Admin client not available (missing SERVICE_ROLE_KEY), skipping user seeding');
+        console.log('💡 Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env file to enable user seeding');
+        return;
+      }
       
       // Create demo users
       for (const user of demoUsers) {
@@ -1064,16 +1064,28 @@ export class MigrationService {
   }
 
   private static async createDefaultFormTemplates(): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin client not available');
+    // Check if Supabase is available
+    const hasSupabaseConfig = supabaseUrl && supabaseAnonKey;
+    if (!hasSupabaseConfig) {
+      console.log('🎭 Supabase not configured, skipping form template creation');
+      return;
     }
+    
+    // Use regular client if admin not available
+    const client = supabaseAdmin || supabase;
+    if (!client) {
+      console.log('⚠️ No Supabase client available, skipping form template creation');
+      return;
+    }
+    
+    console.log('📋 Creating default form templates...');
     
     try {
       const { defaultFormTemplates } = await import('../data/defaultFormTemplates');
       
       for (const template of defaultFormTemplates) {
         // Check if template already exists
-        const { data: existingTemplate } = await supabaseAdmin
+        const { data: existingTemplate } = await client
           .from('form_templates')
           .select('id')
           .eq('name', template.name)
@@ -1085,7 +1097,7 @@ export class MigrationService {
         }
         
         // Create the template
-        const { error } = await supabaseAdmin
+        const { error } = await client
           .from('form_templates')
           .insert([{
             name: template.name,
@@ -1101,6 +1113,8 @@ export class MigrationService {
         
         console.log(`✅ Created form template: ${template.name}`);
       }
+      
+      console.log('📋 Form templates creation completed');
     } catch (error) {
       console.error('❌ Error creating default form templates:', error);
       // Don't throw to prevent app crash
