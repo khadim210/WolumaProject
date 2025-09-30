@@ -346,6 +346,11 @@ export class PartnerService {
     console.log('🏢 PartnerService.getPartners called');
     console.log('🏢 Is demo mode:', isDemo);
     console.log('🏢 Supabase enabled:', getSupabaseEnabled());
+    console.log('🏢 Supabase client available:', !!supabase);
+    console.log('🏢 Environment variables:', {
+      url: !!import.meta.env.VITE_SUPABASE_URL,
+      anonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+    });
     
     if (isDemo) {
       console.log('🎭 Demo mode: Returning demo partners list');
@@ -366,13 +371,20 @@ export class PartnerService {
     }
     
     if (!supabase) {
+      console.error('❌ Supabase client not available');
       throw new Error('Supabase not available');
     }
     
+    console.log('🏢 Querying Supabase partners table...');
     const { data, error } = await supabase
       .from('partners')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    console.log('🏢 Supabase query result:', { data: data?.length, error });
+    if (data) {
+      console.log('🏢 Partners from Supabase:', data);
+    }
     
     if (error) throw error;
     return data || [];

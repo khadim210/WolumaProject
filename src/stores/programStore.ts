@@ -129,6 +129,8 @@ export const useProgramStore = create<ProgramState>()(
         set({ isLoading: true, error: null });
         try {
           console.log('🏢 Store: Fetching partners...');
+          console.log('🏢 Store: Demo mode check:', import.meta.env.VITE_DEMO_MODE === 'true');
+          console.log('🏢 Store: Supabase enabled:', getSupabaseEnabled());
           console.log('🏢 Fetching partners from Supabase...');
           const supabasePartners = await PartnerService.getPartners();
           console.log('🏢 Partners received:', supabasePartners.length);

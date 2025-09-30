@@ -58,6 +58,9 @@ const PartnerManagementPage: React.FC = () => {
     fetchPartners();
     fetchUsers();
     console.log('🏢 PartnerManagementPage mounted');
+    console.log('🏢 Initial partners state:', partners);
+    console.log('🏢 Initial loading state:', isLoading);
+    console.log('🏢 Initial error state:', error);
   }, [fetchPartners, fetchUsers]);
 
   // Debug: Log partners to see if they're being fetched
