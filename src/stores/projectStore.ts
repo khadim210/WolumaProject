@@ -229,8 +229,4 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     return [];
   },
-  
-  filterProjectsByProgram: (programId) => {
-    return get().projects.filter(p => p.programId === programId);
-  }
 }));
