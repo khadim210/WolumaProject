@@ -73,7 +73,54 @@ const FormTemplatesPage: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      {/* Debug information */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">Debug Info:</h3>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div>Templates count: {templates.length}</div>
+            <div>Is loading: {isLoading.toString()}</div>
+            <div>Error: {error || 'None'}</div>
+            <div>Supabase enabled: {import.meta.env.VITE_SUPABASE_URL ? 'Yes' : 'No'}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          <span className="ml-3 text-gray-600">Chargement des modèles...</span>
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && (
+        <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded-md">
+          <p className="font-medium">Erreur lors du chargement des modèles :</p>
+          <p className="text-sm mt-1">{error}</p>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && !error && templates.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg shadow">
+          <div className="text-gray-500 mb-4">
+            Aucun modèle de formulaire n'est disponible pour le moment
+          </div>
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => navigate('/dashboard/form-templates/create')}
+          >
+            Créer votre premier modèle
+          </Button>
+        </div>
+      )}
+
+      {/* Templates list */}
+      {!isLoading && !error && templates.length > 0 && (
+        <div className="grid grid-cols-1 gap-6">
         {templates.map(template => (
           <Card key={template.id} className="hover:shadow-md transition-shadow">
             <CardHeader>
@@ -142,7 +189,8 @@ const FormTemplatesPage: React.FC = () => {
             </CardFooter>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
