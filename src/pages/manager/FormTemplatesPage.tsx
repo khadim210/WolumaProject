@@ -8,7 +8,7 @@ import { Plus, Copy, Trash2, CreditCard as Edit, Archive, MoreVertical, GripVert
 import { useNavigate } from 'react-router-dom';
 
 const FormTemplatesPage: React.FC = () => {
-  const { templates, fetchTemplates, duplicateTemplate, deleteTemplate } = useFormTemplateStore();
+  const { templates, isLoading, error, fetchTemplates, duplicateTemplate, deleteTemplate } = useFormTemplateStore();
   const navigate = useNavigate();
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FormTemplateService } from '../services/supabaseService';
+import { FormTemplateService, getSupabaseEnabled } from '../services/supabaseService';
 import type { SupabaseFormTemplate } from '../services/supabaseService';
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'multiple_select';
