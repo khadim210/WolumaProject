@@ -39,11 +39,18 @@ ChartJS.register(
 const StatisticsPage = () => {
   const { user } = useAuthStore();
   const { projects } = useProjectStore();
-  const { programs, partners } = useProgramStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   
   const [timeframe, setTimeframe] = useState('year');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [programFilter, setProgramFilter] = useState<string>('all');
+
+  // Fetch data on component mount
+  React.useEffect(() => {
+    console.log('📊 StatisticsPage: Fetching programs and partners...');
+    fetchPrograms();
+    fetchPartners();
+  }, [fetchPrograms, fetchPartners]);
 
   // Get accessible programs based on user role
   const getAccessiblePrograms = () => {

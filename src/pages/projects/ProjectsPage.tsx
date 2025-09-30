@@ -31,6 +31,7 @@ const ProjectsPage: React.FC = () => {
   const [importSuccess, setImportSuccess] = useState<string>('');
   
   useEffect(() => {
+    console.log('📁 ProjectsPage: Fetching all data...');
     fetchProjects();
     fetchPrograms();
     fetchPartners();

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from './authStore';
-import { ProjectService } from '../services/supabaseService';
+import { ProjectService, getSupabaseEnabled } from '../services/supabaseService';
 import type { SupabaseProject } from '../services/supabaseService';
 
 export type ProjectStatus = 

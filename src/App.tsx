@@ -47,12 +47,19 @@ function App() {
     const initializeSupabase = async () => {
       try {
         console.log('🚀 Initializing Supabase...');
+        console.log('🚀 Environment check:', {
+          hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
+          hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+          hasServiceKey: !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+          demoMode: import.meta.env.VITE_DEMO_MODE
+        });
         
         // Check if Supabase is properly configured
         const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
         
         if (hasSupabaseConfig) {
           console.log('✅ Supabase configuration found');
+          console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
           // Créer les données de démonstration
           console.log('🌱 Starting seed data creation...');
           await MigrationService.seedData();

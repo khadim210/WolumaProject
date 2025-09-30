@@ -42,7 +42,13 @@ function getSupabaseConfig() {
 
 // Initialize demo mode safely
 if (typeof window !== 'undefined') {
-  isDemoModeGlobal = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+  try {
+    isDemoModeGlobal = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+  } catch (error) {
+    // If getSupabaseEnabled fails (e.g., localStorage not available), default to checking env vars
+    isDemoModeGlobal = import.meta.env.VITE_DEMO_MODE === 'true' && 
+                      (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY);
+  }
 }
 
 // Configuration Supabase

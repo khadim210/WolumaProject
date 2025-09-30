@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { UserService, AuthService } from '../services/supabaseService';
+import { UserService, AuthService, getSupabaseEnabled } from '../services/supabaseService';
 import type { SupabaseUser } from '../services/supabaseService';
 
 export type UserRole = 'admin' | 'partner' | 'manager' | 'submitter';

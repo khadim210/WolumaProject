@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
+import { useProgramStore } from '../../stores/programStore';
 import { 
   Card, 
   CardHeader, 
@@ -29,10 +30,14 @@ import {
 const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const { projects, fetchProjects, filterProjectsByUser } = useProjectStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   
   useEffect(() => {
+    console.log('🏠 DashboardPage: Fetching all data...');
     fetchProjects();
-  }, [fetchProjects]);
+    fetchPrograms();
+    fetchPartners();
+  }, [fetchProjects, fetchPrograms, fetchPartners]);
   
   const userProjects = user ? filterProjectsByUser(user) : [];
   
