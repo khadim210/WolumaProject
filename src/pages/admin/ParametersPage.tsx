@@ -39,10 +39,6 @@ const ParametersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [isInitializingDb, setIsInitializingDb] = useState(false);
-  const [isResettingDb, setIsResettingDb] = useState(false);
   const [formData, setFormData] = useState(parameters);
 
   useEffect(() => {
@@ -83,75 +79,12 @@ const ParametersPage: React.FC = () => {
     }
   };
 
-  const handleTestConnection = async () => {
-    setIsTestingConnection(true);
-    setConnectionTestResult(null);
-    
-    try {
-      const isConnected = await testDatabaseConnection();
-      setConnectionTestResult({
-        success: isConnected,
-        message: isConnected 
-          ? 'Connexion à la base de données réussie !' 
-          : 'Échec de la connexion à la base de données. Vérifiez vos paramètres.'
-      });
-    } catch (error) {
-      setConnectionTestResult({
-        success: false,
-        message: `Erreur de connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    } finally {
-      setIsTestingConnection(false);
-    }
-  };
-
-  const handleInitializeDatabase = async () => {
-    setIsInitializingDb(true);
-    try {
-      await initializeDatabase();
-      setConnectionTestResult({
-        success: true,
-        message: 'Base de données initialisée avec succès !'
-      });
-    } catch (error) {
-      setConnectionTestResult({
-        success: false,
-        message: `Erreur d'initialisation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    } finally {
-      setIsInitializingDb(false);
-    }
-  };
-
-  const handleResetDatabase = async () => {
-    if (!window.confirm('Êtes-vous sûr de vouloir réinitialiser la base de données ? Cette action est irréversible.')) {
-      return;
-    }
-    
-    setIsResettingDb(true);
-    try {
-      await resetDatabase();
-      setConnectionTestResult({
-        success: true,
-        message: 'Base de données réinitialisée avec succès !'
-      });
-    } catch (error) {
-      setConnectionTestResult({
-        success: false,
-        message: `Erreur de réinitialisation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    } finally {
-      setIsResettingDb(false);
-    }
-  };
-
   const tabs = [
     { id: 'general', label: 'Général', icon: <Settings className="h-4 w-4" /> },
     { id: 'security', label: 'Sécurité', icon: <Shield className="h-4 w-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Mail className="h-4 w-4" /> },
     { id: 'appearance', label: 'Apparence', icon: <Palette className="h-4 w-4" /> },
     { id: 'system', label: 'Système', icon: <Server className="h-4 w-4" /> },
-    { id: 'database', label: 'Base de données', icon: <Database className="h-4 w-4" /> },
     { id: 'supabase', label: 'Supabase', icon: <Database className="h-4 w-4" /> },
   ];
 
@@ -294,201 +227,6 @@ const ParametersPage: React.FC = () => {
               </Card>
             )}
 
-            {activeTab === 'database' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuration de la base de données</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Type de base de données
-                      </label>
-                      <select
-                        value={formData.databaseType}
-                        onChange={(e) => handleInputChange('databaseType', e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      >
-                        <option value="postgresql">PostgreSQL</option>
-                        <option value="mysql">MySQL</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Mode
-                      </label>
-                      <select
-                        value={formData.databaseMode}
-                        onChange={(e) => handleInputChange('databaseMode', e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      >
-                        <option value="demo">Démonstration</option>
-                        <option value="production">Production</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {formData.databaseMode === 'production' && (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Hôte
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.databaseHost}
-                            onChange={(e) => handleInputChange('databaseHost', e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Port
-                          </label>
-                          <input
-                            type="number"
-                            value={formData.databasePort}
-                            onChange={(e) => handleInputChange('databasePort', parseInt(e.target.value))}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Nom de la base de données
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.databaseName}
-                          onChange={(e) => handleInputChange('databaseName', e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Nom d'utilisateur
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.databaseUsername}
-                            onChange={(e) => handleInputChange('databaseUsername', e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mot de passe
-                          </label>
-                          <input
-                            type="password"
-                            value={formData.databasePassword}
-                            onChange={(e) => handleInputChange('databasePassword', e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={formData.databaseSsl}
-                            onChange={(e) => handleInputChange('databaseSsl', e.target.checked)}
-                            className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                          />
-                          <span className="ml-2 text-sm text-gray-900">Utiliser SSL</span>
-                        </label>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Actions sur la base de données</h3>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div>
-                          <h4 className="font-medium text-blue-900">Test de connexion</h4>
-                          <p className="text-sm text-blue-700">Vérifiez que la connexion à la base de données fonctionne</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleTestConnection}
-                          isLoading={isTestingConnection}
-                          leftIcon={<TestTube className="h-4 w-4" />}
-                        >
-                          Tester
-                        </Button>
-                      </div>
-
-                      {connectionTestResult && (
-                        <div className={`p-4 rounded-lg border ${
-                          connectionTestResult.success 
-                            ? 'bg-success-50 border-success-200 text-success-800' 
-                            : 'bg-error-50 border-error-200 text-error-800'
-                        }`}>
-                          <div className="flex items-center">
-                            {connectionTestResult.success ? (
-                              <CheckCircle className="h-5 w-5 mr-2" />
-                            ) : (
-                              <XCircle className="h-5 w-5 mr-2" />
-                            )}
-                            <span className="text-sm font-medium">
-                              {connectionTestResult.message}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div>
-                          <h4 className="font-medium text-green-900">Initialiser la base de données</h4>
-                          <p className="text-sm text-green-700">Créer les tables et structures nécessaires</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="success"
-                          size="sm"
-                          onClick={handleInitializeDatabase}
-                          isLoading={isInitializingDb}
-                          leftIcon={<Database className="h-4 w-4" />}
-                        >
-                          Initialiser
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                        <div>
-                          <h4 className="font-medium text-red-900">Réinitialiser la base de données</h4>
-                          <p className="text-sm text-red-700">⚠️ Supprime toutes les données et recrée les tables</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          onClick={handleResetDatabase}
-                          isLoading={isResettingDb}
-                          leftIcon={<AlertTriangle className="h-4 w-4" />}
-                        >
-                          Réinitialiser
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {activeTab === 'supabase' && (
               <Card>
                 <CardHeader>
@@ -570,32 +308,14 @@ const ParametersPage: React.FC = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={handleTestConnection}
-                              isLoading={isTestingConnection}
+                              onClick={() => {}}
+                              disabled={true}
                               leftIcon={<TestTube className="h-4 w-4" />}
                             >
                               Tester
                             </Button>
                           </div>
 
-                          {connectionTestResult && (
-                            <div className={`p-4 rounded-lg border ${
-                              connectionTestResult.success 
-                                ? 'bg-success-50 border-success-200 text-success-800' 
-                                : 'bg-error-50 border-error-200 text-error-800'
-                            }`}>
-                              <div className="flex items-center">
-                                {connectionTestResult.success ? (
-                                  <CheckCircle className="h-5 w-5 mr-2" />
-                                ) : (
-                                  <XCircle className="h-5 w-5 mr-2" />
-                                )}
-                                <span className="text-sm font-medium">
-                                  {connectionTestResult.message}
-                                </span>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
 

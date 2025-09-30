@@ -64,9 +64,6 @@ interface ParametersState {
   error: string | null;
   updateParameters: (updates: Partial<SystemParameters>) => Promise<void>;
   resetToDefaults: () => Promise<void>;
-  initializeDatabase: () => Promise<void>;
-  resetDatabase: () => Promise<void>;
-  testDatabaseConnection: () => Promise<boolean>;
 }
 
 const defaultParameters: SystemParameters = {
@@ -166,107 +163,6 @@ export const useParametersStore = create<ParametersState>()(
         }
       },
 
-      initializeDatabase: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          const { parameters } = get();
-          
-          // If in demo mode, just simulate success
-          if (parameters.databaseMode === 'demo') {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Demo mode: Database initialization simulated');
-            set({ isLoading: false });
-            return;
-          }
-          
-          const dbManager = new DatabaseManager({
-            type: parameters.databaseType,
-            host: parameters.databaseHost,
-            port: parameters.databasePort,
-            database: parameters.databaseName,
-            username: parameters.databaseUsername,
-            password: parameters.databasePassword,
-            ssl: parameters.databaseSsl
-          });
-          
-          await dbManager.initializeDatabase();
-          
-          console.log('Database initialized successfully');
-          
-          set({ isLoading: false });
-        } catch (error) {
-          console.error('Error initializing database:', error);
-          set({ error: 'Failed to initialize database', isLoading: false });
-          throw error;
-        }
-      },
-
-      resetDatabase: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          const { parameters } = get();
-          
-          // If in demo mode, just simulate success
-          if (parameters.databaseMode === 'demo') {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Demo mode: Database reset simulated');
-            set({ isLoading: false });
-            return;
-          }
-          
-          const dbManager = new DatabaseManager({
-            type: parameters.databaseType,
-            host: parameters.databaseHost,
-            port: parameters.databasePort,
-            database: parameters.databaseName,
-            username: parameters.databaseUsername,
-            password: parameters.databasePassword,
-            ssl: parameters.databaseSsl
-          });
-          
-          await dbManager.resetDatabase();
-          
-          console.log('Database reset successfully');
-          
-          set({ isLoading: false });
-        } catch (error) {
-          console.error('Error resetting database:', error);
-          set({ error: 'Failed to reset database', isLoading: false });
-          throw error;
-        }
-      },
-
-      testDatabaseConnection: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          const { parameters } = get();
-          
-          // If in demo mode, always return success
-          if (parameters.databaseMode === 'demo') {
-            set({ isLoading: false });
-            return true;
-          }
-          
-          const dbManager = new DatabaseManager({
-            type: parameters.databaseType,
-            host: parameters.databaseHost,
-            port: parameters.databasePort,
-            database: parameters.databaseName,
-            username: parameters.databaseUsername,
-            password: parameters.databasePassword,
-            ssl: parameters.databaseSsl
-          });
-          
-          const isConnected = await dbManager.testConnection();
-          
-          set({ isLoading: false });
-          return isConnected;
-        } catch (error) {
-          console.error('Error testing database connection:', error);
-          set({ error: 'Failed to test database connection', isLoading: false });
-          return false;
-        }
-      },
     }),
     {
       name: 'parameters-storage',
