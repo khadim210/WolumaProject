@@ -452,7 +452,7 @@ export class FormTemplateService {
     
     console.log('🔄 Fetching from Supabase...');
     const { data, error } = await supabase
-      .from('orm_templates')
+      .from('form_templates')
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -468,7 +468,7 @@ export class FormTemplateService {
     }
     
     const { data, error } = await supabaseAdmin
-      .from('orm_templates')
+      .from('form_templates')
       .insert([template])
       .select()
       .single();
@@ -483,7 +483,7 @@ export class FormTemplateService {
     }
     
     const { data, error } = await supabaseAdmin
-      .from('orm_templates')
+      .from('form_templates')
       .update(updates)
       .eq('id', id)
       .select()
@@ -499,7 +499,7 @@ export class FormTemplateService {
     }
     
     const { error } = await supabaseAdmin
-      .from('orm_templates')
+      .from('form_templates')
       .delete()
       .eq('id', id);
     
@@ -695,7 +695,7 @@ export class MigrationService {
       
       // Get form templates
       const { data: templates } = await supabaseAdmin
-        .from('orm_templates')
+        .from('form_templates')
         .select('id, name');
       
       const defaultPrograms = [
@@ -868,7 +868,7 @@ export class MigrationService {
       for (const template of defaultFormTemplates) {
         // Check if template already exists
         const { data: existingTemplate } = await supabaseAdmin
-          .from('orm_templates')
+          .from('form_templates')
           .select('id')
           .eq('name', template.name)
           .maybeSingle();
@@ -880,7 +880,7 @@ export class MigrationService {
         
         // Create the template
         const { error } = await supabaseAdmin
-          .from('orm_templates')
+          .from('form_templates')
           .insert([{
             name: template.name,
             description: template.description,
