@@ -776,10 +776,15 @@ export class FormTemplateService {
   static async getFormTemplates(): Promise<SupabaseFormTemplate[]> {
     const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
     
+    console.log('🔄 FormTemplateService.getFormTemplates called');
+    console.log('🔄 Is demo mode:', isDemo);
+    console.log('🔄 Supabase enabled:', getSupabaseEnabled());
+    
     if (isDemo) {
       console.log('🎭 Demo mode: Returning demo form templates list');
       await new Promise(resolve => setTimeout(resolve, 300));
       const { defaultFormTemplates } = await import('../data/defaultFormTemplates');
+      console.log('🎭 Demo templates loaded:', defaultFormTemplates.length);
       return defaultFormTemplates.map(template => ({
         id: template.id,
         name: template.name,
@@ -792,13 +797,17 @@ export class FormTemplateService {
     }
     
     if (!supabase) {
+      console.error('❌ Supabase not available for form templates');
       throw new Error('Supabase not available');
     }
     
+    console.log('🔄 Fetching from Supabase...');
     const { data, error } = await supabase
       .from('form_templates')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    console.log('🔄 Supabase response - data:', data?.length, 'error:', error);
     
     if (error) throw error;
     return data || [];

@@ -61,10 +61,13 @@ export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       console.log('🔄 Fetching form templates...');
+      console.log('🔄 Supabase enabled:', getSupabaseEnabled());
+      console.log('🔄 Demo mode:', import.meta.env.VITE_DEMO_MODE === 'true');
       const supabaseTemplates = await FormTemplateService.getFormTemplates();
       console.log('📋 Form templates received:', supabaseTemplates.length);
       console.log('📋 Templates data:', supabaseTemplates);
       const templates = supabaseTemplates.map(convertSupabaseFormTemplate);
+      console.log('📋 Converted templates:', templates.length);
       set({ templates, isLoading: false });
     } catch (error) {
       console.error('Error fetching templates:', error);
