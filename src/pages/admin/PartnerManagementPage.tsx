@@ -11,19 +11,7 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  Building, 
-  Mail, 
-  Phone, 
-  MapPin,
-  Users,
-  Search,
-  Filter
-} from 'lucide-react';
+import { Plus, CreditCard as Edit, Trash2, Save, Building, Mail, Phone, MapPin, Users, Search, Filter } from 'lucide-react';
 
 const partnerSchema = Yup.object().shape({
   name: Yup.string().required('Le nom du partenaire est requis'),
