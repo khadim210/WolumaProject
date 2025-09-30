@@ -799,7 +799,15 @@ export class FormTemplateService {
     const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
     
     if (isDemo) {
-      throw new Error('Demo mode: Form template creation not implemented');
+      console.log('🎭 Demo mode: Creating demo form template');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const now = new Date().toISOString();
+      return {
+        ...template,
+        id: `demo-template-${Date.now()}`,
+        created_at: now,
+        updated_at: now
+      };
     }
     
     if (supabaseAdmin === null) {
@@ -814,6 +822,60 @@ export class FormTemplateService {
     
     if (error) throw error;
     return data;
+  }
+
+  static async updateFormTemplate(id: string, updates: Partial<SupabaseFormTemplate>): Promise<SupabaseFormTemplate> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      console.log('🎭 Demo mode: Updating demo form template');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const now = new Date().toISOString();
+      return {
+        id,
+        name: updates.name || 'Updated Template',
+        description: updates.description || 'Updated description',
+        fields: updates.fields || [],
+        is_active: updates.is_active !== undefined ? updates.is_active : true,
+        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: now
+      };
+    }
+    
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
+    }
+    
+    const { data, error } = await supabaseAdmin
+      .from('form_templates')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  static async deleteFormTemplate(id: string): Promise<void> {
+    const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
+    
+    if (isDemo) {
+      console.log('🎭 Demo mode: Deleting demo form template');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return;
+    }
+    
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
+    }
+    
+    const { error } = await supabaseAdmin
+      .from('form_templates')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   }
 }
 
@@ -981,11 +1043,58 @@ export class MigrationService {
         await this.createDemoUser(user);
       }
       
+      // Create default form templates
+      await this.createDefaultFormTemplates();
+      
       console.log('✅ Data seeding completed successfully');
     } catch (error) {
       console.error('❌ Error during data seeding:', error);
       // Don't throw error to prevent app crash, just log it
       console.log('💡 Tip: Ensure your Supabase project has the correct configuration and SERVICE_ROLE_KEY');
+    }
+  }
+
+  private static async createDefaultFormTemplates(): Promise<void> {
+    if (supabaseAdmin === null) {
+      throw new Error('Admin client not available');
+    }
+    
+    try {
+      const { defaultFormTemplates } = await import('../data/defaultFormTemplates');
+      
+      for (const template of defaultFormTemplates) {
+        // Check if template already exists
+        const { data: existingTemplate } = await supabaseAdmin
+          .from('form_templates')
+          .select('id')
+          .eq('name', template.name)
+          .maybeSingle();
+        
+        if (existingTemplate) {
+          console.log(`✅ Form template already exists: ${template.name}`);
+          continue;
+        }
+        
+        // Create the template
+        const { error } = await supabaseAdmin
+          .from('form_templates')
+          .insert([{
+            name: template.name,
+            description: template.description,
+            fields: template.fields,
+            is_active: template.isActive
+          }]);
+        
+        if (error) {
+          console.error(`❌ Error creating form template ${template.name}:`, error);
+          continue;
+        }
+        
+        console.log(`✅ Created form template: ${template.name}`);
+      }
+    } catch (error) {
+      console.error('❌ Error creating default form templates:', error);
+      // Don't throw to prevent app crash
     }
   }
 
