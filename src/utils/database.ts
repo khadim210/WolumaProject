@@ -1,6 +1,6 @@
 // Database connection utilities
-import mysql from 'mysql2/promise';
-import { Client } from 'pg';
+// Note: This module is designed for server-side use only
+// Browser compatibility is limited to interface definitions
 
 export interface DatabaseConfig {
   type: 'mysql' | 'postgresql';
@@ -20,8 +20,15 @@ export class DatabaseManager {
   }
 
   async testConnection(): Promise<boolean> {
+    // Check if running in browser environment
+    if (typeof window !== 'undefined') {
+      throw new Error('Database operations are not supported in browser environment. This functionality requires a server-side environment.');
+    }
+
     try {
       if (this.config.type === 'mysql') {
+        // Dynamic import to prevent browser bundling issues
+        const mysql = await import('mysql2/promise');
         const connection = await mysql.createConnection({
           host: this.config.host,
           port: this.config.port,
@@ -34,6 +41,8 @@ export class DatabaseManager {
         await connection.end();
         return true;
       } else {
+        // Dynamic import to prevent browser bundling issues
+        const { Client } = await import('pg');
         const client = new Client({
           host: this.config.host,
           port: this.config.port,
@@ -54,6 +63,11 @@ export class DatabaseManager {
   }
 
   async initializeDatabase(): Promise<void> {
+    // Check if running in browser environment
+    if (typeof window !== 'undefined') {
+      throw new Error('Database operations are not supported in browser environment. This functionality requires a server-side environment.');
+    }
+
     if (this.config.type === 'mysql') {
       await this.initializeMySQLTables();
     } else {
@@ -62,6 +76,8 @@ export class DatabaseManager {
   }
 
   private async initializeMySQLTables(): Promise<void> {
+    // Dynamic import to prevent browser bundling issues
+    const mysql = await import('mysql2/promise');
     const connection = await mysql.createConnection({
       host: this.config.host,
       port: this.config.port,
@@ -157,6 +173,8 @@ export class DatabaseManager {
   }
 
   private async initializePostgreSQLTables(): Promise<void> {
+    // Dynamic import to prevent browser bundling issues
+    const { Client } = await import('pg');
     const client = new Client({
       host: this.config.host,
       port: this.config.port,
@@ -265,6 +283,11 @@ export class DatabaseManager {
   }
 
   async resetDatabase(): Promise<void> {
+    // Check if running in browser environment
+    if (typeof window !== 'undefined') {
+      throw new Error('Database operations are not supported in browser environment. This functionality requires a server-side environment.');
+    }
+
     if (this.config.type === 'mysql') {
       await this.resetMySQLDatabase();
     } else {
@@ -273,6 +296,8 @@ export class DatabaseManager {
   }
 
   private async resetMySQLDatabase(): Promise<void> {
+    // Dynamic import to prevent browser bundling issues
+    const mysql = await import('mysql2/promise');
     const connection = await mysql.createConnection({
       host: this.config.host,
       port: this.config.port,
@@ -305,6 +330,8 @@ export class DatabaseManager {
   }
 
   private async resetPostgreSQLDatabase(): Promise<void> {
+    // Dynamic import to prevent browser bundling issues
+    const { Client } = await import('pg');
     const client = new Client({
       host: this.config.host,
       port: this.config.port,
