@@ -1064,17 +1064,10 @@ export class MigrationService {
   }
 
   private static async createDefaultFormTemplates(): Promise<void> {
-    // Check if Supabase is available
-    const hasSupabaseConfig = supabaseUrl && supabaseAnonKey;
-    if (!hasSupabaseConfig) {
-      console.log('🎭 Supabase not configured, skipping form template creation');
-      return;
-    }
-    
-    // Use regular client if admin not available
-    const client = supabaseAdmin || supabase;
-    if (!client) {
-      console.log('⚠️ No Supabase client available, skipping form template creation');
+    // Only use admin client for form template creation (requires SERVICE_ROLE_KEY)
+    if (supabaseAdmin === null) {
+      console.log('⚠️ Admin client not available (missing SERVICE_ROLE_KEY), skipping form template creation');
+      console.log('💡 Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env file to enable form template seeding');
       return;
     }
     
@@ -1085,7 +1078,7 @@ export class MigrationService {
       
       for (const template of defaultFormTemplates) {
         // Check if template already exists
-        const { data: existingTemplate } = await client
+        const { data: existingTemplate } = await supabaseAdmin
           .from('form_templates')
           .select('id')
           .eq('name', template.name)
@@ -1097,7 +1090,7 @@ export class MigrationService {
         }
         
         // Create the template
-        const { error } = await client
+        const { error } = await supabaseAdmin
           .from('form_templates')
           .insert([{
             name: template.name,
