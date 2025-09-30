@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { PartnerService, ProgramService } from '../services/supabaseService';
+import { PartnerService, ProgramService, getSupabaseEnabled } from '../services/supabaseService';
 import type { SupabasePartner, SupabaseProgram } from '../services/supabaseService';
 
 export type CriterionType = 'number' | 'text' | 'select' | 'boolean' | 'date' | 'range';
