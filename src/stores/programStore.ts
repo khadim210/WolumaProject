@@ -128,11 +128,14 @@ export const useProgramStore = create<ProgramState>()(
       fetchPartners: async () => {
         set({ isLoading: true, error: null });
         try {
+          console.log('🏢 Store: Fetching partners...');
           console.log('🏢 Fetching partners from Supabase...');
           const supabasePartners = await PartnerService.getPartners();
           console.log('🏢 Partners received:', supabasePartners.length);
+          console.log('🏢 Raw partners data:', supabasePartners);
           const partners = supabasePartners.map(convertSupabasePartner);
           console.log('🏢 Converted partners:', partners.length);
+          console.log('🏢 Final partners:', partners);
           set({ partners, isLoading: false });
         } catch (error) {
           console.error('Error fetching partners:', error);

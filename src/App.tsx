@@ -54,6 +54,7 @@ function App() {
         if (hasSupabaseConfig) {
           console.log('✅ Supabase configuration found');
           // Créer les données de démonstration
+          console.log('🌱 Starting seed data creation...');
           await MigrationService.seedData();
           console.log('✅ Supabase initialized successfully');
         } else {

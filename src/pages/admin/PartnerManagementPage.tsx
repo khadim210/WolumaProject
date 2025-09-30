@@ -68,7 +68,13 @@ const PartnerManagementPage: React.FC = () => {
   useEffect(() => {
     fetchPartners();
     fetchUsers();
+    console.log('🏢 PartnerManagementPage mounted');
   }, [fetchPartners, fetchUsers]);
+
+  // Debug: Log partners to see if they're being fetched
+  console.log('🏢 Partners in component:', partners);
+  console.log('🏢 Is loading:', isLoading);
+  console.log('🏢 Error:', error);
 
   const filteredPartners = partners.filter(partner => {
     const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

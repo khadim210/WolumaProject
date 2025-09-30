@@ -335,6 +335,10 @@ export class PartnerService {
   static async getPartners(): Promise<SupabasePartner[]> {
     const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
     
+    console.log('🏢 PartnerService.getPartners called');
+    console.log('🏢 Is demo mode:', isDemo);
+    console.log('🏢 Supabase enabled:', getSupabaseEnabled());
+    
     if (isDemo) {
       console.log('🎭 Demo mode: Returning demo partners list');
       await new Promise(resolve => setTimeout(resolve, 300));
