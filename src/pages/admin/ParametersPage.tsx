@@ -310,14 +310,42 @@ const ParametersPage: React.FC = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => {}}
-                              disabled={true}
+                              onClick={handleTestConnection}
+                              disabled={!formData.supabaseUrl || !formData.supabaseAnonKey}
+                              isLoading={isTestingConnection}
                               leftIcon={<TestTube className="h-4 w-4" />}
                             >
                               Tester
                             </Button>
                           </div>
 
+                          {connectionTest && (
+                            <div className={`p-4 rounded-lg border ${
+                              connectionTest.success 
+                                ? 'bg-green-50 border-green-200' 
+                                : 'bg-red-50 border-red-200'
+                            }`}>
+                              <div className="flex items-center">
+                                {connectionTest.success ? (
+                                  <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-400 mr-2" />
+                                )}
+                                <div>
+                                  <h4 className={`text-sm font-medium ${
+                                    connectionTest.success ? 'text-green-800' : 'text-red-800'
+                                  }`}>
+                                    {connectionTest.success ? 'Connexion réussie' : 'Échec de la connexion'}
+                                  </h4>
+                                  <p className={`text-sm ${
+                                    connectionTest.success ? 'text-green-700' : 'text-red-700'
+                                  }`}>
+                                    {connectionTest.message}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
