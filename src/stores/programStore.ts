@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { PartnerService, ProgramService } from '../services/supabaseService';
+import { PartnerService, ProgramService, getSupabaseEnabled } from '../services/supabaseService';
 import type { SupabasePartner, SupabaseProgram } from '../services/supabaseService';
 
 export type CriterionType = 'number' | 'text' | 'select' | 'boolean' | 'date' | 'range';
@@ -128,8 +128,15 @@ export const useProgramStore = create<ProgramState>()(
       fetchPartners: async () => {
         set({ isLoading: true, error: null });
         try {
+          console.log('🏢 Store: Fetching partners...');
+          console.log('🏢 Store: Supabase enabled:', getSupabaseEnabled());
+          console.log('🏢 Fetching partners from Supabase...');
           const supabasePartners = await PartnerService.getPartners();
+          console.log('🏢 Partners received:', supabasePartners.length);
+          console.log('🏢 Raw partners data:', supabasePartners);
           const partners = supabasePartners.map(convertSupabasePartner);
+          console.log('🏢 Converted partners:', partners.length);
+          console.log('🏢 Final partners:', partners);
           set({ partners, isLoading: false });
         } catch (error) {
           console.error('Error fetching partners:', error);

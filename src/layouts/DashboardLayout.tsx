@@ -16,7 +16,8 @@ import {
   FileInput,
   Users,
   Settings,
-  Target
+  Target,
+  Building
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -115,6 +116,9 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('parameters.edit') && (
                 <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
               )}
+              {checkPermission('parameters.edit') && (
+                <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" onClick={() => setSidebarOpen(false)} />
+              )}
               {checkPermission('users.view') && (
                 <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
               )}
@@ -164,6 +168,9 @@ const DashboardLayout: React.FC = () => {
                 )}
                 {checkPermission('parameters.edit') && (
                   <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
+                )}
+                {checkPermission('parameters.edit') && (
+                  <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" />
                 )}
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />

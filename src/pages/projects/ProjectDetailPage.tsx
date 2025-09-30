@@ -14,18 +14,7 @@ import {
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
-import { 
-  Calendar, 
-  Clock, 
-  DollarSign, 
-  Edit, 
-  ArrowLeft,
-  Send,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
-  Download
-} from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download } from 'lucide-react';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 
 const ProjectDetailPage: React.FC = () => {
@@ -34,7 +23,7 @@ const ProjectDetailPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, getProject, updateProject } = useProjectStore();
-  const { programs, partners } = useProgramStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +31,10 @@ const ProjectDetailPage: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   useEffect(() => {
+    console.log('📄 ProjectDetailPage: Fetching programs and partners...');
+    fetchPrograms();
+    fetchPartners();
+    
     if (id) {
       const projectData = getProject(id);
       setProject(projectData);
@@ -50,7 +43,7 @@ const ProjectDetailPage: React.FC = () => {
         navigate('/dashboard/projects');
       }
     }
-  }, [id, getProject, navigate, projects]);
+  }, [id, getProject, navigate, projects, fetchPrograms, fetchPartners]);
   
   const handleSubmitProject = async () => {
     if (!project || !id) return;
