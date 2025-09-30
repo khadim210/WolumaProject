@@ -14,18 +14,7 @@ import {
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
-import { 
-  Calendar, 
-  Clock, 
-  DollarSign, 
-  Edit, 
-  ArrowLeft,
-  Send,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
-  Download
-} from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download } from 'lucide-react';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 
 const ProjectDetailPage: React.FC = () => {
