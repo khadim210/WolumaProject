@@ -40,6 +40,8 @@ const ParametersPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [formData, setFormData] = useState(parameters);
+  const [connectionTest, setConnectionTest] = useState<{ success: boolean; message: string } | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
     setFormData(parameters);

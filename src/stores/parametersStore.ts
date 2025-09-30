@@ -64,6 +64,9 @@ interface ParametersState {
   error: string | null;
   updateParameters: (updates: Partial<SystemParameters>) => Promise<void>;
   resetToDefaults: () => Promise<void>;
+  testDatabaseConnection: () => Promise<{ success: boolean; message: string }>;
+  initializeDatabase: () => Promise<void>;
+  resetDatabase: () => Promise<void>;
 }
 
 const defaultParameters: SystemParameters = {
@@ -163,6 +166,44 @@ export const useParametersStore = create<ParametersState>()(
         }
       },
 
+      testDatabaseConnection: async () => {
+        const { parameters } = get();
+        
+        if (!parameters.enableSupabase) {
+          return { success: false, message: 'Supabase n\'est pas activé' };
+        }
+
+        try {
+          // Test basic connection with a simple query
+          const response = await fetch(`${parameters.supabaseUrl}/rest/v1/`, {
+            method: 'GET',
+            headers: {
+              'apikey': parameters.supabaseAnonKey,
+              'Authorization': `Bearer ${parameters.supabaseAnonKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+        if (!parameters.supabaseUrl || !parameters.supabaseAnonKey) {
+          if (response.ok) {
+            return { success: true, message: 'Connexion Supabase réussie' };
+          } else {
+            const errorText = await response.text();
+            return { success: false, message: `Erreur de connexion: ${response.status} - ${errorText}` };
+          }
+        } catch (error) {
+          return { success: false, message: `Erreur réseau: ${error instanceof Error ? error.message : 'Erreur inconnue'}` };
+        }
+      },
+          return { success: false, message: 'URL Supabase et clé anonyme requis' };
+      initializeDatabase: async () => {
+        // Placeholder for database initialization
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      },
+        }
+      resetDatabase: async () => {
+        // Placeholder for database reset
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      },
     }),
     {
       name: 'parameters-storage',
