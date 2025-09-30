@@ -1038,6 +1038,10 @@ export class MigrationService {
       // Always try to create default form templates first
       await this.createDefaultFormTemplates();
       
+      // Create default partners and programs
+      await this.createDefaultPartners();
+      await this.createDefaultPrograms();
+      
       // Check if we should use demo mode or Supabase for users
       const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
       
@@ -1069,6 +1073,255 @@ export class MigrationService {
       console.error('❌ Error during data seeding:', error);
       // Don't throw error to prevent app crash, just log it
       console.log('💡 Tip: Ensure your Supabase project has the correct configuration and SERVICE_ROLE_KEY');
+    }
+  }
+
+  private static async createDefaultPartners(): Promise<void> {
+    if (supabaseAdmin === null) {
+      console.log('⚠️ Admin client not available, skipping partners creation');
+      return;
+    }
+    
+    console.log('🏢 Creating default partners...');
+    
+    try {
+      const defaultPartners = [
+        {
+          name: 'Woluma Innovation Fund',
+          description: 'Fonds d\'investissement spécialisé dans l\'innovation technologique et l\'impact social',
+          contact_email: 'contact@woluma.com',
+          contact_phone: '+33 1 23 45 67 89',
+          address: '123 Avenue de l\'Innovation, 75001 Paris, France',
+          is_active: true,
+          assigned_manager_id: null
+        },
+        {
+          name: 'Green Tech Partners',
+          description: 'Partenaire spécialisé dans le financement de projets de transition énergétique et environnementale',
+          contact_email: 'contact@greentech-partners.com',
+          contact_phone: '+33 1 98 76 54 32',
+          address: '456 Rue de l\'Écologie, 69000 Lyon, France',
+          is_active: true,
+          assigned_manager_id: null
+        },
+        {
+          name: 'Health Innovation Lab',
+          description: 'Laboratoire d\'innovation dédié aux projets de santé, biotechnologies et dispositifs médicaux',
+          contact_email: 'lab@health-innovation.com',
+          contact_phone: '+33 4 56 78 90 12',
+          address: '789 Boulevard de la Santé, 13000 Marseille, France',
+          is_active: true,
+          assigned_manager_id: null
+        }
+      ];
+      
+      for (const partner of defaultPartners) {
+        // Check if partner already exists
+        const { data: existingPartner } = await supabaseAdmin
+          .from('partners')
+          .select('id')
+          .eq('name', partner.name)
+          .maybeSingle();
+        
+        if (existingPartner) {
+          console.log(`✅ Partner already exists: ${partner.name}`);
+          continue;
+        }
+        
+        // Create the partner
+        const { error } = await supabaseAdmin
+          .from('partners')
+          .insert([partner]);
+        
+        if (error) {
+          console.error(`❌ Error creating partner ${partner.name}:`, error);
+          continue;
+        }
+        
+        console.log(`✅ Created partner: ${partner.name}`);
+      }
+      
+      console.log('🏢 Partners creation completed');
+    } catch (error) {
+      console.error('❌ Error creating default partners:', error);
+    }
+  }
+
+  private static async createDefaultPrograms(): Promise<void> {
+    if (supabaseAdmin === null) {
+      console.log('⚠️ Admin client not available, skipping programs creation');
+      return;
+    }
+    
+    console.log('🎯 Creating default programs...');
+    
+    try {
+      // First get the created partners
+      const { data: partners } = await supabaseAdmin
+        .from('partners')
+        .select('id, name');
+      
+      if (!partners || partners.length === 0) {
+        console.log('⚠️ No partners found, skipping programs creation');
+        return;
+      }
+      
+      // Get form templates
+      const { data: templates } = await supabaseAdmin
+        .from('form_templates')
+        .select('id, name');
+      
+      const defaultPrograms = [
+        {
+          name: 'Innovation Technologique 2025',
+          description: 'Programme de financement pour les projets d\'innovation technologique avec un fort potentiel de marché',
+          partner_id: partners.find(p => p.name === 'Woluma Innovation Fund')?.id || partners[0].id,
+          form_template_id: templates?.find(t => t.name.includes('Numérique'))?.id || null,
+          budget: 2000000,
+          start_date: '2025-01-01',
+          end_date: '2025-12-31',
+          is_active: true,
+          manager_id: null,
+          selection_criteria: [
+            {
+              id: 'innovation_level',
+              name: 'Niveau d\'innovation',
+              description: 'Le projet présente-t-il un caractère innovant significatif ?',
+              type: 'number',
+              required: true,
+              minValue: 1,
+              maxValue: 10
+            },
+            {
+              id: 'market_potential',
+              name: 'Potentiel de marché',
+              description: 'Le projet vise-t-il un marché avec un potentiel de croissance ?',
+              type: 'boolean',
+              required: true
+            }
+          ],
+          evaluation_criteria: [
+            {
+              id: 'innovation',
+              name: 'Innovation et originalité',
+              description: 'Caractère innovant et originalité de la solution proposée',
+              weight: 30,
+              maxScore: 20
+            },
+            {
+              id: 'feasibility',
+              name: 'Faisabilité technique',
+              description: 'Faisabilité technique et économique du projet',
+              weight: 25,
+              maxScore: 20
+            },
+            {
+              id: 'market_impact',
+              name: 'Impact marché',
+              description: 'Potentiel d\'impact sur le marché et la société',
+              weight: 25,
+              maxScore: 20
+            },
+            {
+              id: 'team_expertise',
+              name: 'Expertise de l\'équipe',
+              description: 'Compétences et expérience de l\'équipe projet',
+              weight: 20,
+              maxScore: 20
+            }
+          ],
+          custom_ai_prompt: 'Évaluez ce projet technologique en tenant compte de son potentiel d\'innovation, de sa faisabilité technique et de son impact sur le marché français. Privilégiez les projets avec une forte composante technologique et un modèle économique viable.'
+        },
+        {
+          name: 'Transition Énergétique Durable',
+          description: 'Programme dédié au financement de projets d\'énergie renouvelable et d\'efficacité énergétique',
+          partner_id: partners.find(p => p.name === 'Green Tech Partners')?.id || partners[1]?.id || partners[0].id,
+          form_template_id: templates?.find(t => t.name.includes('Énergétique'))?.id || null,
+          budget: 3000000,
+          start_date: '2025-02-01',
+          end_date: '2026-01-31',
+          is_active: true,
+          manager_id: null,
+          selection_criteria: [
+            {
+              id: 'environmental_impact',
+              name: 'Impact environnemental',
+              description: 'Le projet contribue-t-il significativement à la réduction des émissions de CO2 ?',
+              type: 'boolean',
+              required: true
+            },
+            {
+              id: 'energy_production',
+              name: 'Production énergétique',
+              description: 'Capacité de production énergétique annuelle (MWh)',
+              type: 'number',
+              required: false,
+              minValue: 0
+            }
+          ],
+          evaluation_criteria: [
+            {
+              id: 'environmental_benefit',
+              name: 'Bénéfice environnemental',
+              description: 'Impact positif sur l\'environnement et réduction des émissions',
+              weight: 35,
+              maxScore: 20
+            },
+            {
+              id: 'technical_maturity',
+              name: 'Maturité technique',
+              description: 'Niveau de maturité technologique (TRL) et faisabilité',
+              weight: 25,
+              maxScore: 20
+            },
+            {
+              id: 'scalability',
+              name: 'Potentiel de déploiement',
+              description: 'Capacité de déploiement à grande échelle',
+              weight: 25,
+              maxScore: 20
+            },
+            {
+              id: 'economic_viability',
+              name: 'Viabilité économique',
+              description: 'Modèle économique et rentabilité du projet',
+              weight: 15,
+              maxScore: 20
+            }
+          ],
+          custom_ai_prompt: 'Évaluez ce projet de transition énergétique en privilégiant l\'impact environnemental et le potentiel de réduction des émissions de CO2. Analysez la maturité technologique et le potentiel de déploiement à grande échelle.'
+        }
+      ];
+      
+      for (const program of defaultPrograms) {
+        // Check if program already exists
+        const { data: existingProgram } = await supabaseAdmin
+          .from('programs')
+          .select('id')
+          .eq('name', program.name)
+          .maybeSingle();
+        
+        if (existingProgram) {
+          console.log(`✅ Program already exists: ${program.name}`);
+          continue;
+        }
+        
+        // Create the program
+        const { error } = await supabaseAdmin
+          .from('programs')
+          .insert([program]);
+        
+        if (error) {
+          console.error(`❌ Error creating program ${program.name}:`, error);
+          continue;
+        }
+        
+        console.log(`✅ Created program: ${program.name}`);
+      }
+      
+      console.log('🎯 Programs creation completed');
+    } catch (error) {
+      console.error('❌ Error creating default programs:', error);
     }
   }
 
