@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 let isDemoModeGlobal = false;
 
 // Function to check if Supabase is enabled from parameters
-function getSupabaseEnabled(): boolean {
+export function getSupabaseEnabled(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const stored = localStorage.getItem('parameters-storage');
