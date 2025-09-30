@@ -60,17 +60,25 @@ function getSupabaseCredentials() {
   }
   
   // Fallback to environment variables
+  const envUrl = import.meta.env.VITE_SUPABASE_URL;
+  const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  
+  // Return null if required credentials are missing
+  if (!envUrl || !envAnonKey) {
+    return null;
+  }
+  
   return {
-    url: import.meta.env.VITE_SUPABASE_URL,
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    url: envUrl,
+    anonKey: envAnonKey,
     serviceRoleKey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
   };
 }
 
 const credentials = getSupabaseCredentials();
-const supabaseUrl = credentials.url;
-const supabaseAnonKey = credentials.anonKey;
-const supabaseServiceRoleKey = credentials.serviceRoleKey;
+const supabaseUrl = credentials?.url;
+const supabaseAnonKey = credentials?.anonKey;
+const supabaseServiceRoleKey = credentials?.serviceRoleKey;
 
 // Demo data for offline mode
 const demoUsers: SupabaseUser[] = [

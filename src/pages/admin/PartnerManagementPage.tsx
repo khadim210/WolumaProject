@@ -36,6 +36,7 @@ const PartnerManagementPage: React.FC = () => {
   const { 
     partners, 
     isLoading, 
+    error,
     fetchPartners, 
     addPartner, 
     updatePartner, 
