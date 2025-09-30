@@ -21,6 +21,7 @@ const FormTemplatesPage: React.FC = () => {
 
   useEffect(() => {
     fetchTemplates();
+    console.log('📋 FormTemplatesPage mounted, fetching templates...');
   }, [fetchTemplates]);
 
   const handleDuplicate = async (template: FormTemplate) => {

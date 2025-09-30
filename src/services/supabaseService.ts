@@ -777,9 +777,18 @@ export class FormTemplateService {
     const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
     
     if (isDemo) {
-      console.log('🎭 Demo mode: Returning empty form templates list');
+      console.log('🎭 Demo mode: Returning demo form templates list');
       await new Promise(resolve => setTimeout(resolve, 300));
-      return [];
+      const { defaultFormTemplates } = await import('../data/defaultFormTemplates');
+      return defaultFormTemplates.map(template => ({
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        fields: template.fields,
+        is_active: template.isActive,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
     }
     
     if (!supabase) {
@@ -1038,13 +1047,13 @@ export class MigrationService {
     console.log('🌱 Starting data seeding...');
     
     try {
+      // Create default form templates first
+      await this.createDefaultFormTemplates();
+      
       // Create demo users
       for (const user of demoUsers) {
         await this.createDemoUser(user);
       }
-      
-      // Create default form templates
-      await this.createDefaultFormTemplates();
       
       console.log('✅ Data seeding completed successfully');
     } catch (error) {
