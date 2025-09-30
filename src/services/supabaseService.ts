@@ -930,6 +930,9 @@ export class MigrationService {
             fields: template.fields,
             is_active: template.isActive
           }]);
+            fields: template.fields,
+            is_active: template.isActive
+          }]);
         
         if (error) {
           console.error(`❌ Error creating form template ${template.name}:`, error);
