@@ -579,6 +579,30 @@ export class MigrationService {
     console.log('🌱 Starting data seeding...');
     
     try {
+      // Verify Supabase configuration before proceeding
+      if (!supabase || !supabaseAdmin) {
+        console.log('⚠️ Supabase not properly configured, skipping data seeding');
+        return;
+      }
+
+      // Test basic connectivity
+      try {
+        const { data: testData, error: testError } = await supabase
+          .from('users')
+          .select('count')
+          .limit(1);
+        
+        if (testError) {
+          console.log('⚠️ Supabase connectivity test failed:', testError.message);
+          console.log('💡 Please check your Supabase URL and keys in the configuration');
+          return;
+        }
+      } catch (fetchError) {
+        console.log('⚠️ Network error connecting to Supabase:', fetchError);
+        console.log('💡 Please verify your Supabase URL is correct and accessible');
+        return;
+      }
+
       // Always try to create default form templates first
       await this.createDefaultFormTemplates();
       
@@ -612,6 +636,23 @@ export class MigrationService {
     console.log('🏢 Creating default partners...');
     
     try {
+      // Test admin client connectivity first
+      try {
+        const { data: testData, error: testError } = await supabaseAdmin
+          .from('partners')
+          .select('count')
+          .limit(1);
+        
+        if (testError) {
+          console.log('⚠️ Admin client test failed:', testError.message);
+          return;
+        }
+      } catch (fetchError) {
+        console.log('⚠️ Network error with admin client:', fetchError);
+        console.log('💡 Please verify your Supabase Service Role Key is correct');
+        return;
+      }
+
       const defaultPartners = [
         {
           name: 'Woluma Innovation Fund',
@@ -671,6 +712,8 @@ export class MigrationService {
       console.log('🏢 Partners creation completed');
     } catch (error) {
       console.error('❌ Error creating default partners:', error);
+      console.log('💡 Tip: Verify your Supabase URL and Service Role Key are correct');
+      console.log('💡 Check that your Supabase project is accessible and the partners table exists');
     }
   }
 
