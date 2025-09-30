@@ -4,7 +4,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Plus, Copy, Trash2, Edit, Archive, MoreVertical, GripVertical } from 'lucide-react';
+import { Plus, Copy, Trash2, CreditCard as Edit, Archive, MoreVertical, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const FormTemplatesPage: React.FC = () => {
