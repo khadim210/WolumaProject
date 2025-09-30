@@ -47,6 +47,17 @@ const LoginPage: React.FC = () => {
         </div>
       )}
       
+      <div className="bg-gray-100 p-4 rounded-md mb-6">
+        <p className="text-sm text-gray-600 mb-2 font-medium">Comptes de démonstration :</p>
+        <ul className="text-sm space-y-1">
+          <li><span className="font-medium">Administrateur :</span> admin@woluma.com</li>
+          <li><span className="font-medium">Partenaire :</span> partner@example.com</li>
+          <li><span className="font-medium">Gestionnaire :</span> manager@example.com</li>
+          <li><span className="font-medium">Soumissionnaire :</span> submitter@example.com</li>
+          <li><span className="font-medium">Mot de passe :</span> password (pour tous les comptes)</li>
+        </ul>
+      </div>
+      
       <Formik
         initialValues={{ email: '', password: '' }}
         validationSchema={loginSchema}

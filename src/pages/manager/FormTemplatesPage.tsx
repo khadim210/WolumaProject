@@ -4,11 +4,11 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Plus, Copy, Trash2, CreditCard as Edit, Archive, MoreVertical, GripVertical } from 'lucide-react';
+import { Plus, Copy, Trash2, Edit, Archive, MoreVertical, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const FormTemplatesPage: React.FC = () => {
-  const { templates, isLoading, error, fetchTemplates, duplicateTemplate, deleteTemplate } = useFormTemplateStore();
+  const { templates, fetchTemplates, duplicateTemplate, deleteTemplate } = useFormTemplateStore();
   const navigate = useNavigate();
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
 
@@ -21,19 +21,7 @@ const FormTemplatesPage: React.FC = () => {
 
   useEffect(() => {
     fetchTemplates();
-    console.log('📋 FormTemplatesPage mounted, fetching templates...');
-    console.log('📋 Current templates in store:', templates);
-    console.log('📋 Is loading:', isLoading);
-    console.log('📋 Error:', error);
   }, [fetchTemplates]);
-
-  // Debug: Log templates when they change
-  useEffect(() => {
-    console.log('📋 Templates updated:', templates.length, 'templates');
-    templates.forEach((template, index) => {
-      console.log(`📋 Template ${index + 1}:`, template.name, '- Fields:', template.fields.length);
-    });
-  }, [templates]);
 
   const handleDuplicate = async (template: FormTemplate) => {
     await duplicateTemplate(template.id);

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useAuthStore } from '../../stores/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useParametersStore } from '../../stores/parametersStore';
-import { DatabaseManager } from '../../utils/database';
 import { 
   Card, 
   CardHeader, 
@@ -9,73 +10,66 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import AIConfigModal from '../../components/admin/AIConfigModal';
 import { 
-  Save, 
-  RefreshCw, 
+  Settings, 
+  Shield, 
+  Mail, 
   Database, 
-  TestTube, 
-  CheckCircle, 
-  XCircle,
+  Bell, 
+  Palette, 
+  Globe,
+  Save,
+  RefreshCw,
   AlertTriangle,
-  Settings,
-  Mail,
-  Palette,
-  Shield,
-  Server
+  Bot
 } from 'lucide-react';
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
+
+const parametersSchema = Yup.object().shape({
+  siteName: Yup.string().required('Nom du site requis'),
+  siteDescription: Yup.string().required('Description requise'),
+  adminEmail: Yup.string().email('Email invalide').required('Email administrateur requis'),
+  maxProjectsPerUser: Yup.number().min(1, 'Minimum 1').required('Limite requise'),
+  evaluationDeadlineDays: Yup.number().min(1, 'Minimum 1 jour').required('Délai requis'),
+  autoApprovalThreshold: Yup.number().min(0, 'Minimum 0').max(100, 'Maximum 100'),
+});
 
 const ParametersPage: React.FC = () => {
+  const { user: currentUser } = useAuthStore();
+  const { checkPermission } = usePermissions();
   const { 
     parameters, 
-    isLoading, 
-    error,
     updateParameters, 
-    resetToDefaults,
+    resetToDefaults, 
+    initializeDatabase, 
+    resetDatabase, 
     testDatabaseConnection,
-    initializeDatabase,
-    resetDatabase
+    isLoading 
   } = useParametersStore();
-  
   const [activeTab, setActiveTab] = useState('general');
-  const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [isInitializingDb, setIsInitializingDb] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
-  const [formData, setFormData] = useState(parameters);
+  const [isTesting, setIsTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'success' | 'error' | null>(null);
+  const [showAIConfig, setShowAIConfig] = useState(false);
 
-  useEffect(() => {
-    setFormData(parameters);
-  }, [parameters]);
-
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
+  const handleSaveParameters = async (values: any, { setSubmitting }: any) => {
     try {
-      await updateParameters(formData);
-      // Force refresh of services when Supabase is enabled
-      if (formData.enableSupabase) {
-        window.location.reload();
-      }
+      await updateParameters(values);
     } catch (error) {
       console.error('Error saving parameters:', error);
     } finally {
-      setIsSaving(false);
+      setSubmitting(false);
     }
   };
 
-  const handleReset = async () => {
+  const handleResetToDefaults = async () => {
     setIsResetting(true);
     try {
       await resetToDefaults();
-      setFormData(parameters);
     } catch (error) {
       console.error('Error resetting parameters:', error);
     } finally {
@@ -83,76 +77,75 @@ const ParametersPage: React.FC = () => {
     }
   };
 
-  const handleTestConnection = async () => {
-    setIsTestingConnection(true);
-    setConnectionTestResult(null);
-    
-    try {
-      const isConnected = await testDatabaseConnection();
-      setConnectionTestResult({
-        success: isConnected,
-        message: isConnected 
-          ? 'Connexion à la base de données réussie !' 
-          : 'Échec de la connexion à la base de données. Vérifiez vos paramètres.'
-      });
-    } catch (error) {
-      setConnectionTestResult({
-        success: false,
-        message: `Erreur de connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    } finally {
-      setIsTestingConnection(false);
-    }
-  };
-
   const handleInitializeDatabase = async () => {
-    setIsInitializingDb(true);
+    if (!confirm('Êtes-vous sûr de vouloir initialiser la base de données ? Cette action créera toutes les tables nécessaires.')) {
+      return;
+    }
+    
+    setIsInitializing(true);
     try {
       await initializeDatabase();
-      setConnectionTestResult({
-        success: true,
-        message: 'Base de données initialisée avec succès !'
-      });
+      alert('Base de données initialisée avec succès !');
     } catch (error) {
-      setConnectionTestResult({
-        success: false,
-        message: `Erreur d'initialisation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
+      console.error('Error initializing database:', error);
+      alert('Erreur lors de l\'initialisation de la base de données');
     } finally {
-      setIsInitializingDb(false);
+      setIsInitializing(false);
     }
   };
 
   const handleResetDatabase = async () => {
-    if (!window.confirm('Êtes-vous sûr de vouloir réinitialiser la base de données ? Cette action est irréversible.')) {
+    if (!confirm('ATTENTION : Cette action supprimera TOUTES les données existantes et recréera les tables. Êtes-vous absolument sûr ?')) {
       return;
     }
     
     setIsResettingDb(true);
     try {
       await resetDatabase();
-      setConnectionTestResult({
-        success: true,
-        message: 'Base de données réinitialisée avec succès !'
-      });
+      alert('Base de données réinitialisée avec succès !');
     } catch (error) {
-      setConnectionTestResult({
-        success: false,
-        message: `Erreur de réinitialisation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
+      console.error('Error resetting database:', error);
+      alert('Erreur lors de la réinitialisation de la base de données');
     } finally {
       setIsResettingDb(false);
     }
   };
 
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setConnectionStatus(null);
+    try {
+      const success = await testDatabaseConnection();
+      setConnectionStatus(success ? 'success' : 'error');
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      setConnectionStatus('error');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  if (currentUser?.role !== 'admin') {
+    if (!checkPermission('parameters.edit')) {
+      return (
+        <div className="text-center py-12">
+          <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-gray-900 mb-2">Accès restreint</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+        </div>
+      );
+    }
+  }
+
   const tabs = [
-    { id: 'general', label: 'Général', icon: <Settings className="h-4 w-4" /> },
-    { id: 'security', label: 'Sécurité', icon: <Shield className="h-4 w-4" /> },
-    { id: 'notifications', label: 'Notifications', icon: <Mail className="h-4 w-4" /> },
-    { id: 'appearance', label: 'Apparence', icon: <Palette className="h-4 w-4" /> },
-    { id: 'system', label: 'Système', icon: <Server className="h-4 w-4" /> },
-    { id: 'database', label: 'Base de données', icon: <Database className="h-4 w-4" /> },
-    { id: 'supabase', label: 'Supabase', icon: <Database className="h-4 w-4" /> },
+    { id: 'general', label: 'Général', icon: Settings },
+    { id: 'security', label: 'Sécurité', icon: Shield },
+    { id: 'ai', label: 'Intelligence Artificielle', icon: Bot },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'appearance', label: 'Apparence', icon: Palette },
+    { id: 'system', label: 'Système', icon: Database },
+    { id: 'database', label: 'Base de données', icon: Database },
+    { id: 'supabase', label: 'Supabase', icon: Database },
   ];
 
   return (
@@ -160,33 +153,17 @@ const ParametersPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Paramètres système</h1>
-          <p className="mt-1 text-gray-600">Configurez les paramètres de l'application</p>
+          <p className="mt-1 text-gray-600">Configurez les paramètres de la plateforme</p>
         </div>
-        <div className="flex space-x-3">
-          <Button
-            variant="outline"
-            onClick={handleReset}
-            isLoading={isResetting}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-          >
-            Réinitialiser
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            isLoading={isSaving}
-            leftIcon={<Save className="h-4 w-4" />}
-          >
-            {formData.enableSupabase ? 'Activer Supabase' : 'Enregistrer'}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          leftIcon={<RefreshCw className="h-4 w-4" />}
+          onClick={handleResetToDefaults}
+          isLoading={isResetting}
+        >
+          Réinitialiser
+        </Button>
       </div>
-
-      {error && (
-        <div className="bg-error-100 text-error-700 p-4 rounded-md">
-          Erreur: {error}
-        </div>
-      )}
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar */}
@@ -194,20 +171,23 @@ const ParametersPage: React.FC = () => {
           <Card>
             <CardContent className="p-0">
               <nav className="space-y-1">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-none first:rounded-t-lg last:rounded-b-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-500'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <span className="mr-3">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-none first:rounded-t-lg last:rounded-b-lg transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-500'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5 mr-3" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </nav>
             </CardContent>
           </Card>
@@ -215,484 +195,846 @@ const ParametersPage: React.FC = () => {
 
         {/* Content */}
         <div className="flex-1">
-          <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-            {activeTab === 'general' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Paramètres généraux</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nom du site
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.siteName}
-                      onChange={(e) => handleInputChange('siteName', e.target.value)}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description du site
-                    </label>
-                    <textarea
-                      value={formData.siteDescription}
-                      onChange={(e) => handleInputChange('siteDescription', e.target.value)}
-                      rows={3}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email administrateur
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.adminEmail}
-                      onChange={(e) => handleInputChange('adminEmail', e.target.value)}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Langue par défaut
-                      </label>
-                      <select
-                        value={formData.defaultLanguage}
-                        onChange={(e) => handleInputChange('defaultLanguage', e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      >
-                        <option value="fr">Français</option>
-                        <option value="en">English</option>
-                        <option value="es">Español</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Fuseau horaire
-                      </label>
-                      <select
-                        value={formData.timezone}
-                        onChange={(e) => handleInputChange('timezone', e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      >
-                        <option value="UTC">UTC</option>
-                        <option value="Europe/Paris">Europe/Paris</option>
-                        <option value="America/New_York">America/New_York</option>
-                        <option value="Asia/Tokyo">Asia/Tokyo</option>
-                      </select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {activeTab === 'database' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuration de la base de données</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Type de base de données
-                      </label>
-                      <select
-                        value={formData.databaseType}
-                        onChange={(e) => handleInputChange('databaseType', e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      >
-                        <option value="postgresql">PostgreSQL</option>
-                        <option value="mysql">MySQL</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Mode
-                      </label>
-                      <select
-                        value={formData.databaseMode}
-                        onChange={(e) => handleInputChange('databaseMode', e.target.value)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      >
-                        <option value="demo">Démonstration</option>
-                        <option value="production">Production</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {formData.databaseMode === 'production' && (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Formik
+            initialValues={parameters}
+            validationSchema={parametersSchema}
+            onSubmit={handleSaveParameters}
+            enableReinitialize
+          >
+            {({ isSubmitting, values }) => (
+              <Form>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      {tabs.find(tab => tab.id === activeTab)?.icon && 
+                        React.createElement(tabs.find(tab => tab.id === activeTab)!.icon, { className: "h-5 w-5 mr-2" })
+                      }
+                      {tabs.find(tab => tab.id === activeTab)?.label}
+                    </CardTitle>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-6">
+                    {activeTab === 'general' && (
+                      <>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Hôte
-                          </label>
-                          <input
+                          <label className="block text-sm font-medium text-gray-700">Nom du site</label>
+                          <Field
+                            name="siteName"
                             type="text"
-                            value={formData.databaseHost}
-                            onChange={(e) => handleInputChange('databaseHost', e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                           />
+                          <ErrorMessage name="siteName" component="div" className="mt-1 text-sm text-error-600" />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Port
-                          </label>
-                          <input
+                          <label className="block text-sm font-medium text-gray-700">Description du site</label>
+                          <Field
+                            as="textarea"
+                            name="siteDescription"
+                            rows={3}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <ErrorMessage name="siteDescription" component="div" className="mt-1 text-sm text-error-600" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Email administrateur</label>
+                          <Field
+                            name="adminEmail"
+                            type="email"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <ErrorMessage name="adminEmail" component="div" className="mt-1 text-sm text-error-600" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Langue par défaut</label>
+                          <Field
+                            as="select"
+                            name="defaultLanguage"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          >
+                            <option value="fr">Français</option>
+                            <option value="en">English</option>
+                            <option value="es">Español</option>
+                          </Field>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Fuseau horaire</label>
+                          <Field
+                            as="select"
+                            name="timezone"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          >
+                            <option value="UTC">UTC</option>
+                            <option value="Europe/Paris">Europe/Paris</option>
+                            <option value="Africa/Abidjan">Africa/Abidjan</option>
+                            <option value="Africa/Dakar">Africa/Dakar</option>
+                          </Field>
+                        </div>
+                      </>
+                    )}
+
+                    {activeTab === 'security' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Durée de session (minutes)</label>
+                          <Field
+                            name="sessionTimeout"
                             type="number"
-                            value={formData.databasePort}
-                            onChange={(e) => handleInputChange('databasePort', parseInt(e.target.value))}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            min="15"
+                            max="1440"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                           />
+                          <p className="mt-1 text-sm text-gray-500">Durée avant déconnexion automatique</p>
                         </div>
-                      </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Nom de la base de données
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.databaseName}
-                          onChange={(e) => handleInputChange('databaseName', e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Nom d'utilisateur
+                          <label className="block text-sm font-medium text-gray-700">Tentatives de connexion max</label>
+                          <Field
+                            name="maxLoginAttempts"
+                            type="number"
+                            min="3"
+                            max="10"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <p className="mt-1 text-sm text-gray-500">Nombre de tentatives avant blocage</p>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="requireEmailVerification"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Vérification email obligatoire</span>
                           </label>
-                          <input
-                            type="text"
-                            value={formData.databaseUsername}
-                            onChange={(e) => handleInputChange('databaseUsername', e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mot de passe
+                          <label className="flex items-center">
+                            <Field
+                              name="enableTwoFactor"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Authentification à deux facteurs</span>
                           </label>
-                          <input
-                            type="password"
-                            value={formData.databasePassword}
-                            onChange={(e) => handleInputChange('databasePassword', e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
                         </div>
-                      </div>
 
-                      <div>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={formData.databaseSsl}
-                            onChange={(e) => handleInputChange('databaseSsl', e.target.checked)}
-                            className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                          />
-                          <span className="ml-2 text-sm text-gray-900">Utiliser SSL</span>
-                        </label>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Actions sur la base de données</h3>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div>
-                          <h4 className="font-medium text-blue-900">Test de connexion</h4>
-                          <p className="text-sm text-blue-700">Vérifiez que la connexion à la base de données fonctionne</p>
+                          <label className="flex items-center">
+                            <Field
+                              name="enablePasswordPolicy"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Politique de mot de passe stricte</span>
+                          </label>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleTestConnection}
-                          isLoading={isTestingConnection}
-                          leftIcon={<TestTube className="h-4 w-4" />}
-                        >
-                          Tester
-                        </Button>
-                      </div>
+                      </>
+                    )}
 
-                      {connectionTestResult && (
-                        <div className={`p-4 rounded-lg border ${
-                          connectionTestResult.success 
-                            ? 'bg-success-50 border-success-200 text-success-800' 
-                            : 'bg-error-50 border-error-200 text-error-800'
-                        }`}>
-                          <div className="flex items-center">
-                            {connectionTestResult.success ? (
-                              <CheckCircle className="h-5 w-5 mr-2" />
-                            ) : (
-                              <XCircle className="h-5 w-5 mr-2" />
-                            )}
-                            <span className="text-sm font-medium">
-                              {connectionTestResult.message}
-                            </span>
-                          </div>
+                    {activeTab === 'ai' && (
+                      <>
+                        <div className="text-center py-8">
+                          <Bot className="h-16 w-16 text-primary-600 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            Configuration de l'Intelligence Artificielle
+                          </h3>
+                          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                            Configurez les paramètres d'évaluation automatique des projets par IA. 
+                            Choisissez votre fournisseur d'IA et configurez les clés API nécessaires.
+                          </p>
+                          <Button
+                            variant="primary"
+                            leftIcon={<Bot className="h-4 w-4" />}
+                            onClick={() => setShowAIConfig(true)}
+                          >
+                            Configurer l'IA d'évaluation
+                          </Button>
                         </div>
-                      )}
-
-                      <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div>
-                          <h4 className="font-medium text-green-900">Initialiser la base de données</h4>
-                          <p className="text-sm text-green-700">Créer les tables et structures nécessaires</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="success"
-                          size="sm"
-                          onClick={handleInitializeDatabase}
-                          isLoading={isInitializingDb}
-                          leftIcon={<Database className="h-4 w-4" />}
-                        >
-                          Initialiser
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                        <div>
-                          <h4 className="font-medium text-red-900">Réinitialiser la base de données</h4>
-                          <p className="text-sm text-red-700">⚠️ Supprime toutes les données et recrée les tables</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          onClick={handleResetDatabase}
-                          isLoading={isResettingDb}
-                          leftIcon={<AlertTriangle className="h-4 w-4" />}
-                        >
-                          Réinitialiser
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {activeTab === 'supabase' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuration Supabase</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <label className="flex items-center mb-4">
-                      <input
-                        type="checkbox"
-                        checked={formData.enableSupabase}
-                        onChange={(e) => handleInputChange('enableSupabase', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-900">Activer Supabase</span>
-                    </label>
-                  </div>
-
-                  {formData.enableSupabase && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          URL Supabase
-                        </label>
-                        <input
-                          type="url"
-                          value={formData.supabaseUrl}
-                          onChange={(e) => handleInputChange('supabaseUrl', e.target.value)}
-                          placeholder="https://votre-projet.supabase.co"
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          URL de votre projet Supabase (disponible dans Settings → API)
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Clé publique anonyme (anon key)
-                        </label>
-                        <input
-                          type="password"
-                          value={formData.supabaseAnonKey}
-                          onChange={(e) => handleInputChange('supabaseAnonKey', e.target.value)}
-                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Clé publique pour les opérations côté client
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Clé service role (optionnelle)
-                        </label>
-                        <input
-                          type="password"
-                          value={formData.supabaseServiceRoleKey}
-                          onChange={(e) => handleInputChange('supabaseServiceRoleKey', e.target.value)}
-                          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Clé secrète pour les opérations administratives (bypass RLS)
-                        </p>
-                      </div>
-
-                      <div className="border-t border-gray-200 pt-6">
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Test de connexion Supabase</h3>
                         
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                            <div>
-                              <h4 className="font-medium text-blue-900">Test de connexion</h4>
-                              <p className="text-sm text-blue-700">Vérifiez que la connexion à Supabase fonctionne</p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleTestConnection}
-                              isLoading={isTestingConnection}
-                              leftIcon={<TestTube className="h-4 w-4" />}
-                            >
-                              Tester
-                            </Button>
-                          </div>
-
-                          {connectionTestResult && (
-                            <div className={`p-4 rounded-lg border ${
-                              connectionTestResult.success 
-                                ? 'bg-success-50 border-success-200 text-success-800' 
-                                : 'bg-error-50 border-error-200 text-error-800'
-                            }`}>
-                              <div className="flex items-center">
-                                {connectionTestResult.success ? (
-                                  <CheckCircle className="h-5 w-5 mr-2" />
-                                ) : (
-                                  <XCircle className="h-5 w-5 mr-2" />
-                                )}
-                                <span className="text-sm font-medium">
-                                  {connectionTestResult.message}
-                                </span>
+                        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex">
+                            <Bot className="h-5 w-5 text-blue-400" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">À propos de l'évaluation IA</h3>
+                              <div className="mt-2 text-sm text-blue-700">
+                                <ul className="list-disc list-inside space-y-1">
+                                  <li>L'IA analyse automatiquement les projets selon vos critères d'évaluation</li>
+                                  <li>Supporte Google Gemini et OpenAI ChatGPT</li>
+                                  <li>Évaluation individuelle ou en lot disponible</li>
+                                  <li>Les évaluations IA sont clairement marquées dans le système</li>
+                                </ul>
                               </div>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
+                      </>
+                    )}
 
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <div className="flex">
-                          <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2 mt-0.5" />
+                    {activeTab === 'notifications' && (
+                      <>
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="emailNotifications"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Notifications par email</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="notifyNewSubmissions"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Notifier les nouvelles soumissions</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="notifyStatusChanges"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Notifier les changements de statut</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="notifyDeadlines"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Notifier les échéances</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Serveur SMTP</label>
+                          <Field
+                            name="smtpServer"
+                            type="text"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="smtp.example.com"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <h4 className="text-sm font-medium text-yellow-800">Configuration Supabase</h4>
-                            <div className="mt-2 text-sm text-yellow-700">
-                              <p className="mb-2">Pour configurer Supabase :</p>
-                              <ol className="list-decimal list-inside space-y-1">
-                                <li>Créez un projet sur <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
-                                <li>Allez dans Settings → API</li>
-                                <li>Copiez l'URL du projet et les clés API</li>
-                                <li>Collez-les dans les champs ci-dessus</li>
-                                <li>Testez la connexion</li>
-                              </ol>
+                            <label className="block text-sm font-medium text-gray-700">Port SMTP</label>
+                            <Field
+                              name="smtpPort"
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="587"
+                            />
+                          </div>
+                          <div>
+                            <label className="flex items-center mt-6">
+                              <Field
+                                name="smtpSecure"
+                                type="checkbox"
+                                className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">Connexion sécurisée</span>
+                            </label>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {activeTab === 'appearance' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Thème par défaut</label>
+                          <Field
+                            as="select"
+                            name="defaultTheme"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          >
+                            <option value="light">Clair</option>
+                            <option value="dark">Sombre</option>
+                            <option value="auto">Automatique</option>
+                          </Field>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Logo personnalisé</label>
+                          <div className="mt-1 flex items-center">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                            />
+                          </div>
+                          <p className="mt-1 text-sm text-gray-500">Format recommandé: PNG, 200x50px</p>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="showBranding"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Afficher le branding Woluma</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Couleur primaire</label>
+                          <div className="mt-1 flex items-center space-x-3">
+                            <Field
+                              name="primaryColor"
+                              type="color"
+                              className="h-10 w-20 rounded border border-gray-300"
+                            />
+                            <Field
+                              name="primaryColor"
+                              type="text"
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="#003366"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Couleur secondaire</label>
+                          <div className="mt-1 flex items-center space-x-3">
+                            <Field
+                              name="secondaryColor"
+                              type="color"
+                              className="h-10 w-20 rounded border border-gray-300"
+                            />
+                            <Field
+                              name="secondaryColor"
+                              type="text"
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="#00BFFF"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {activeTab === 'system' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Projets max par utilisateur</label>
+                          <Field
+                            name="maxProjectsPerUser"
+                            type="number"
+                            min="1"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <ErrorMessage name="maxProjectsPerUser" component="div" className="mt-1 text-sm text-error-600" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Délai d'évaluation (jours)</label>
+                          <Field
+                            name="evaluationDeadlineDays"
+                            type="number"
+                            min="1"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <ErrorMessage name="evaluationDeadlineDays" component="div" className="mt-1 text-sm text-error-600" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Seuil d'approbation automatique (%)</label>
+                          <Field
+                            name="autoApprovalThreshold"
+                            type="number"
+                            min="0"
+                            max="100"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <ErrorMessage name="autoApprovalThreshold" component="div" className="mt-1 text-sm text-error-600" />
+                          <p className="mt-1 text-sm text-gray-500">Score minimum pour approbation automatique</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Taille max fichier (MB)</label>
+                          <Field
+                            name="maxFileSize"
+                            type="number"
+                            min="1"
+                            max="100"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="enableMaintenanceMode"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Mode maintenance</span>
+                          </label>
+                          <p className="mt-1 text-sm text-gray-500">Désactive l'accès pour tous sauf les administrateurs</p>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="enableRegistration"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Autoriser les inscriptions</span>
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="enableBackups"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Sauvegardes automatiques</span>
+                          </label>
+                        </div>
+
+                        {values.enableMaintenanceMode && (
+                          <div className="p-4 bg-warning-50 border border-warning-200 rounded-md">
+                            <div className="flex">
+                              <AlertTriangle className="h-5 w-5 text-warning-400" />
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-warning-800">Mode maintenance activé</h3>
+                                <p className="mt-1 text-sm text-warning-700">
+                                  La plateforme sera inaccessible pour tous les utilisateurs sauf les administrateurs.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {activeTab === 'database' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-3">Mode de base de données</label>
+                          <div className="flex items-center space-x-6">
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseMode"
+                                value="demo"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">Démonstration</span>
+                              <span className="ml-2 text-xs text-gray-500">(données mockées)</span>
+                            </label>
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseMode"
+                                value="production"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">Production</span>
+                              <span className="ml-2 text-xs text-gray-500">(vraie base de données)</span>
+                            </label>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-500">
+                            En mode démonstration, l'application utilise des données fictives. En mode production, elle se connecte à une vraie base de données.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-3">Type de base de données</label>
+                          <div className="flex items-center space-x-4">
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseType"
+                                value="postgresql"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">PostgreSQL</span>
+                            </label>
+                            <label className="flex items-center">
+                              <Field
+                                type="radio"
+                                name="databaseType"
+                                value="mysql"
+                                className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">MySQL</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Hôte</label>
+                            <Field
+                              name="databaseHost"
+                              type="text"
+                              disabled={values.databaseMode === 'demo'}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="localhost"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Port</label>
+                            <Field
+                              name="databasePort"
+                              type="number"
+                              disabled={values.databaseMode === 'demo'}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder={values.databaseType === 'mysql' ? '3306' : '5432'}
+                            />
+                          </div>
+                        </div>
+                        
+                        {values.databaseMode === 'demo' && (
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex">
+                              <Database className="h-5 w-5 text-blue-400" />
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-blue-800">Mode démonstration activé</h3>
+                                <p className="mt-1 text-sm text-blue-700">
+                                  L'application utilise des données fictives. Les paramètres de base de données sont désactivés.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Nom de la base de données</label>
+                          <Field
+                            name="databaseName"
+                            type="text"
+                            disabled={values.databaseMode === 'demo'}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="woluma_flow"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Nom d'utilisateur</label>
+                            <Field
+                              name="databaseUsername"
+                              type="text"
+                              disabled={values.databaseMode === 'demo'}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder={values.databaseType === 'mysql' ? 'root' : 'postgres'}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+                            <Field
+                              name="databasePassword"
+                              type="password"
+                              disabled={values.databaseMode === 'demo'}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="••••••••"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center">
+                            <Field
+                              name="databaseSsl"
+                              type="checkbox"
+                              disabled={values.databaseMode === 'demo'}
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900">Connexion SSL</span>
+                          </label>
+                          <p className="mt-1 text-sm text-gray-500">Recommandé pour les connexions en production</p>
+                        </div>
+
+                        <div className="border-t border-gray-200 pt-6">
+                          <h4 className="text-lg font-medium text-gray-900 mb-4">Actions sur la base de données</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                              <div>
+                                <h5 className="font-medium text-blue-900">Tester la connexion</h5>
+                                <p className="text-sm text-blue-700">
+                                  {values.databaseMode === 'demo' 
+                                    ? 'En mode démonstration, le test retourne toujours succès'
+                                    : 'Vérifier que les paramètres de connexion sont corrects'
+                                  }
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                {connectionStatus === 'success' && (
+                                  <span className="text-success-600 text-sm font-medium">✓ Connexion réussie</span>
+                                )}
+                                {connectionStatus === 'error' && (
+                                  <span className="text-error-600 text-sm font-medium">✗ Connexion échouée</span>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleTestConnection}
+                                  isLoading={isTesting}
+                                >
+                                  Tester
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                              <div>
+                                <h5 className="font-medium text-green-900">Initialiser la base de données</h5>
+                                <p className="text-sm text-green-700">
+                                  {values.databaseMode === 'demo' 
+                                    ? 'En mode démonstration, cette action est simulée'
+                                    : 'Créer toutes les tables nécessaires avec les données de base'
+                                  }
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="success"
+                                size="sm"
+                                onClick={handleInitializeDatabase}
+                                isLoading={isInitializing}
+                              >
+                                Initialiser
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                              <div>
+                                <h5 className="font-medium text-red-900">Réinitialiser la base de données</h5>
+                                <p className="text-sm text-red-700">
+                                  {values.databaseMode === 'demo' 
+                                    ? '⚠️ En mode démonstration, cette action est simulée'
+                                    : '⚠️ ATTENTION : Supprime toutes les données existantes'
+                                  }
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="danger"
+                                size="sm"
+                                onClick={handleResetDatabase}
+                                isLoading={isResettingDb}
+                              >
+                                Réinitialiser
+                              </Button>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                      </>
+                    )}
+
+                    {activeTab === 'supabase' && (
+                      <>
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex">
+                            <Database className="h-5 w-5 text-blue-400" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">Configuration Supabase</h3>
+                              <p className="mt-1 text-sm text-blue-700">
+                                Configurez votre connexion à Supabase pour utiliser une base de données cloud moderne avec authentification intégrée.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center mb-4">
+                            <Field
+                              name="enableSupabase"
+                              type="checkbox"
+                              className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-900 font-medium">Activer Supabase</span>
+                          </label>
+                          <p className="text-sm text-gray-500 mb-6">
+                            Activez cette option pour utiliser Supabase comme base de données principale
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">URL du projet Supabase</label>
+                          <Field
+                            name="supabaseUrl"
+                            type="url"
+                            disabled={!values.enableSupabase}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="https://votre-projet.supabase.co"
+                          />
+                          <p className="mt-1 text-sm text-gray-500">
+                            URL de votre projet Supabase (disponible dans les paramètres du projet)
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Clé publique anonyme (anon key)</label>
+                          <Field
+                            name="supabaseAnonKey"
+                            type="password"
+                            disabled={!values.enableSupabase}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          />
+                          <p className="mt-1 text-sm text-gray-500">
+                            Clé publique pour l'accès client (safe pour le frontend)
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Clé de service (service_role key)</label>
+                          <Field
+                            name="supabaseServiceRoleKey"
+                            type="password"
+                            disabled={!values.enableSupabase}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          />
+                          <p className="mt-1 text-sm text-gray-500">
+                            Clé de service pour les opérations administratives (à garder secrète)
+                          </p>
+                        </div>
+
+                        {!values.enableSupabase && (
+                          <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                            <div className="flex">
+                              <Database className="h-5 w-5 text-gray-400" />
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-gray-800">Supabase désactivé</h3>
+                                <p className="mt-1 text-sm text-gray-700">
+                                  L'application utilise actuellement la configuration de base de données standard. 
+                                  Activez Supabase pour bénéficier d'une solution cloud complète.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="border-t border-gray-200 pt-6">
+                          <h4 className="text-lg font-medium text-gray-900 mb-4">Actions Supabase</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                              <div>
+                                <h5 className="font-medium text-blue-900">Tester la connexion Supabase</h5>
+                                <p className="text-sm text-blue-700">
+                                  Vérifier que les paramètres de connexion Supabase sont corrects
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  // TODO: Implémenter le test de connexion Supabase
+                                  alert('Test de connexion Supabase - À implémenter');
+                                }}
+                              >
+                                Tester
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                              <div>
+                                <h5 className="font-medium text-green-900">Initialiser les tables Supabase</h5>
+                                <p className="text-sm text-green-700">
+                                  Créer automatiquement toutes les tables nécessaires dans Supabase
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="success"
+                                size="sm"
+                                onClick={() => {
+                                  // TODO: Implémenter l'initialisation des tables Supabase
+                                  alert('Initialisation des tables Supabase - À implémenter');
+                                }}
+                              >
+                                Initialiser
+                              </Button>
+                            </div>
+
+                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <div className="flex">
+                                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-yellow-800">Informations importantes</h3>
+                                  <div className="mt-2 text-sm text-yellow-700">
+                                    <ul className="list-disc list-inside space-y-1">
+                                      <li>La clé de service donne un accès administrateur complet</li>
+                                      <li>Ne partagez jamais votre service_role key</li>
+                                      <li>Utilisez les Row Level Security (RLS) policies dans Supabase</li>
+                                      <li>Sauvegardez régulièrement vos données</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex">
+                                <Database className="h-5 w-5 text-blue-400" />
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-blue-800">Comment obtenir vos clés Supabase</h3>
+                                  <div className="mt-2 text-sm text-blue-700">
+                                    <ol className="list-decimal list-inside space-y-1">
+                                      <li>Connectez-vous à <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
+                                      <li>Sélectionnez votre projet</li>
+                                      <li>Allez dans Settings → API</li>
+                                      <li>Copiez l'URL et les clés API</li>
+                                    </ol>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                  
+                  <CardFooter className="bg-gray-50 border-t border-gray-200 flex justify-end">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      isLoading={isSubmitting}
+                      leftIcon={<Save className="h-4 w-4" />}
+                    >
+                      Enregistrer les paramètres
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </Form>
             )}
-
-            {/* Autres onglets peuvent être ajoutés ici */}
-            {activeTab === 'security' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Paramètres de sécurité</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Timeout de session (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.sessionTimeout}
-                        onChange={(e) => handleInputChange('sessionTimeout', parseInt(e.target.value))}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tentatives de connexion max
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.maxLoginAttempts}
-                        onChange={(e) => handleInputChange('maxLoginAttempts', parseInt(e.target.value))}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.requireEmailVerification}
-                        onChange={(e) => handleInputChange('requireEmailVerification', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-900">Vérification email obligatoire</span>
-                    </label>
-
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.enableTwoFactor}
-                        onChange={(e) => handleInputChange('enableTwoFactor', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-900">Authentification à deux facteurs</span>
-                    </label>
-
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.enablePasswordPolicy}
-                        onChange={(e) => handleInputChange('enablePasswordPolicy', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-900">Politique de mot de passe stricte</span>
-                    </label>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </form>
+          </Formik>
         </div>
       </div>
+      
+      <AIConfigModal
+        isOpen={showAIConfig}
+        onClose={() => setShowAIConfig(false)}
+      />
     </div>
   );
 };

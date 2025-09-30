@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FormTemplateService, getSupabaseEnabled } from '../services/supabaseService';
+import { FormTemplateService } from '../services/supabaseService';
 import type { SupabaseFormTemplate } from '../services/supabaseService';
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'multiple_select';
@@ -13,10 +13,6 @@ export interface FormField {
   options?: string[];
   placeholder?: string;
   helpText?: string;
-  defaultValue?: boolean; // Pour les checkboxes
-  acceptedFileTypes?: string; // Pour les champs file
-  maxFileSize?: number; // Pour les champs file (en MB)
-  allowMultipleFiles?: boolean; // Pour les champs file
 }
 
 export interface FormTemplate {
@@ -60,16 +56,8 @@ export const useFormTemplateStore = create<FormTemplateState>((set, get) => ({
   fetchTemplates: async () => {
     set({ isLoading: true, error: null });
     try {
-      console.log('📋 FormTemplateStore: Starting fetchTemplates...');
-      console.log('📋 FormTemplateStore: Supabase enabled:', getSupabaseEnabled());
-      console.log('🔄 Fetching form templates...');
-      console.log('🔄 Supabase enabled:', getSupabaseEnabled());
       const supabaseTemplates = await FormTemplateService.getFormTemplates();
-      console.log('📋 Form templates received:', supabaseTemplates.length);
-      console.log('📋 Templates data:', supabaseTemplates);
       const templates = supabaseTemplates.map(convertSupabaseFormTemplate);
-      console.log('📋 Converted templates:', templates.length);
-      console.log('📋 FormTemplateStore: Final templates in store:', templates);
       set({ templates, isLoading: false });
     } catch (error) {
       console.error('Error fetching templates:', error);

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from './authStore';
-import { ProjectService, getSupabaseEnabled } from '../services/supabaseService';
+import { ProjectService } from '../services/supabaseService';
 import type { SupabaseProject } from '../services/supabaseService';
 
 export type ProjectStatus = 
@@ -229,4 +229,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     return [];
   },
+  
+  filterProjectsByProgram: (programId) => {
+    return get().projects.filter(p => p.programId === programId);
+  }
 }));

@@ -53,7 +53,6 @@ const CreateProjectPage: React.FC = () => {
   const [error, setError] = useState('');
   
   React.useEffect(() => {
-    console.log('➕ CreateProjectPage: Fetching programs and partners...');
     fetchPrograms();
     fetchPartners();
   }, [fetchPrograms, fetchPartners]);

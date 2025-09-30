@@ -28,7 +28,6 @@ import FormTemplatesPage from './pages/manager/FormTemplatesPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import ParametersPage from './pages/admin/ParametersPage';
 import ProgramManagementPage from './pages/admin/ProgramManagementPage';
-import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -47,30 +46,14 @@ function App() {
     const initializeSupabase = async () => {
       try {
         console.log('🚀 Initializing Supabase...');
-        console.log('🚀 Environment check:', {
-          hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
-          hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-          hasServiceKey: !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-          demoMode: import.meta.env.VITE_DEMO_MODE
-        });
-        
-        // Check if Supabase is properly configured
-        const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (hasSupabaseConfig) {
-          console.log('✅ Supabase configuration found');
-          console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
-          // Créer les données de démonstration
-          console.log('🌱 Starting seed data creation...');
-          await MigrationService.seedData();
+        const success = await MigrationService.runMigrations();
+        if (success) {
           console.log('✅ Supabase initialized successfully');
         } else {
-          console.log('⚠️ Supabase not configured, running in demo mode');
-          console.log('💡 Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable Supabase');
+          console.warn('⚠️ Supabase initialization failed, using fallback mode');
         }
       } catch (error) {
         console.error('❌ Supabase initialization error:', error);
-        console.log('💡 The app will continue to work in demo mode');
       }
     };
     
@@ -106,7 +89,6 @@ function App() {
           <Route path="form-templates/create" element={<FormBuilderPage />} />
           <Route path="form-templates/:id/edit" element={<FormBuilderPage />} />
           <Route path="programs" element={<ProgramManagementPage />} />
-          <Route path="partners" element={<PartnerManagementPage />} />
           <Route path="users" element={<UserManagementPage />} />
           <Route path="parameters" element={<ParametersPage />} />
         </Route>
