@@ -81,6 +81,22 @@ const ParametersPage: React.FC = () => {
     }
   };
 
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setConnectionTest(null);
+    try {
+      const result = await testDatabaseConnection();
+      setConnectionTest(result);
+    } catch (error) {
+      setConnectionTest({
+        success: false,
+        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   const tabs = [
     { id: 'general', label: 'Général', icon: <Settings className="h-4 w-4" /> },
     { id: 'security', label: 'Sécurité', icon: <Shield className="h-4 w-4" /> },
@@ -373,7 +389,278 @@ const ParametersPage: React.FC = () => {
               </Card>
             )}
 
-            {/* Autres onglets peuvent être ajoutés ici */}
+            {activeTab === 'notifications' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Paramètres de notifications</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.emailNotifications}
+                        onChange={(e) => handleInputChange('emailNotifications', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Activer les notifications par email</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.notifyNewSubmissions}
+                        onChange={(e) => handleInputChange('notifyNewSubmissions', e.target.checked)}
+                        disabled={!formData.emailNotifications}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 disabled:opacity-50"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Notifier les nouvelles soumissions</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.notifyStatusChanges}
+                        onChange={(e) => handleInputChange('notifyStatusChanges', e.target.checked)}
+                        disabled={!formData.emailNotifications}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 disabled:opacity-50"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Notifier les changements de statut</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.notifyDeadlines}
+                        onChange={(e) => handleInputChange('notifyDeadlines', e.target.checked)}
+                        disabled={!formData.emailNotifications}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 disabled:opacity-50"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Notifier les échéances</span>
+                    </label>
+                  </div>
+
+                  {formData.emailNotifications && (
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Configuration SMTP</h3>
+
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Serveur SMTP
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.smtpServer}
+                            onChange={(e) => handleInputChange('smtpServer', e.target.value)}
+                            placeholder="smtp.gmail.com"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Port SMTP
+                            </label>
+                            <input
+                              type="number"
+                              value={formData.smtpPort}
+                              onChange={(e) => handleInputChange('smtpPort', parseInt(e.target.value))}
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            />
+                          </div>
+
+                          <div className="flex items-end">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.smtpSecure}
+                                onChange={(e) => handleInputChange('smtpSecure', e.target.checked)}
+                                className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-900">Connexion sécurisée (TLS)</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'appearance' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Paramètres d'apparence</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Thème par défaut
+                    </label>
+                    <select
+                      value={formData.defaultTheme}
+                      onChange={(e) => handleInputChange('defaultTheme', e.target.value)}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                    >
+                      <option value="light">Clair</option>
+                      <option value="dark">Sombre</option>
+                      <option value="auto">Automatique</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.showBranding}
+                        onChange={(e) => handleInputChange('showBranding', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Afficher le branding</span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Couleur primaire
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={formData.primaryColor}
+                          onChange={(e) => handleInputChange('primaryColor', e.target.value)}
+                          className="h-10 w-20 rounded border border-gray-300"
+                        />
+                        <input
+                          type="text"
+                          value={formData.primaryColor}
+                          onChange={(e) => handleInputChange('primaryColor', e.target.value)}
+                          className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Couleur secondaire
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={formData.secondaryColor}
+                          onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
+                          className="h-10 w-20 rounded border border-gray-300"
+                        />
+                        <input
+                          type="text"
+                          value={formData.secondaryColor}
+                          onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
+                          className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'system' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Paramètres système</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Projets max par utilisateur
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.maxProjectsPerUser}
+                        onChange={(e) => handleInputChange('maxProjectsPerUser', parseInt(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Délai d'évaluation (jours)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.evaluationDeadlineDays}
+                        onChange={(e) => handleInputChange('evaluationDeadlineDays', parseInt(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Seuil d'auto-approbation (%)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.autoApprovalThreshold}
+                        onChange={(e) => handleInputChange('autoApprovalThreshold', parseInt(e.target.value))}
+                        min="0"
+                        max="100"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Taille max fichier (MB)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.maxFileSize}
+                        onChange={(e) => handleInputChange('maxFileSize', parseInt(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t border-gray-200 pt-6">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.enableMaintenanceMode}
+                        onChange={(e) => handleInputChange('enableMaintenanceMode', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Mode maintenance</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.enableRegistration}
+                        onChange={(e) => handleInputChange('enableRegistration', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Autoriser les inscriptions</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.enableBackups}
+                        onChange={(e) => handleInputChange('enableBackups', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900">Activer les sauvegardes automatiques</span>
+                    </label>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {activeTab === 'security' && (
               <Card>
                 <CardHeader>
