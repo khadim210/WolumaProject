@@ -197,12 +197,13 @@ export const useParametersStore = create<ParametersState>()(
         } catch (error) {
           return { success: false, message: `Erreur réseau: ${error instanceof Error ? error.message : 'Erreur inconnue'}` };
         }
-          return { success: false, message: 'URL Supabase et clé anonyme requis' };
+      },
+
       initializeDatabase: async () => {
         // Placeholder for database initialization
         await new Promise(resolve => setTimeout(resolve, 1000));
       },
-        }
+
       resetDatabase: async () => {
         // Placeholder for database reset
         await new Promise(resolve => setTimeout(resolve, 1000));
