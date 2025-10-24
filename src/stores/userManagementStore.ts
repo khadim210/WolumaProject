@@ -13,6 +13,7 @@ export interface User {
   isActive: boolean;
   createdAt: Date;
   lastLogin?: Date;
+  authUserId: string;
 }
 
 // Fonction utilitaire pour convertir SupabaseUser vers User
@@ -24,7 +25,8 @@ const convertSupabaseUser = (supabaseUser: SupabaseUser): User => ({
   organization: supabaseUser.organization,
   isActive: supabaseUser.is_active,
   createdAt: new Date(supabaseUser.created_at),
-  lastLogin: supabaseUser.last_login ? new Date(supabaseUser.last_login) : undefined
+  lastLogin: supabaseUser.last_login ? new Date(supabaseUser.last_login) : undefined,
+  authUserId: supabaseUser.auth_user_id
 });
 
 interface UserManagementState {
@@ -33,8 +35,9 @@ interface UserManagementState {
   error: string | null;
   fetchUsers: () => Promise<void>;
   getUser: (id: string) => User | undefined;
-  addUser: (user: Omit<User, 'id' | 'createdAt'> & { password: string }) => Promise<User>;
+  addUser: (user: Omit<User, 'id' | 'createdAt' | 'authUserId'> & { password: string }) => Promise<User>;
   updateUser: (id: string, updates: Partial<User>) => Promise<User | null>;
+  updateUserPassword: (authUserId: string, newPassword: string) => Promise<void>;
   deleteUser: (id: string) => Promise<boolean>;
   toggleUserStatus: (id: string) => Promise<boolean>;
 }
@@ -142,6 +145,18 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
     }
   },
 
+  updateUserPassword: async (authUserId, newPassword) => {
+    set({ isLoading: true, error: null });
+    try {
+      await AuthService.updateUserPassword(authUserId, newPassword);
+      set({ isLoading: false });
+    } catch (error) {
+      console.error('Error updating user password:', error);
+      set({ error: 'Failed to update user password', isLoading: false });
+      throw error;
+    }
+  },
+
   toggleUserStatus: async (id) => {
     set({ isLoading: true, error: null });
     try {
@@ -150,13 +165,13 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
         set({ error: 'User not found', isLoading: false });
         return false;
       }
-      
+
       const supabaseUser = await UserService.updateUser(id, {
         is_active: !user.isActive
       });
-      
+
       const updatedUser = convertSupabaseUser(supabaseUser);
-      
+
       set(state => ({
         users: state.users.map(u => u.id === id ? updatedUser : u),
         isLoading: false

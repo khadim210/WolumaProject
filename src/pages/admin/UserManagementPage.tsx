@@ -11,12 +11,12 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { 
-  Users, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
+import {
+  Users,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
   Filter,
   Shield,
   Mail,
@@ -24,7 +24,8 @@ import {
   Calendar,
   MoreVertical,
   UserCheck,
-  UserX
+  UserX,
+  Lock
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -63,17 +64,18 @@ interface UserFormValues {
 
 const UserManagementPage: React.FC = () => {
   const { user: currentUser } = useAuthStore();
-  const { 
-    users, 
-    isLoading, 
+  const {
+    users,
+    isLoading,
     error,
-    fetchUsers, 
-    addUser, 
-    updateUser, 
-    deleteUser, 
-    toggleUserStatus 
+    fetchUsers,
+    addUser,
+    updateUser,
+    deleteUser,
+    toggleUserStatus,
+    updateUserPassword
   } = useUserManagementStore();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -83,6 +85,10 @@ const UserManagementPage: React.FC = () => {
   const [showRoleManagement, setShowRoleManagement] = useState(false);
   const [showPartnerAssignment, setShowPartnerAssignment] = useState(false);
   const [createUserError, setCreateUserError] = useState<string | null>(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -159,6 +165,33 @@ const UserManagementPage: React.FC = () => {
       await toggleUserStatus(userId);
     } catch (error) {
       console.error('Error toggling user status:', error);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!editingUser) return;
+
+    setPasswordError(null);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    try {
+      await updateUserPassword(editingUser.authUserId, newPassword);
+      setShowPasswordChange(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      alert('Mot de passe modifié avec succès');
+    } catch (error) {
+      setPasswordError('Erreur lors de la modification du mot de passe');
+      console.error('Error updating password:', error);
     }
   };
 
@@ -527,7 +560,7 @@ const UserManagementPage: React.FC = () => {
       {/* Edit User Modal */}
       {editingUser && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Modifier l'utilisateur</h3>
               <Formik
@@ -601,11 +634,84 @@ const UserManagementPage: React.FC = () => {
                       </label>
                     </div>
 
-                    <div className="flex justify-end space-x-3 pt-4">
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      {!showPasswordChange ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowPasswordChange(true)}
+                          leftIcon={<Lock className="h-4 w-4" />}
+                          className="w-full"
+                        >
+                          Modifier le mot de passe
+                        </Button>
+                      ) : (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-900">Nouveau mot de passe</h4>
+                          {passwordError && (
+                            <div className="p-2 bg-error-100 border border-error-300 text-error-700 rounded text-sm">
+                              {passwordError}
+                            </div>
+                          )}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Nouveau mot de passe</label>
+                            <input
+                              type="password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="Au moins 6 caractères"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+                            <input
+                              type="password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              placeholder="Retapez le mot de passe"
+                            />
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button
+                              type="button"
+                              variant="primary"
+                              onClick={handlePasswordChange}
+                              size="sm"
+                              className="flex-1"
+                            >
+                              Enregistrer le mot de passe
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setShowPasswordChange(false);
+                                setNewPassword('');
+                                setConfirmPassword('');
+                                setPasswordError(null);
+                              }}
+                              size="sm"
+                            >
+                              Annuler
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setEditingUser(null)}
+                        onClick={() => {
+                          setEditingUser(null);
+                          setShowPasswordChange(false);
+                          setNewPassword('');
+                          setConfirmPassword('');
+                          setPasswordError(null);
+                        }}
                       >
                         Annuler
                       </Button>

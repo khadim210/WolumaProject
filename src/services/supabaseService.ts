@@ -100,7 +100,7 @@ export interface SupabaseUser {
   is_active: boolean;
   created_at: string;
   last_login?: string;
-  auth_user_id?: string;
+  auth_user_id: string;
 }
 
 export interface SupabasePartner {
@@ -596,6 +596,19 @@ export class AuthService {
       .from('users')
       .update(updates)
       .eq('auth_user_id', user.id);
+
+    if (error) throw error;
+  }
+
+  static async updateUserPassword(authUserId: string, newPassword: string): Promise<void> {
+    if (supabaseAdmin === null) {
+      throw new Error('Admin operations not available');
+    }
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(
+      authUserId,
+      { password: newPassword }
+    );
 
     if (error) throw error;
   }
