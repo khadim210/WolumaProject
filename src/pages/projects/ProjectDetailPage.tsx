@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { 
   Card, 
   CardHeader, 
@@ -24,6 +25,7 @@ const ProjectDetailPage: React.FC = () => {
   const { checkPermission } = usePermissions();
   const { projects, getProject, updateProject } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
   
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,16 +36,17 @@ const ProjectDetailPage: React.FC = () => {
     console.log('📄 ProjectDetailPage: Fetching programs and partners...');
     fetchPrograms();
     fetchPartners();
-    
+    fetchTemplates();
+
     if (id) {
       const projectData = getProject(id);
       setProject(projectData);
-      
+
       if (!projectData) {
         navigate('/dashboard/projects');
       }
     }
-  }, [id, getProject, navigate, projects, fetchPrograms, fetchPartners]);
+  }, [id, getProject, navigate, projects, fetchPrograms, fetchPartners, fetchTemplates]);
   
   const handleSubmitProject = async () => {
     if (!project || !id) return;
@@ -233,10 +236,56 @@ const ProjectDetailPage: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {project.formData && (() => {
+                const program = programs.find(p => p.id === project.programId);
+                const template = program?.formTemplateId ? getTemplate(program.formTemplateId) : null;
+
+                if (!template) return null;
+
+                return (
+                  <div className="pt-4 border-t border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Informations du projet</h3>
+                    <div className="space-y-4">
+                      {template.fields.map(field => {
+                        const value = project.formData?.[field.name];
+                        if (value === undefined || value === null || value === '') return null;
+
+                        return (
+                          <div key={field.id} className="bg-gray-50 p-4 rounded-lg">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {field.label}
+                              {field.required && <span className="text-error-500 ml-1">*</span>}
+                            </label>
+                            {field.type === 'textarea' ? (
+                              <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
+                            ) : field.type === 'checkbox' ? (
+                              <p className="text-sm text-gray-900">{value ? 'Oui' : 'Non'}</p>
+                            ) : field.type === 'multiple_select' && Array.isArray(value) ? (
+                              <div className="flex flex-wrap gap-2">
+                                {value.map((v, idx) => (
+                                  <span key={idx} className="inline-flex items-center rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-800">
+                                    {v}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-900">{value}</p>
+                            )}
+                            {field.helpText && (
+                              <p className="mt-1 text-xs text-gray-500">{field.helpText}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
           
-          {(project.totalEvaluationScore !== undefined || project.evaluationScores || project.evaluationScore !== undefined) && (
+          {user?.role !== 'submitter' && (project.totalEvaluationScore !== undefined || project.evaluationScores || project.evaluationScore !== undefined) && (
             <Card className="mt-6 border-l-4 border-l-primary-500">
               <CardHeader>
                 <div className="flex justify-between items-center">
