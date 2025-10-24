@@ -559,17 +559,45 @@ export class AuthService {
     if (supabase === null) {
       throw new Error('Supabase not available');
     }
-    
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-    
+
     const { data } = await supabase
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
       .single();
-    
+
     return data || null;
+  }
+
+  static async updatePassword(newPassword: string): Promise<void> {
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) throw error;
+  }
+
+  static async updateProfile(updates: { name?: string; organization?: string }): Promise<void> {
+    if (supabase === null) {
+      throw new Error('Supabase not available');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No user found');
+
+    const { error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('auth_user_id', user.id);
+
+    if (error) throw error;
   }
 }
 
