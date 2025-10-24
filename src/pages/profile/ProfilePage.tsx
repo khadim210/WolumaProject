@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { AuthService } from '../../services/supabaseService';
+import { AuthService, supabaseAdmin } from '../../services/supabaseService';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { User, Lock, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Lock, Save, AlertCircle, CheckCircle, Database, Trash2 } from 'lucide-react';
 
 const ProfilePage = () => {
   const { user, setUser } = useAuthStore();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [profileData, setProfileData] = useState({
@@ -63,6 +66,47 @@ const ProfilePage = () => {
       console.error('Error updating password:', error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleClearDatabase = async () => {
+    if (clearConfirmText !== 'VIDER LA BASE') {
+      setMessage({ type: 'error', text: 'Veuillez taper exactement "VIDER LA BASE" pour confirmer' });
+      return;
+    }
+
+    setIsClearing(true);
+    setMessage(null);
+    try {
+      if (!supabaseAdmin) {
+        throw new Error('Admin client not available');
+      }
+
+      const tables = ['projects', 'programs', 'partners', 'form_templates'];
+
+      for (const table of tables) {
+        const { error } = await supabaseAdmin
+          .from(table)
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        if (error) {
+          console.error(`Error clearing ${table}:`, error);
+        }
+      }
+
+      setMessage({ type: 'success', text: 'Base de données vidée avec succès (comptes utilisateurs conservés)' });
+      setShowClearConfirm(false);
+      setClearConfirmText('');
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Erreur lors du vidage de la base de données' });
+      console.error('Error clearing database:', error);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -271,6 +315,94 @@ const ProfilePage = () => {
           )}
         </CardContent>
       </Card>
+
+      {user?.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center">
+              <Database className="h-5 w-5 text-gray-500 mr-2" />
+              <CardTitle>Gestion de la base de données</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {!showClearConfirm ? (
+              <div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-yellow-400 mr-2 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-yellow-800">Attention</h4>
+                      <p className="mt-1 text-sm text-yellow-700">
+                        Cette action supprimera toutes les données (projets, programmes, partenaires, formulaires)
+                        mais conservera tous les comptes utilisateurs.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setShowClearConfirm(true)}
+                  leftIcon={<Trash2 className="h-4 w-4" />}
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  Vider la base de données
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-red-400 mr-2 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-red-800">Confirmation requise</h4>
+                      <p className="mt-1 text-sm text-red-700">
+                        Cette action est irréversible. Tapez exactement <strong>VIDER LA BASE</strong> pour confirmer.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirmation
+                  </label>
+                  <input
+                    type="text"
+                    value={clearConfirmText}
+                    onChange={(e) => setClearConfirmText(e.target.value)}
+                    placeholder="Tapez: VIDER LA BASE"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
+                  />
+                </div>
+
+                <div className="flex space-x-3">
+                  <Button
+                    variant="primary"
+                    onClick={handleClearDatabase}
+                    isLoading={isClearing}
+                    disabled={clearConfirmText !== 'VIDER LA BASE'}
+                    leftIcon={<Trash2 className="h-4 w-4" />}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                  >
+                    Confirmer le vidage
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowClearConfirm(false);
+                      setClearConfirmText('');
+                    }}
+                    disabled={isClearing}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
