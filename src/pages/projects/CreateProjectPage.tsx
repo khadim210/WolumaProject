@@ -47,7 +47,7 @@ interface ProjectFormValues {
 
 const CreateProjectPage: React.FC = () => {
   const { user } = useAuthStore();
-  const { addProject } = useProjectStore();
+  const { addProject, projects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,7 +62,7 @@ const CreateProjectPage: React.FC = () => {
   // Get accessible programs based on user role
   const getAccessiblePrograms = () => {
     if (!user) return [];
-    
+
     if (user.role === 'admin') {
       return programs;
     } else if (user.role === 'manager') {
@@ -74,12 +74,19 @@ const CreateProjectPage: React.FC = () => {
       // Partner can see their own programs
       const userPartner = partners.find(p => p.contactEmail === user.email);
       return userPartner ? programs.filter(p => p.partnerId === userPartner.id) : [];
+    } else if (user.role === 'submitter') {
+      // Submitters can only see programs where they haven't submitted yet
+      const submittedProgramIds = projects
+        .filter(p => p.submitterId === user.id)
+        .map(p => p.programId);
+      return programs.filter(p => !submittedProgramIds.includes(p.id));
     }
-    
-    return programs; // For submitters, show all programs
+
+    return programs;
   };
-  
+
   const accessiblePrograms = getAccessiblePrograms();
+  const hasSubmittedPrograms = user?.role === 'submitter' && projects.filter(p => p.submitterId === user.id).length > 0;
   
   const initialValues: ProjectFormValues = {
     title: '',
@@ -95,10 +102,22 @@ const CreateProjectPage: React.FC = () => {
       setError('Vous devez être connecté pour créer un projet');
       return;
     }
-    
+
+    // Vérification: Un soumissionnaire ne peut créer qu'une seule soumission par programme
+    if (user.role === 'submitter') {
+      const existingSubmission = projects.find(
+        p => p.programId === values.programId && p.submitterId === user.id
+      );
+
+      if (existingSubmission) {
+        setError('Vous avez déjà créé une soumission pour ce programme. Un seul projet par programme est autorisé.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setError('');
-    
+
     try {
       const newProject = await addProject({
         title: values.title,
@@ -110,7 +129,7 @@ const CreateProjectPage: React.FC = () => {
         programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
       });
-      
+
       resetForm();
       navigate(`/dashboard/projects/${newProject.id}`);
     } catch (error) {
@@ -124,10 +143,21 @@ const CreateProjectPage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Créer un nouveau projet</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {user?.role === 'submitter' ? 'Créer une nouvelle soumission' : 'Créer un nouveau projet'}
+        </h1>
         <p className="mt-1 text-gray-600">
-          Remplissez le formulaire ci-dessous pour créer un nouveau projet. Vous pourrez le modifier avant de le soumettre.
+          {user?.role === 'submitter'
+            ? 'Remplissez le formulaire ci-dessous pour soumettre votre projet. Vous ne pouvez soumettre qu\'un seul projet par programme.'
+            : 'Remplissez le formulaire ci-dessous pour créer un nouveau projet. Vous pourrez le modifier avant de le soumettre.'}
         </p>
+        {hasSubmittedPrograms && user?.role === 'submitter' && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-700">
+              💡 Les programmes pour lesquels vous avez déjà soumis un projet ne sont pas affichés dans la liste.
+            </p>
+          </div>
+        )}
       </div>
       
       {error && (
@@ -135,10 +165,25 @@ const CreateProjectPage: React.FC = () => {
           {error}
         </div>
       )}
-      
+
+      {user?.role === 'submitter' && accessiblePrograms.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="text-gray-500">
+              <p className="text-lg font-medium mb-2">Aucun programme disponible</p>
+              <p className="text-sm">
+                Vous avez déjà soumis un projet pour tous les programmes disponibles.
+                Un seul projet par programme est autorisé.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(user?.role !== 'submitter' || accessiblePrograms.length > 0) && (
       <Card>
         <CardHeader>
-          <CardTitle>Informations du projet</CardTitle>
+          <CardTitle>{user?.role === 'submitter' ? 'Informations de la soumission' : 'Informations du projet'}</CardTitle>
         </CardHeader>
         
         <Formik
@@ -309,7 +354,7 @@ const CreateProjectPage: React.FC = () => {
                   isLoading={isSubmitting}
                   disabled={!isValid}
                 >
-                  Créer le projet
+                  {user?.role === 'submitter' ? 'Créer la soumission' : 'Créer le projet'}
                 </Button>
               </CardFooter>
             </Form>
@@ -317,6 +362,7 @@ const CreateProjectPage: React.FC = () => {
           }}
         </Formik>
       </Card>
+      )}
     </div>
   );
 };

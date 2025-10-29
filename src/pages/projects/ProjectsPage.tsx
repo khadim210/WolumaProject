@@ -376,11 +376,11 @@ const ProjectsPage: React.FC = () => {
           
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create">
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 leftIcon={<FolderPlus className="h-4 w-4" />}
               >
-                Nouveau projet
+                {user?.role === 'submitter' ? 'Nouvelle soumission' : 'Nouveau projet'}
               </Button>
             </Link>
           )}
@@ -625,11 +625,11 @@ const ProjectsPage: React.FC = () => {
           
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create" className="mt-4 inline-block">
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 leftIcon={<FolderPlus className="h-4 w-4" />}
               >
-                Créer votre premier projet
+                {user?.role === 'submitter' ? 'Créer votre première soumission' : 'Créer votre premier projet'}
               </Button>
             </Link>
           )}
