@@ -112,9 +112,19 @@ const ProjectDetailPage: React.FC = () => {
         </button>
         
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">
-            {project.title}
-          </h1>
+          <div className="mb-2 sm:mb-0">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {project.title}
+            </h1>
+            {(() => {
+              const program = programs.find(p => p.id === project.programId);
+              return program ? (
+                <p className="text-sm text-gray-600 mt-1">
+                  Programme: <span className="font-medium">{program.name}</span>
+                </p>
+              ) : null;
+            })()}
+          </div>
           
           <div className="flex space-x-3">
             {canEdit && checkPermission('projects.edit') && (
