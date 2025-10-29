@@ -22,6 +22,7 @@ import Badge from '../../components/ui/Badge';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
+import { getCurrencySymbol, formatCurrency } from '../../utils/currency';
 
 const AVAILABLE_CURRENCIES = [
   { code: 'XOF', name: 'Franc CFA (XOF)', symbol: 'FCFA' },
@@ -219,7 +220,7 @@ const ProgramManagementPage: React.FC = () => {
               
               <div className="flex items-center text-sm text-gray-600">
                 <DollarSign className="h-4 w-4 mr-2" />
-                <span>{program.budget?.toLocaleString()} €</span>
+                <span>{formatCurrency(program.budget || 0, program.currency || 'XOF')}</span>
               </div>
               
               <div className="flex items-center text-sm text-gray-600">
