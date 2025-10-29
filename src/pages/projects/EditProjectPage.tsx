@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
 import {
@@ -43,6 +44,7 @@ interface ProjectFormValues {
   timeline: string;
   programId: string;
   tags: string[];
+  formData: Record<string, any>;
 }
 
 const EditProjectPage: React.FC = () => {
@@ -50,6 +52,7 @@ const EditProjectPage: React.FC = () => {
   const { user } = useAuthStore();
   const { getProject, updateProject } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { templates, fetchTemplates } = useFormTemplateStore();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +61,7 @@ const EditProjectPage: React.FC = () => {
   useEffect(() => {
     fetchPrograms();
     fetchPartners();
+    fetchTemplates();
 
     if (id) {
       const projectData = getProject(id);
@@ -124,6 +128,7 @@ const EditProjectPage: React.FC = () => {
     timeline: project.timeline,
     programId: project.programId,
     tags: project.tags.length > 0 ? project.tags : [''],
+    formData: project.formData || {},
   };
 
   const handleSubmit = async (values: ProjectFormValues) => {
@@ -140,6 +145,7 @@ const EditProjectPage: React.FC = () => {
         timeline: values.timeline,
         programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
+        formData: values.formData,
       });
 
       if (updatedProject) {
@@ -328,6 +334,149 @@ const EditProjectPage: React.FC = () => {
                     )}
                   </FieldArray>
                 </div>
+
+                {/* Formulaire du programme */}
+                {selectedProgram && selectedProgram.formTemplateId && (() => {
+                  const programTemplate = templates.find(t => t.id === selectedProgram.formTemplateId);
+
+                  if (!programTemplate || !programTemplate.fields || programTemplate.fields.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">
+                        Formulaire du programme: {programTemplate.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        {programTemplate.description || 'Veuillez remplir les champs suivants pour compléter votre soumission.'}
+                      </p>
+
+                      <div className="space-y-6">
+                        {programTemplate.fields.map((field: any) => (
+                          <div key={field.id}>
+                            <label htmlFor={`formData.${field.name}`} className="block text-sm font-medium text-gray-700">
+                              {field.label}
+                              {field.required && <span className="text-error-600 ml-1">*</span>}
+                            </label>
+                            {field.description && (
+                              <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+                            )}
+                            <div className="mt-1">
+                              {field.type === 'text' && (
+                                <Field
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  type="text"
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  placeholder={field.placeholder}
+                                />
+                              )}
+                              {field.type === 'textarea' && (
+                                <Field
+                                  as="textarea"
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  rows={4}
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  placeholder={field.placeholder}
+                                />
+                              )}
+                              {field.type === 'number' && (
+                                <Field
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  type="number"
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  placeholder={field.placeholder}
+                                />
+                              )}
+                              {field.type === 'email' && (
+                                <Field
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  type="email"
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  placeholder={field.placeholder}
+                                />
+                              )}
+                              {field.type === 'date' && (
+                                <Field
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  type="date"
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                />
+                              )}
+                              {field.type === 'select' && (
+                                <Field
+                                  as="select"
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                >
+                                  <option value="">Sélectionnez une option</option>
+                                  {field.options?.map((option: any, idx: number) => (
+                                    <option key={idx} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </Field>
+                              )}
+                              {field.type === 'checkbox' && (
+                                <div className="flex items-center">
+                                  <Field
+                                    id={`formData.${field.name}`}
+                                    name={`formData.${field.name}`}
+                                    type="checkbox"
+                                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                  />
+                                  <label htmlFor={`formData.${field.name}`} className="ml-2 block text-sm text-gray-700">
+                                    {field.description}
+                                  </label>
+                                </div>
+                              )}
+                              {field.type === 'radio' && (
+                                <div className="space-y-2">
+                                  {field.options?.map((option: any, idx: number) => (
+                                    <div key={idx} className="flex items-center">
+                                      <Field
+                                        id={`formData.${field.name}.${idx}`}
+                                        name={`formData.${field.name}`}
+                                        type="radio"
+                                        value={option.value}
+                                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                                      />
+                                      <label htmlFor={`formData.${field.name}.${idx}`} className="ml-2 block text-sm text-gray-700">
+                                        {option.label}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {field.type === 'multiple_select' && (
+                                <Field
+                                  as="select"
+                                  id={`formData.${field.name}`}
+                                  name={`formData.${field.name}`}
+                                  multiple
+                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  size={Math.min(field.options?.length || 3, 5)}
+                                >
+                                  {field.options?.map((option: any, idx: number) => (
+                                    <option key={idx} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </Field>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
 
               <CardFooter className="bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
