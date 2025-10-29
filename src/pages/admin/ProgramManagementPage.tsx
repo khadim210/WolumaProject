@@ -333,7 +333,38 @@ const ProgramManagementPage: React.FC = () => {
                   validationSchema={programSchema}
                   onSubmit={editingProgram ? handleUpdateProgram : handleCreateProgram}
                 >
-                  {({ values, isSubmitting, setFieldValue }) => (
+                  {({ values, isSubmitting, setFieldValue }) => {
+                    // Utiliser useEffect pour initialiser les critères d'éligibilité
+                    React.useEffect(() => {
+                      const selectedTemplate = templates.find(t => t.id === values.formTemplateId);
+
+                      if (selectedTemplate && lastInitializedFormId !== values.formTemplateId) {
+                        const initialCriteria = selectedTemplate.fields.map(field => {
+                          const existingCriteria = values.fieldEligibilityCriteria?.find(
+                            (c: any) => c.fieldId === field.id
+                          );
+
+                          return existingCriteria || {
+                            fieldId: field.id,
+                            fieldName: field.name,
+                            fieldLabel: field.label,
+                            fieldType: field.type,
+                            isEligibilityCriteria: false,
+                            conditions: {
+                              operator: '==',
+                              value: '',
+                              value2: '',
+                              errorMessage: `Le champ "${field.label}" ne respecte pas les critères d'éligibilité`
+                            }
+                          };
+                        });
+
+                        setFieldValue('fieldEligibilityCriteria', initialCriteria);
+                        setLastInitializedFormId(values.formTemplateId);
+                      }
+                    }, [values.formTemplateId, lastInitializedFormId]);
+
+                    return (
                     <Form className="space-y-6">
                       {/* Tab Content */}
                       {activeTab === 'general' && (
@@ -493,33 +524,6 @@ const ProgramManagementPage: React.FC = () => {
                                   </p>
                                 </div>
                               );
-                            }
-
-                            // Initialiser fieldEligibilityCriteria avec tous les champs du formulaire si nécessaire
-                            // Seulement si le formulaire a changé ou si c'est la première fois
-                            if (lastInitializedFormId !== values.formTemplateId) {
-                              const initialCriteria = selectedTemplate.fields.map(field => {
-                                // Chercher si un critère existe déjà pour ce champ
-                                const existingCriteria = values.fieldEligibilityCriteria?.find(
-                                  (c: any) => c.fieldId === field.id
-                                );
-
-                                return existingCriteria || {
-                                  fieldId: field.id,
-                                  fieldName: field.name,
-                                  fieldLabel: field.label,
-                                  fieldType: field.type,
-                                  isEligibilityCriteria: false,
-                                  conditions: {
-                                    operator: '==',
-                                    value: '',
-                                    value2: '',
-                                    errorMessage: `Le champ "${field.label}" ne respecte pas les critères d'éligibilité`
-                                  }
-                                };
-                              });
-                              setFieldValue('fieldEligibilityCriteria', initialCriteria);
-                              setLastInitializedFormId(values.formTemplateId);
                             }
 
                             return (
@@ -926,7 +930,8 @@ const ProgramManagementPage: React.FC = () => {
                         </Button>
                       </div>
                     </Form>
-                  )}
+                    );
+                  }}
                 </Formik>
               </div>
             </div>

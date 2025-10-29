@@ -274,6 +274,7 @@ export const useProgramStore = create<ProgramState>()(
             is_active: programData.isActive,
             manager_id: programData.managerId,
             selection_criteria: programData.selectionCriteria,
+            field_eligibility_criteria: programData.fieldEligibilityCriteria || [],
             evaluation_criteria: programData.evaluationCriteria,
             custom_ai_prompt: programData.customAiPrompt
           });
@@ -308,6 +309,7 @@ export const useProgramStore = create<ProgramState>()(
           if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
           if (updates.managerId) supabaseUpdates.manager_id = updates.managerId;
           if (updates.selectionCriteria) supabaseUpdates.selection_criteria = updates.selectionCriteria;
+          if (updates.fieldEligibilityCriteria !== undefined) supabaseUpdates.field_eligibility_criteria = updates.fieldEligibilityCriteria;
           if (updates.evaluationCriteria) supabaseUpdates.evaluation_criteria = updates.evaluationCriteria;
           if (updates.customAiPrompt) supabaseUpdates.custom_ai_prompt = updates.customAiPrompt;
           
