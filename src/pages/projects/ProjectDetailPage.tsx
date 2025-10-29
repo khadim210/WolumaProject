@@ -253,19 +253,23 @@ const ProjectDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              {project.formData && (() => {
+              {(() => {
                 const program = programs.find(p => p.id === project.programId);
                 const template = program?.formTemplateId ? getTemplate(program.formTemplateId) : null;
 
-                if (!template) return null;
+                if (!template || !template.fields || template.fields.length === 0) return null;
 
                 return (
                   <div className="pt-4 border-t border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Informations du projet</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Formulaire de soumission: {template.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      {template.description || 'Réponses du formulaire du programme'}
+                    </p>
                     <div className="space-y-4">
                       {template.fields.map(field => {
                         const value = project.formData?.[field.name];
-                        if (value === undefined || value === null || value === '') return null;
 
                         return (
                           <div key={field.id} className="bg-gray-50 p-4 rounded-lg">
@@ -273,10 +277,15 @@ const ProjectDetailPage: React.FC = () => {
                               {field.label}
                               {field.required && <span className="text-error-500 ml-1">*</span>}
                             </label>
-                            {field.type === 'textarea' ? (
+                            {field.description && (
+                              <p className="text-xs text-gray-500 mb-2">{field.description}</p>
+                            )}
+                            {value === undefined || value === null || value === '' ? (
+                              <p className="text-sm text-gray-400 italic">Non renseigné</p>
+                            ) : field.type === 'textarea' ? (
                               <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
                             ) : field.type === 'checkbox' ? (
-                              <p className="text-sm text-gray-900">{value ? 'Oui' : 'Non'}</p>
+                              <p className="text-sm text-gray-900">{value ? '✓ Oui' : '✗ Non'}</p>
                             ) : field.type === 'multiple_select' && Array.isArray(value) ? (
                               <div className="flex flex-wrap gap-2">
                                 {value.map((v, idx) => (
@@ -285,11 +294,10 @@ const ProjectDetailPage: React.FC = () => {
                                   </span>
                                 ))}
                               </div>
+                            ) : field.type === 'date' && value ? (
+                              <p className="text-sm text-gray-900">{new Date(value).toLocaleDateString()}</p>
                             ) : (
-                              <p className="text-sm text-gray-900">{value}</p>
-                            )}
-                            {field.helpText && (
-                              <p className="mt-1 text-xs text-gray-500">{field.helpText}</p>
+                              <p className="text-sm text-gray-900">{String(value)}</p>
                             )}
                           </div>
                         );
