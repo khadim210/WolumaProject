@@ -68,6 +68,7 @@ const ProgramManagementPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('general');
+  const [lastInitializedFormId, setLastInitializedFormId] = useState<string | null>(null);
 
   const { 
     programs, 
@@ -106,6 +107,7 @@ const ProgramManagementPage: React.FC = () => {
       await addProgram(programData);
       setShowCreateModal(false);
       setActiveTab('general');
+      setLastInitializedFormId(null);
     } catch (error) {
       console.error('Erreur lors de la création du programme:', error);
     }
@@ -129,6 +131,7 @@ const ProgramManagementPage: React.FC = () => {
       setEditingProgram(null);
       setShowCreateModal(false);
       setActiveTab('general');
+      setLastInitializedFormId(null);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du programme:', error);
     }
@@ -138,6 +141,7 @@ const ProgramManagementPage: React.FC = () => {
     setEditingProgram(program);
     setShowCreateModal(true);
     setActiveTab('general');
+    setLastInitializedFormId(null);
   };
 
   const handleDeleteProgram = async (programId: string) => {
@@ -170,6 +174,7 @@ const ProgramManagementPage: React.FC = () => {
             setEditingProgram(null);
             setShowCreateModal(true);
             setActiveTab('general');
+            setLastInitializedFormId(null);
           }}
           leftIcon={<Plus className="h-4 w-4" />}
         >
@@ -489,10 +494,16 @@ const ProgramManagementPage: React.FC = () => {
                               );
                             }
 
-                            // Initialiser fieldEligibilityCriteria avec tous les champs du formulaire
-                            React.useEffect(() => {
-                              if (selectedTemplate && (!values.fieldEligibilityCriteria || values.fieldEligibilityCriteria.length === 0)) {
-                                const initialCriteria = selectedTemplate.fields.map(field => ({
+                            // Initialiser fieldEligibilityCriteria avec tous les champs du formulaire si nécessaire
+                            // Seulement si le formulaire a changé ou si c'est la première fois
+                            if (lastInitializedFormId !== values.formTemplateId) {
+                              const initialCriteria = selectedTemplate.fields.map(field => {
+                                // Chercher si un critère existe déjà pour ce champ
+                                const existingCriteria = values.fieldEligibilityCriteria?.find(
+                                  (c: any) => c.fieldId === field.id
+                                );
+
+                                return existingCriteria || {
                                   fieldId: field.id,
                                   fieldName: field.name,
                                   fieldLabel: field.label,
@@ -504,10 +515,11 @@ const ProgramManagementPage: React.FC = () => {
                                     value2: '',
                                     errorMessage: `Le champ "${field.label}" ne respecte pas les critères d'éligibilité`
                                   }
-                                }));
-                                setFieldValue('fieldEligibilityCriteria', initialCriteria);
-                              }
-                            }, [selectedTemplate?.id]);
+                                };
+                              });
+                              setFieldValue('fieldEligibilityCriteria', initialCriteria);
+                              setLastInitializedFormId(values.formTemplateId);
+                            }
 
                             return (
                               <div className="space-y-4">
@@ -898,6 +910,7 @@ const ProgramManagementPage: React.FC = () => {
                             setEditingProgram(null);
                             setShowCreateModal(false);
                             setActiveTab('general');
+                            setLastInitializedFormId(null);
                           }}
                         >
                           Annuler
