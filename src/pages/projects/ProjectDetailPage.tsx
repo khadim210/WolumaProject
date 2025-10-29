@@ -15,7 +15,8 @@ import {
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
-import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download } from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
+import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
 
@@ -282,6 +283,27 @@ const ProjectDetailPage: React.FC = () => {
                             )}
                             {value === undefined || value === null || value === '' ? (
                               <p className="text-sm text-gray-400 italic">Non renseigné</p>
+                            ) : field.type === 'file' && Array.isArray(value) ? (
+                              <div className="space-y-2">
+                                {(value as UploadedFile[]).map((file, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-primary-300 hover:shadow-sm transition-all"
+                                  >
+                                    <div className="flex items-center space-x-3">
+                                      <FileText className="h-5 w-5 text-gray-400" />
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                        <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                                      </div>
+                                    </div>
+                                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                                  </a>
+                                ))}
+                              </div>
                             ) : field.type === 'textarea' ? (
                               <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
                             ) : field.type === 'checkbox' ? (

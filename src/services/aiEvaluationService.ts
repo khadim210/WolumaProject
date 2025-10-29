@@ -8,6 +8,7 @@ export interface AIEvaluationRequest {
     timeline: string;
     tags: string[];
     submissionDate?: string;
+    formData?: Record<string, any>;
   };
   evaluationCriteria: {
     id: string;
@@ -162,6 +163,25 @@ PROJET À ÉVALUER:
 - Durée: ${projectData.timeline}
 - Tags: ${projectData.tags.join(', ')}
 - Date de soumission: ${projectData.submissionDate || 'Non spécifiée'}`;
+
+    // Ajouter les données du formulaire si disponibles
+    if (projectData.formData && Object.keys(projectData.formData).length > 0) {
+      basePrompt += `
+
+INFORMATIONS ADDITIONNELLES DU FORMULAIRE:`;
+
+      Object.entries(projectData.formData).forEach(([key, value]) => {
+        if (Array.isArray(value) && value.length > 0 && value[0]?.path) {
+          // C'est un champ fichier
+          const files = value as any[];
+          basePrompt += `\n- ${key}: ${files.length} fichier(s) joint(s) (${files.map(f => f.name).join(', ')})`;
+        } else if (value !== null && value !== undefined && value !== '') {
+          // Autres types de champs
+          const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+          basePrompt += `\n- ${key}: ${displayValue}`;
+        }
+      });
+    }
 
     // Ajouter le contexte du programme si disponible
     if (request.programContext) {

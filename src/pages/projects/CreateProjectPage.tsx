@@ -14,8 +14,9 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, X, FileText } from 'lucide-react';
 import { getCurrencySymbol } from '../../utils/currency';
+import { uploadFile, formatFileSize, UploadedFile } from '../../utils/fileUpload';
 
 const projectSchema = Yup.object().shape({
   title: Yup.string()
@@ -55,6 +56,9 @@ const CreateProjectPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFile[]>>({});
+  const [tempProjectId] = useState(() => `temp-${Date.now()}-${Math.random().toString(36).substring(2)}`);
   
   React.useEffect(() => {
     console.log('➕ CreateProjectPage: Fetching programs and partners...');
@@ -102,6 +106,31 @@ const CreateProjectPage: React.FC = () => {
     formData: {},
   };
   
+  const handleFileUpload = async (fieldName: string, file: File, projectId: string) => {
+    setUploadingFiles(prev => ({ ...prev, [fieldName]: true }));
+    try {
+      const uploadedFile = await uploadFile(projectId, file);
+      setUploadedFiles(prev => ({
+        ...prev,
+        [fieldName]: [...(prev[fieldName] || []), uploadedFile]
+      }));
+      return uploadedFile;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setError(`Erreur lors de l'upload du fichier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      throw error;
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [fieldName]: false }));
+    }
+  };
+
+  const handleFileRemove = (fieldName: string, fileIndex: number) => {
+    setUploadedFiles(prev => ({
+      ...prev,
+      [fieldName]: prev[fieldName]?.filter((_, idx) => idx !== fileIndex) || []
+    }));
+  };
+
   const handleSubmit = async (values: ProjectFormValues, { resetForm }: { resetForm: () => void }) => {
     if (!user) {
       setError('Vous devez être connecté pour créer un projet');
@@ -124,6 +153,15 @@ const CreateProjectPage: React.FC = () => {
     setError('');
 
     try {
+      // Include uploaded files in formData
+      const formDataWithFiles = {
+        ...values.formData,
+        ...Object.entries(uploadedFiles).reduce((acc, [fieldName, files]) => {
+          acc[fieldName] = files;
+          return acc;
+        }, {} as Record<string, any>)
+      };
+
       const newProject = await addProject({
         title: values.title,
         description: values.description,
@@ -133,10 +171,11 @@ const CreateProjectPage: React.FC = () => {
         submitterId: user.id,
         programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
-        formData: values.formData,
+        formData: formDataWithFiles,
       });
 
       resetForm();
+      setUploadedFiles({});
       navigate(`/dashboard/projects/${newProject.id}`);
     } catch (error) {
       console.error('Error creating project:', error);
@@ -479,6 +518,75 @@ const CreateProjectPage: React.FC = () => {
                                     </option>
                                   ))}
                                 </Field>
+                              )}
+                              {field.type === 'file' && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-center w-full">
+                                    <label
+                                      htmlFor={`file-upload-${field.name}`}
+                                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                                    >
+                                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                                        <p className="mb-2 text-sm text-gray-500">
+                                          <span className="font-semibold">Cliquez pour uploader</span> ou glissez-déposez
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (Max. 50MB)
+                                        </p>
+                                      </div>
+                                      <input
+                                        id={`file-upload-${field.name}`}
+                                        type="file"
+                                        className="hidden"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt,.csv"
+                                        multiple={field.multiple}
+                                        onChange={async (e) => {
+                                          const files = Array.from(e.target.files || []);
+                                          for (const file of files) {
+                                            try {
+                                              await handleFileUpload(field.name, file, tempProjectId);
+                                            } catch (error) {
+                                              console.error('Upload failed:', error);
+                                            }
+                                          }
+                                          e.target.value = '';
+                                        }}
+                                        disabled={uploadingFiles[field.name]}
+                                      />
+                                    </label>
+                                  </div>
+                                  {uploadingFiles[field.name] && (
+                                    <div className="text-sm text-gray-500 text-center">
+                                      Téléchargement en cours...
+                                    </div>
+                                  )}
+                                  {uploadedFiles[field.name] && uploadedFiles[field.name].length > 0 && (
+                                    <div className="space-y-2">
+                                      {uploadedFiles[field.name].map((file, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                        >
+                                          <div className="flex items-center space-x-3">
+                                            <FileText className="h-5 w-5 text-gray-400" />
+                                            <div>
+                                              <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                              <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleFileRemove(field.name, idx)}
+                                            className="text-gray-400 hover:text-error-500"
+                                          >
+                                            <X className="h-5 w-5" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>

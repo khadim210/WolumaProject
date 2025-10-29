@@ -154,7 +154,8 @@ const EvaluationPage: React.FC = () => {
               budget: project.budget,
               timeline: project.timeline,
               tags: project.tags,
-              submissionDate: project.submissionDate?.toLocaleDateString()
+              submissionDate: project.submissionDate?.toLocaleDateString(),
+              formData: project.formData
             },
             evaluationCriteria: program.evaluationCriteria.map((criterion: any) => ({
               id: criterion.id,
@@ -299,7 +300,8 @@ const EvaluationPage: React.FC = () => {
           budget: project.budget,
           timeline: project.timeline,
           tags: project.tags,
-          submissionDate: project.submissionDate?.toLocaleDateString()
+          submissionDate: project.submissionDate?.toLocaleDateString(),
+          formData: project.formData
         },
         evaluationCriteria: program.evaluationCriteria,
         customPrompt: program.customAiPrompt,

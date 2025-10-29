@@ -14,8 +14,9 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Upload, X, FileText } from 'lucide-react';
 import { getCurrencySymbol } from '../../utils/currency';
+import { uploadFile, formatFileSize, UploadedFile } from '../../utils/fileUpload';
 
 const projectSchema = Yup.object().shape({
   title: Yup.string()
@@ -57,6 +58,8 @@ const EditProjectPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [project, setProject] = useState(id ? getProject(id) : undefined);
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFile[]>>({});
 
   useEffect(() => {
     fetchPrograms();
@@ -74,8 +77,19 @@ const EditProjectPage: React.FC = () => {
       } else if (user?.id !== projectData.submitterId && user?.role !== 'admin') {
         setError('Vous n\'êtes pas autorisé à modifier ce projet');
       }
+
+      // Initialize uploaded files from formData
+      if (projectData?.formData) {
+        const files: Record<string, UploadedFile[]> = {};
+        Object.entries(projectData.formData).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0 && value[0]?.path) {
+            files[key] = value as UploadedFile[];
+          }
+        });
+        setUploadedFiles(files);
+      }
     }
-  }, [id, getProject, navigate, fetchPrograms, fetchPartners, user]);
+  }, [id, getProject, navigate, fetchPrograms, fetchPartners, fetchTemplates, user]);
 
   const getAccessiblePrograms = () => {
     if (!user) return [];
@@ -121,6 +135,32 @@ const EditProjectPage: React.FC = () => {
     );
   }
 
+  const handleFileUpload = async (fieldName: string, file: File) => {
+    if (!id) return;
+    setUploadingFiles(prev => ({ ...prev, [fieldName]: true }));
+    try {
+      const uploadedFile = await uploadFile(id, file);
+      setUploadedFiles(prev => ({
+        ...prev,
+        [fieldName]: [...(prev[fieldName] || []), uploadedFile]
+      }));
+      return uploadedFile;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setError(`Erreur lors de l'upload du fichier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      throw error;
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [fieldName]: false }));
+    }
+  };
+
+  const handleFileRemove = (fieldName: string, fileIndex: number) => {
+    setUploadedFiles(prev => ({
+      ...prev,
+      [fieldName]: prev[fieldName]?.filter((_, idx) => idx !== fileIndex) || []
+    }));
+  };
+
   const initialValues: ProjectFormValues = {
     title: project.title,
     description: project.description,
@@ -138,6 +178,15 @@ const EditProjectPage: React.FC = () => {
     setError('');
 
     try {
+      // Include uploaded files in formData
+      const formDataWithFiles = {
+        ...values.formData,
+        ...Object.entries(uploadedFiles).reduce((acc, [fieldName, files]) => {
+          acc[fieldName] = files;
+          return acc;
+        }, {} as Record<string, any>)
+      };
+
       const updatedProject = await updateProject(id, {
         title: values.title,
         description: values.description,
@@ -145,7 +194,7 @@ const EditProjectPage: React.FC = () => {
         timeline: values.timeline,
         programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
-        formData: values.formData,
+        formData: formDataWithFiles,
       });
 
       if (updatedProject) {
@@ -469,6 +518,75 @@ const EditProjectPage: React.FC = () => {
                                     </option>
                                   ))}
                                 </Field>
+                              )}
+                              {field.type === 'file' && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-center w-full">
+                                    <label
+                                      htmlFor={`file-upload-${field.name}`}
+                                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                                    >
+                                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                                        <p className="mb-2 text-sm text-gray-500">
+                                          <span className="font-semibold">Cliquez pour uploader</span> ou glissez-déposez
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (Max. 50MB)
+                                        </p>
+                                      </div>
+                                      <input
+                                        id={`file-upload-${field.name}`}
+                                        type="file"
+                                        className="hidden"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt,.csv"
+                                        multiple={field.multiple}
+                                        onChange={async (e) => {
+                                          const files = Array.from(e.target.files || []);
+                                          for (const file of files) {
+                                            try {
+                                              await handleFileUpload(field.name, file);
+                                            } catch (error) {
+                                              console.error('Upload failed:', error);
+                                            }
+                                          }
+                                          e.target.value = '';
+                                        }}
+                                        disabled={uploadingFiles[field.name]}
+                                      />
+                                    </label>
+                                  </div>
+                                  {uploadingFiles[field.name] && (
+                                    <div className="text-sm text-gray-500 text-center">
+                                      Téléchargement en cours...
+                                    </div>
+                                  )}
+                                  {uploadedFiles[field.name] && uploadedFiles[field.name].length > 0 && (
+                                    <div className="space-y-2">
+                                      {uploadedFiles[field.name].map((file, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                        >
+                                          <div className="flex items-center space-x-3">
+                                            <FileText className="h-5 w-5 text-gray-400" />
+                                            <div>
+                                              <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                              <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleFileRemove(field.name, idx)}
+                                            className="text-gray-400 hover:text-error-500"
+                                          >
+                                            <X className="h-5 w-5" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
