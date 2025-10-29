@@ -49,6 +49,7 @@ export interface Program {
   partnerId: string; // Programme exécuté pour un partenaire
   formTemplateId?: string; // Modèle de formulaire associé
   budget: number;
+  currency: string; // Code ISO 4217 de la devise (XOF, EUR, USD, etc.)
   startDate: Date;
   endDate: Date;
   isActive: boolean;
@@ -79,6 +80,7 @@ const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
   partnerId: supabaseProgram.partner_id,
   formTemplateId: supabaseProgram.form_template_id,
   budget: supabaseProgram.budget,
+  currency: supabaseProgram.currency || 'XOF',
   startDate: new Date(supabaseProgram.start_date),
   endDate: new Date(supabaseProgram.end_date),
   isActive: supabaseProgram.is_active,
@@ -250,6 +252,7 @@ export const useProgramStore = create<ProgramState>()(
             partner_id: programData.partnerId,
             form_template_id: programData.formTemplateId,
             budget: programData.budget,
+            currency: programData.currency || 'XOF',
             start_date: programData.startDate.toISOString().split('T')[0],
             end_date: programData.endDate.toISOString().split('T')[0],
             is_active: programData.isActive,
@@ -283,6 +286,7 @@ export const useProgramStore = create<ProgramState>()(
           if (updates.partnerId) supabaseUpdates.partner_id = updates.partnerId;
           if (updates.formTemplateId) supabaseUpdates.form_template_id = updates.formTemplateId;
           if (updates.budget) supabaseUpdates.budget = updates.budget;
+          if (updates.currency) supabaseUpdates.currency = updates.currency;
           if (updates.startDate) supabaseUpdates.start_date = updates.startDate.toISOString().split('T')[0];
           if (updates.endDate) supabaseUpdates.end_date = updates.endDate.toISOString().split('T')[0];
           if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;

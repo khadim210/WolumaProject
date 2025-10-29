@@ -23,11 +23,23 @@ import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
 
+const AVAILABLE_CURRENCIES = [
+  { code: 'XOF', name: 'Franc CFA (XOF)', symbol: 'FCFA' },
+  { code: 'EUR', name: 'Euro (EUR)', symbol: '€' },
+  { code: 'USD', name: 'Dollar américain (USD)', symbol: '$' },
+  { code: 'GBP', name: 'Livre sterling (GBP)', symbol: '£' },
+  { code: 'CHF', name: 'Franc suisse (CHF)', symbol: 'CHF' },
+  { code: 'CAD', name: 'Dollar canadien (CAD)', symbol: 'C$' },
+  { code: 'JPY', name: 'Yen japonais (JPY)', symbol: '¥' },
+  { code: 'CNY', name: 'Yuan chinois (CNY)', symbol: '¥' },
+];
+
 const programSchema = Yup.object().shape({
   name: Yup.string().required('Le nom du programme est requis'),
   description: Yup.string().required('La description est requise'),
   partnerId: Yup.string().required('Un partenaire doit être sélectionné'),
   budget: Yup.number().min(0, 'Le budget doit être positif').required('Le budget est requis'),
+  currency: Yup.string().required('La devise est requise'),
   startDate: Yup.date().required('La date de début est requise'),
   endDate: Yup.date()
     .min(Yup.ref('startDate'), 'La date de fin doit être après la date de début')
@@ -303,6 +315,7 @@ const ProgramManagementPage: React.FC = () => {
                     partnerId: editingProgram?.partnerId || '',
                     formTemplateId: editingProgram?.formTemplateId || '',
                     budget: editingProgram?.budget || 0,
+                    currency: editingProgram?.currency || 'XOF',
                     startDate: editingProgram?.startDate ? editingProgram.startDate.toISOString().split('T')[0] : '',
                     endDate: editingProgram?.endDate ? editingProgram.endDate.toISOString().split('T')[0] : '',
                     managerId: editingProgram?.managerId || '',
@@ -375,9 +388,9 @@ const ProgramManagementPage: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">Budget (€)</label>
+                              <label className="block text-sm font-medium text-gray-700">Budget</label>
                               <Field
                                 name="budget"
                                 type="number"
@@ -387,6 +400,24 @@ const ProgramManagementPage: React.FC = () => {
                               <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
                             </div>
 
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">Devise</label>
+                              <Field
+                                as="select"
+                                name="currency"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                              >
+                                {AVAILABLE_CURRENCIES.map(currency => (
+                                  <option key={currency.code} value={currency.code}>
+                                    {currency.name}
+                                  </option>
+                                ))}
+                              </Field>
+                              <ErrorMessage name="currency" component="div" className="mt-1 text-sm text-error-600" />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                               <label className="block text-sm font-medium text-gray-700">Date de début</label>
                               <Field

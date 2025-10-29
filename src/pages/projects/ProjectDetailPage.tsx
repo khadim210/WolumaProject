@@ -17,6 +17,7 @@ import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
 import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download } from 'lucide-react';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
+import { formatCurrency } from '../../utils/currency';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -193,7 +194,12 @@ const ProjectDetailPage: React.FC = () => {
                   <DollarSign className="h-5 w-5 text-gray-400 mr-2" />
                   <div>
                     <div className="text-sm text-gray-500">Budget</div>
-                    <div className="font-medium">{project.budget.toLocaleString()} FCFA</div>
+                    <div className="font-medium">
+                      {(() => {
+                        const program = programs.find(p => p.id === project.programId);
+                        return formatCurrency(project.budget, program?.currency || 'XOF');
+                      })()}
+                    </div>
                   </div>
                 </div>
                 

@@ -14,6 +14,7 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { getCurrencySymbol } from '../../utils/currency';
 
 const projectSchema = Yup.object().shape({
   title: Yup.string()
@@ -185,7 +186,11 @@ const EditProjectPage: React.FC = () => {
           onSubmit={handleSubmit}
           enableReinitialize
         >
-          {({ values, errors, touched, isValid }) => (
+          {({ values, errors, touched, isValid }) => {
+            const selectedProgram = accessiblePrograms.find(p => p.id === values.programId);
+            const currencySymbol = selectedProgram ? getCurrencySymbol(selectedProgram.currency) : 'FCFA';
+
+            return (
             <Form>
               <CardContent className="space-y-6">
                 <div>
@@ -224,7 +229,7 @@ const EditProjectPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
-                      Budget estimé (FCFA)*
+                      Budget estimé ({currencySymbol})*
                     </label>
                     <div className="mt-1">
                       <Field
@@ -343,7 +348,8 @@ const EditProjectPage: React.FC = () => {
                 </Button>
               </CardFooter>
             </Form>
-          )}
+            );
+          }}
         </Formik>
       </Card>
     </div>
