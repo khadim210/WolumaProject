@@ -645,9 +645,6 @@ export class MigrationService {
         return;
       }
 
-      // Always try to create default form templates first
-      await this.createDefaultFormTemplates();
-      
       // Create default partners and programs
       await this.createDefaultPartners();
       await this.createDefaultPrograms();
@@ -937,54 +934,4 @@ export class MigrationService {
     }
   }
 
-  private static async createDefaultFormTemplates(): Promise<void> {
-    // Only use admin client for form template creation (requires SERVICE_ROLE_KEY)
-    if (supabaseAdmin === null) {
-      console.log('⚠️ Admin client not available (missing SERVICE_ROLE_KEY), skipping form template creation');
-      console.log('💡 Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env file to enable form template seeding');
-      return;
-    }
-    
-    console.log('📋 Creating default form templates...');
-    
-    try {
-      const { defaultFormTemplates } = await import('../data/defaultFormTemplates');
-      
-      for (const template of defaultFormTemplates) {
-        // Check if template already exists
-        const { data: existingTemplate } = await supabaseAdmin
-          .from('form_templates')
-          .select('id')
-          .eq('name', template.name)
-          .maybeSingle();
-        
-        if (existingTemplate) {
-          console.log(`✅ Form template already exists: ${template.name}`);
-          continue;
-        }
-        
-        // Create the template
-        const { error } = await supabaseAdmin
-          .from('form_templates')
-          .insert([{
-            name: template.name,
-            description: template.description,
-            fields: template.fields,
-            is_active: template.isActive
-          }]);
-        
-        if (error) {
-          console.error(`❌ Error creating form template ${template.name}:`, error);
-          continue;
-        }
-        
-        console.log(`✅ Created form template: ${template.name}`);
-      }
-      
-      console.log('📋 Form templates creation completed');
-    } catch (error) {
-      console.error('❌ Error creating default form templates:', error);
-      // Don't throw to prevent app crash
-    }
-  }
 }
