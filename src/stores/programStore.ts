@@ -30,6 +30,20 @@ export interface SelectionCriterion {
   defaultValue?: boolean;
 }
 
+export interface FieldEligibilityCriterion {
+  fieldId: string;
+  fieldName: string;
+  fieldLabel: string;
+  fieldType: string;
+  isEligibilityCriteria: boolean;
+  conditions: {
+    operator: string;
+    value: string;
+    value2?: string;
+    errorMessage: string;
+  };
+}
+
 export interface Partner {
   id: string;
   name: string;
@@ -56,6 +70,7 @@ export interface Program {
   createdAt: Date;
   managerId?: string; // Manager responsable du programme
   selectionCriteria: SelectionCriterion[];
+  fieldEligibilityCriteria?: FieldEligibilityCriterion[]; // Critères d'éligibilité basés sur les champs du formulaire
   evaluationCriteria: EvaluationCriterion[];
   customAiPrompt?: string; // Prompt personnalisé pour l'évaluation IA
 }
@@ -87,6 +102,7 @@ const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
   createdAt: new Date(supabaseProgram.created_at),
   managerId: supabaseProgram.manager_id,
   selectionCriteria: supabaseProgram.selection_criteria || [],
+  fieldEligibilityCriteria: supabaseProgram.field_eligibility_criteria || [],
   evaluationCriteria: supabaseProgram.evaluation_criteria || [],
   customAiPrompt: supabaseProgram.custom_ai_prompt
 });

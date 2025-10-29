@@ -320,6 +320,7 @@ const ProgramManagementPage: React.FC = () => {
                     endDate: editingProgram?.endDate ? editingProgram.endDate.toISOString().split('T')[0] : '',
                     managerId: editingProgram?.managerId || '',
                     selectionCriteria: editingProgram?.selectionCriteria || [],
+                    fieldEligibilityCriteria: editingProgram?.fieldEligibilityCriteria || [],
                     evaluationCriteria: editingProgram?.evaluationCriteria || [],
                     customAiPrompt: editingProgram?.customAiPrompt || '',
                   }}
@@ -463,99 +464,285 @@ const ProgramManagementPage: React.FC = () => {
                         <div>
                           <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                             <CheckCircle className="h-5 w-5 text-primary-600 mr-2" />
-                            Critères d'éligibilité
+                            Critères d'éligibilité basés sur le formulaire
                           </h4>
                           <p className="text-sm text-gray-600 mb-6">
-                            Définissez les critères que les projets doivent respecter pour être éligibles à ce programme.
+                            Configurez les conditions d'éligibilité directement à partir des champs du formulaire associé à ce programme.
+                            Sélectionnez d'abord un formulaire dans l'onglet "Général" pour voir les champs disponibles.
                           </p>
-                          <FieldArray name="selectionCriteria">
-                            {({ push, remove }) => (
+
+                          {!values.formTemplateId ? (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                              <p className="text-sm text-yellow-800">
+                                Veuillez sélectionner un formulaire dans l'onglet "Général" pour configurer les critères d'éligibilité.
+                              </p>
+                            </div>
+                          ) : (() => {
+                            const selectedTemplate = templates.find(t => t.id === values.formTemplateId);
+                            if (!selectedTemplate) {
+                              return (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                                  <p className="text-sm text-yellow-800">
+                                    Formulaire non trouvé. Veuillez sélectionner un formulaire valide.
+                                  </p>
+                                </div>
+                              );
+                            }
+
+                            // Initialiser fieldEligibilityCriteria avec tous les champs du formulaire
+                            React.useEffect(() => {
+                              if (selectedTemplate && (!values.fieldEligibilityCriteria || values.fieldEligibilityCriteria.length === 0)) {
+                                const initialCriteria = selectedTemplate.fields.map(field => ({
+                                  fieldId: field.id,
+                                  fieldName: field.name,
+                                  fieldLabel: field.label,
+                                  fieldType: field.type,
+                                  isEligibilityCriteria: false,
+                                  conditions: {
+                                    operator: '==',
+                                    value: '',
+                                    value2: '',
+                                    errorMessage: `Le champ "${field.label}" ne respecte pas les critères d'éligibilité`
+                                  }
+                                }));
+                                setFieldValue('fieldEligibilityCriteria', initialCriteria);
+                              }
+                            }, [selectedTemplate?.id]);
+
+                            return (
                               <div className="space-y-4">
-                                {values.selectionCriteria.map((criterion, index) => (
-                                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                                    <div className="flex items-center justify-between mb-4">
-                                      <div className="flex items-center">
-                                        <GripVertical className="h-5 w-5 text-gray-400 mr-2" />
-                                        <span className="text-sm font-medium text-gray-900">Critère #{index + 1}</span>
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                  <p className="text-sm text-blue-800">
+                                    <strong>Formulaire sélectionné :</strong> {selectedTemplate.name}
+                                    <br />
+                                    <strong>Nombre de champs :</strong> {selectedTemplate.fields.length}
+                                  </p>
+                                </div>
+
+                                {selectedTemplate.fields.map((field, index) => {
+                                  const criteriaIndex = values.fieldEligibilityCriteria?.findIndex(
+                                    c => c.fieldId === field.id
+                                  ) ?? -1;
+
+                                  const criteria = criteriaIndex >= 0
+                                    ? values.fieldEligibilityCriteria[criteriaIndex]
+                                    : {
+                                        fieldId: field.id,
+                                        fieldName: field.name,
+                                        fieldLabel: field.label,
+                                        fieldType: field.type,
+                                        isEligibilityCriteria: false,
+                                        conditions: { operator: '==', value: '', value2: '', errorMessage: '' }
+                                      };
+
+                                  const isEligibility = criteria.isEligibilityCriteria;
+
+                                  return (
+                                    <div
+                                      key={field.id}
+                                      className={`border rounded-lg p-4 ${isEligibility ? 'border-primary-300 bg-primary-50' : 'border-gray-200'}`}
+                                    >
+                                      <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <h5 className="text-sm font-medium text-gray-900">{field.label}</h5>
+                                            <Badge variant="info" size="sm">{field.type}</Badge>
+                                            {field.required && <Badge variant="error" size="sm">Requis</Badge>}
+                                          </div>
+                                          <p className="text-xs text-gray-500">Nom: {field.name}</p>
+                                        </div>
+                                        <label className="flex items-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={isEligibility}
+                                            onChange={(e) => {
+                                              const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                              if (criteriaIndex >= 0) {
+                                                newCriteria[criteriaIndex] = {
+                                                  ...newCriteria[criteriaIndex],
+                                                  isEligibilityCriteria: e.target.checked
+                                                };
+                                              } else {
+                                                newCriteria.push({
+                                                  fieldId: field.id,
+                                                  fieldName: field.name,
+                                                  fieldLabel: field.label,
+                                                  fieldType: field.type,
+                                                  isEligibilityCriteria: e.target.checked,
+                                                  conditions: {
+                                                    operator: '==',
+                                                    value: '',
+                                                    value2: '',
+                                                    errorMessage: `Le champ "${field.label}" ne respecte pas les critères d'éligibilité`
+                                                  }
+                                                });
+                                              }
+                                              setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                            }}
+                                            className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                          />
+                                          <span className="ml-2 text-sm font-medium text-gray-700">
+                                            Critère d'éligibilité
+                                          </span>
+                                        </label>
                                       </div>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => remove(index)}
-                                        leftIcon={<Trash2 className="h-4 w-4" />}
-                                      >
-                                        Supprimer
-                                      </Button>
+
+                                      {isEligibility && (
+                                        <div className="mt-4 space-y-3 pl-4 border-l-2 border-primary-300">
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Opérateur de condition
+                                              </label>
+                                              <select
+                                                value={criteria.conditions?.operator || '=='}
+                                                onChange={(e) => {
+                                                  const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                  if (criteriaIndex >= 0) {
+                                                    newCriteria[criteriaIndex].conditions.operator = e.target.value;
+                                                    setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                  }
+                                                }}
+                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                              >
+                                                {['number', 'date'].includes(field.type) && (
+                                                  <>
+                                                    <option value="==">Égal à (==)</option>
+                                                    <option value="!=">Différent de (!=)</option>
+                                                    <option value=">">Supérieur à (&gt;)</option>
+                                                    <option value="<">Inférieur à (&lt;)</option>
+                                                    <option value=">=">Supérieur ou égal (≥)</option>
+                                                    <option value="<=">Inférieur ou égal (≤)</option>
+                                                    <option value="between">Entre (between)</option>
+                                                  </>
+                                                )}
+                                                {['text', 'textarea'].includes(field.type) && (
+                                                  <>
+                                                    <option value="==">Égal à (==)</option>
+                                                    <option value="!=">Différent de (!=)</option>
+                                                    <option value="contains">Contient</option>
+                                                    <option value="not_contains">Ne contient pas</option>
+                                                  </>
+                                                )}
+                                                {['select', 'radio', 'multiple_select'].includes(field.type) && (
+                                                  <>
+                                                    <option value="==">Égal à (==)</option>
+                                                    <option value="!=">Différent de (!=)</option>
+                                                    <option value="in">Dans la liste (in)</option>
+                                                    <option value="not_in">Pas dans la liste</option>
+                                                  </>
+                                                )}
+                                                {field.type === 'checkbox' && (
+                                                  <>
+                                                    <option value="==">Égal à (==)</option>
+                                                    <option value="checked">Coché</option>
+                                                    <option value="unchecked">Non coché</option>
+                                                  </>
+                                                )}
+                                              </select>
+                                            </div>
+
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Valeur attendue
+                                              </label>
+                                              {field.type === 'select' || field.type === 'radio' ? (
+                                                <select
+                                                  value={criteria.conditions?.value || ''}
+                                                  onChange={(e) => {
+                                                    const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                    if (criteriaIndex >= 0) {
+                                                      newCriteria[criteriaIndex].conditions.value = e.target.value;
+                                                      setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                    }
+                                                  }}
+                                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                >
+                                                  <option value="">Sélectionner...</option>
+                                                  {field.options?.map(opt => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                  ))}
+                                                </select>
+                                              ) : field.type === 'checkbox' ? (
+                                                <select
+                                                  value={criteria.conditions?.value || 'true'}
+                                                  onChange={(e) => {
+                                                    const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                    if (criteriaIndex >= 0) {
+                                                      newCriteria[criteriaIndex].conditions.value = e.target.value;
+                                                      setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                    }
+                                                  }}
+                                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                >
+                                                  <option value="true">Oui (coché)</option>
+                                                  <option value="false">Non (décoché)</option>
+                                                </select>
+                                              ) : (
+                                                <input
+                                                  type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                                  value={criteria.conditions?.value || ''}
+                                                  onChange={(e) => {
+                                                    const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                    if (criteriaIndex >= 0) {
+                                                      newCriteria[criteriaIndex].conditions.value = e.target.value;
+                                                      setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                    }
+                                                  }}
+                                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                  placeholder="Valeur"
+                                                />
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {criteria.conditions?.operator === 'between' && (
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Valeur maximum (pour "entre")
+                                              </label>
+                                              <input
+                                                type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                                value={criteria.conditions?.value2 || ''}
+                                                onChange={(e) => {
+                                                  const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                  if (criteriaIndex >= 0) {
+                                                    newCriteria[criteriaIndex].conditions.value2 = e.target.value;
+                                                    setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                  }
+                                                }}
+                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                placeholder="Valeur maximum"
+                                              />
+                                            </div>
+                                          )}
+
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                              Message d'erreur personnalisé
+                                            </label>
+                                            <textarea
+                                              value={criteria.conditions?.errorMessage || ''}
+                                              onChange={(e) => {
+                                                const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                if (criteriaIndex >= 0) {
+                                                  newCriteria[criteriaIndex].conditions.errorMessage = e.target.value;
+                                                  setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                }
+                                              }}
+                                              rows={2}
+                                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                              placeholder="Message affiché lorsque la condition n'est pas respectée"
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700">Nom du critère*</label>
-                                        <Field
-                                          name={`selectionCriteria.${index}.name`}
-                                          type="text"
-                                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                        />
-                                      </div>
-                                      
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700">Type de critère*</label>
-                                        <Field
-                                          as="select"
-                                          name={`selectionCriteria.${index}.type`}
-                                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                        >
-                                          <option value="text">Texte</option>
-                                          <option value="number">Nombre</option>
-                                          <option value="select">Liste déroulante</option>
-                                          <option value="boolean">Oui/Non</option>
-                                          <option value="date">Date</option>
-                                          <option value="range">Plage de valeurs</option>
-                                        </Field>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="mt-4">
-                                      <label className="block text-sm font-medium text-gray-700">Description</label>
-                                      <Field
-                                        as="textarea"
-                                        name={`selectionCriteria.${index}.description`}
-                                        rows={2}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                      />
-                                    </div>
-                                    
-                                    <div className="mt-4">
-                                      <label className="flex items-center">
-                                        <Field
-                                          name={`selectionCriteria.${index}.required`}
-                                          type="checkbox"
-                                          className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                        />
-                                        <span className="ml-2 text-sm text-gray-900">Critère obligatoire</span>
-                                      </label>
-                                    </div>
-                                  </div>
-                                ))}
-                                
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => push({
-                                    id: `criterion-${Date.now()}`,
-                                    name: '',
-                                    description: '',
-                                    type: 'text',
-                                    required: false
-                                  })}
-                                  leftIcon={<Plus className="h-4 w-4" />}
-                                >
-                                  Ajouter un critère
-                                </Button>
+                                  );
+                                })}
                               </div>
-                            )}
-                          </FieldArray>
+                            );
+                          })()}
                         </div>
                       )}
 

@@ -129,6 +129,7 @@ export interface SupabaseProgram {
   created_at: string;
   manager_id?: string;
   selection_criteria: any[];
+  field_eligibility_criteria?: any[];
   evaluation_criteria: any[];
   custom_ai_prompt?: string;
 }
