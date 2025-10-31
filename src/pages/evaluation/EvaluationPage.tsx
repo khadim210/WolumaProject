@@ -28,7 +28,7 @@ import { generateEvaluationReport } from '../../utils/pdfGenerator';
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const { projects, updateProject } = useProjectStore();
+  const { projects, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const navigate = useNavigate();
   
@@ -201,6 +201,8 @@ const EvaluationPage: React.FC = () => {
             evaluationDate: new Date(),
             // Don't change status automatically - wait for manual submission
           });
+
+          console.log('✅ Project evaluated:', project.id, { evaluationScores, totalEvaluationScore: Math.round(totalScore) });
           
           // Petite pause entre les évaluations pour éviter les limites de taux
           if (i < selectedProjects.length - 1) {
@@ -276,6 +278,8 @@ const EvaluationPage: React.FC = () => {
         recommendedStatus: values.decision as ProjectStatus,
         // Don't change status automatically - wait for manual submission
       });
+
+      console.log('✅ Project evaluated:', selectedProject.id, { evaluationScores, totalEvaluationScore: Math.round(totalScore) });
       
       if (updatedProject) {
         setIsEvaluating(false);

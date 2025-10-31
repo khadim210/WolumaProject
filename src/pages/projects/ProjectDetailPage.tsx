@@ -42,6 +42,12 @@ const ProjectDetailPage: React.FC = () => {
 
     if (id) {
       const projectData = getProject(id);
+      console.log('📊 Project data loaded:', {
+        id: projectData?.id,
+        hasEvaluationScores: !!projectData?.evaluationScores,
+        evaluationScores: projectData?.evaluationScores,
+        totalScore: projectData?.totalEvaluationScore
+      });
       setProject(projectData);
 
       if (!projectData) {
@@ -434,12 +440,29 @@ const ProjectDetailPage: React.FC = () => {
                     <div className="space-y-3">
                       {(() => {
                         const program = programs.find(p => p.id === project.programId);
-                        if (!program) return null;
-                        
+                        if (!program) {
+                          console.log('⚠️ Program not found for project:', project.programId);
+                          return null;
+                        }
+
+                        console.log('📋 Displaying evaluation for program:', program.name, {
+                          criteriaCount: program.evaluationCriteria.length,
+                          projectEvaluationScores: project.evaluationScores,
+                          projectEvaluationComments: project.evaluationComments
+                        });
+
                         return program.evaluationCriteria.map((criterion, index) => {
                           const score = project.evaluationScores![criterion.id] || 0;
                           const comment = project.evaluationComments?.[criterion.id] || '';
                           const percentage = (score / criterion.maxScore) * 100;
+
+                          console.log(`  Criterion ${index + 1}: ${criterion.name}`, {
+                            criterionId: criterion.id,
+                            score,
+                            maxScore: criterion.maxScore,
+                            percentage,
+                            hasComment: !!comment
+                          });
                           
                           return (
                             <div key={criterion.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
