@@ -154,7 +154,7 @@ class AIEvaluationService {
     const { projectData, evaluationCriteria } = request;
 
     let basePrompt = `
-En tant qu'expert en évaluation de projets, analysez le projet suivant et attribuez un score pour chaque critère d'évaluation.
+En tant qu'expert en évaluation de projets, analysez le projet suivant et attribuez un score pour chaque critère d'évaluation en commantant et justifiant de façon détaillé chaque critère d'évaluation.
 
 PROJET À ÉVALUER:
 - Titre: ${projectData.title}
