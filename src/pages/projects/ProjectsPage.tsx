@@ -356,6 +356,7 @@ const ProjectsPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
         
         <div className="flex space-x-3">
+        {/*  
           <Button
             variant="outline"
             onClick={handleExportExcel}
@@ -373,6 +374,8 @@ const ProjectsPage: React.FC = () => {
           >
             Imprimer PDF
           </Button>
+
+          */}
           
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create">
@@ -386,7 +389,7 @@ const ProjectsPage: React.FC = () => {
           )}
         </div>
       </div>
-      
+      {/**
       <Card className="mb-6">
         <CardContent className="py-4">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -466,7 +469,7 @@ const ProjectsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-      
+       */}
       {/* Import Section */}
       {checkPermission('projects.create') && (
         <Card className="border-l-4 border-l-secondary-500">
