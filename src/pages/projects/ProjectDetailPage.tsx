@@ -25,7 +25,7 @@ const ProjectDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const { projects, getProject, updateProject } = useProjectStore();
+  const { projects, getProject, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
   
@@ -35,26 +35,37 @@ const ProjectDetailPage: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   useEffect(() => {
-    console.log('📄 ProjectDetailPage: Fetching programs and partners...');
-    fetchPrograms();
-    fetchPartners();
-    fetchTemplates();
+    const loadData = async () => {
+      console.log('📄 ProjectDetailPage: Fetching fresh data from Supabase...');
 
-    if (id) {
-      const projectData = getProject(id);
-      console.log('📊 Project data loaded:', {
-        id: projectData?.id,
-        hasEvaluationScores: !!projectData?.evaluationScores,
-        evaluationScores: projectData?.evaluationScores,
-        totalScore: projectData?.totalEvaluationScore
-      });
-      setProject(projectData);
+      // Fetch fresh data from Supabase
+      await Promise.all([
+        fetchPrograms(),
+        fetchPartners(),
+        fetchTemplates(),
+        fetchProjects() // ✅ Reload projects from database
+      ]);
 
-      if (!projectData) {
-        navigate('/dashboard/projects');
+      if (id) {
+        // Get project from store after fetching
+        const projectData = getProject(id);
+        console.log('📊 Project data loaded:', {
+          id: projectData?.id,
+          hasEvaluationScores: !!projectData?.evaluationScores,
+          evaluationScores: projectData?.evaluationScores,
+          totalScore: projectData?.totalEvaluationScore
+        });
+        setProject(projectData);
+
+        if (!projectData) {
+          console.log('⚠️ Project not found, redirecting...');
+          navigate('/dashboard/projects');
+        }
       }
-    }
-  }, [id, getProject, navigate, projects, fetchPrograms, fetchPartners, fetchTemplates]);
+    };
+
+    loadData();
+  }, [id, navigate]);
   
   const handleSubmitProject = async () => {
     if (!project || !id) return;
