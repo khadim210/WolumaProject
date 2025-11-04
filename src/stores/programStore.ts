@@ -67,6 +67,7 @@ export interface Program {
   startDate: Date;
   endDate: Date;
   isActive: boolean;
+  isLocked: boolean; // Programme verrouillé pour nouvelles soumissions
   createdAt: Date;
   managerId?: string; // Manager responsable du programme
   selectionCriteria: SelectionCriterion[];
@@ -100,6 +101,7 @@ const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
   startDate: new Date(supabaseProgram.start_date),
   endDate: new Date(supabaseProgram.end_date),
   isActive: supabaseProgram.is_active,
+  isLocked: supabaseProgram.is_locked || false,
   createdAt: new Date(supabaseProgram.created_at),
   managerId: supabaseProgram.manager_id,
   selectionCriteria: supabaseProgram.selection_criteria || [],

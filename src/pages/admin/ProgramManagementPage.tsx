@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  Settings, 
-  CheckCircle, 
-  ListChecks, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  Settings,
+  CheckCircle,
+  ListChecks,
   Bot,
   GripVertical,
   Users,
   Calendar,
   DollarSign,
-  Target
+  Target,
+  Lock,
+  Unlock,
+  Link as LinkIcon,
+  Copy
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -155,6 +159,27 @@ const ProgramManagementPage: React.FC = () => {
     }
   };
 
+  const handleToggleLockProgram = async (programId: string, currentLockState: boolean) => {
+    const action = currentLockState ? 'déverrouiller' : 'verrouiller';
+    if (window.confirm(`Êtes-vous sûr de vouloir ${action} ce programme ?`)) {
+      try {
+        await updateProgram(programId, { isLocked: !currentLockState });
+      } catch (error) {
+        console.error('Erreur lors du verrouillage du programme:', error);
+      }
+    }
+  };
+
+  const getSubmissionUrl = (programId: string) => {
+    return `${window.location.origin}/submit/${programId}`;
+  };
+
+  const copySubmissionUrl = (programId: string) => {
+    const url = getSubmissionUrl(programId);
+    navigator.clipboard.writeText(url);
+    alert('Lien copié dans le presse-papier !');
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -192,22 +217,32 @@ const ProgramManagementPage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
                 <p className="text-sm text-gray-600 mt-1">{program.description}</p>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-2">
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditProgram(program)}
+                    leftIcon={<Edit className="h-4 w-4" />}
+                  >
+                    Modifier
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteProgram(program.id)}
+                    leftIcon={<Trash2 className="h-4 w-4" />}
+                  >
+                    Supprimer
+                  </Button>
+                </div>
                 <Button
-                  variant="outline"
+                  variant={program.isLocked ? 'primary' : 'outline'}
                   size="sm"
-                  onClick={() => handleEditProgram(program)}
-                  leftIcon={<Edit className="h-4 w-4" />}
+                  onClick={() => handleToggleLockProgram(program.id, program.isLocked)}
+                  leftIcon={program.isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                 >
-                  Modifier
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteProgram(program.id)}
-                  leftIcon={<Trash2 className="h-4 w-4" />}
-                >
-                  Supprimer
+                  {program.isLocked ? 'Déverrouiller' : 'Verrouiller'}
                 </Button>
               </div>
             </div>
@@ -237,8 +272,11 @@ const ProgramManagementPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <Badge variant="success">Actif</Badge>
+            <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="success">Actif</Badge>
+                {program.isLocked && <Badge variant="error">Verrouillé</Badge>}
+              </div>
             </div>
           </Card>
         ))}
@@ -493,6 +531,35 @@ const ProgramManagementPage: React.FC = () => {
                             </Field>
                             <ErrorMessage name="managerId" component="div" className="mt-1 text-sm text-error-600" />
                           </div>
+
+                          {editingProgram && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                <LinkIcon className="h-4 w-4 mr-2" />
+                                Lien de soumission au programme
+                              </label>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={getSubmissionUrl(editingProgram.id)}
+                                  className="flex-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => copySubmissionUrl(editingProgram.id)}
+                                  leftIcon={<Copy className="h-4 w-4" />}
+                                >
+                                  Copier
+                                </Button>
+                              </div>
+                              <p className="mt-2 text-xs text-gray-600">
+                                Partagez ce lien pour permettre aux utilisateurs de soumettre directement leur projet à ce programme.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
 
