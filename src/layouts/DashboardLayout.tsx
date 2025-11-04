@@ -2,22 +2,23 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { usePermissions } from '../hooks/usePermissions';
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  ListChecks, 
-  FileText, 
-  BarChart3, 
-  LogOut, 
-  ChevronDown, 
-  Menu, 
-  X, 
+import {
+  LayoutDashboard,
+  FolderKanban,
+  ListChecks,
+  FileText,
+  BarChart3,
+  LogOut,
+  ChevronDown,
+  Menu,
+  X,
   User,
   FileInput,
   Users,
   Settings,
   Target,
-  Building
+  Building,
+  CheckCircle
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -93,7 +94,10 @@ const DashboardLayout: React.FC = () => {
                 <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('projects.view') && (
-                <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" onClick={() => setSidebarOpen(false)} />
+                <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" onClick={() => setSidebarOpen(false)} />
+              )}
+              {checkPermission('evaluation.view') && (
+                <NavItem to="/dashboard/eligibility" icon={<CheckCircle />} label="Éligibilité" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('evaluation.view') && (
                 <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" onClick={() => setSidebarOpen(false)} />
@@ -173,7 +177,10 @@ const DashboardLayout: React.FC = () => {
                   <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" />
                 )}
                 {checkPermission('projects.view') && (
-                  <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
+                  <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" />
+                )}
+                {checkPermission('evaluation.view') && (
+                  <NavItem to="/dashboard/eligibility" icon={<CheckCircle />} label="Éligibilité" />
                 )}
                 {checkPermission('evaluation.view') && (
                   <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" />
