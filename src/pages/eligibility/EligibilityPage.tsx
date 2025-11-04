@@ -47,11 +47,58 @@ const EligibilityPage: React.FC = () => {
     });
   };
 
-  const parseCriteria = (criteriaText: string): string[] => {
-    if (!criteriaText || criteriaText.trim() === '') return [];
+  const getEligibilityCriteria = (programId: string): { label: string; description: string }[] => {
+    const program = getProgram(programId);
+    if (!program) return [];
 
-    const lines = criteriaText.split('\n').filter(line => line.trim() !== '');
-    return lines.map(line => line.trim().replace(/^[-•*]\s*/, ''));
+    if (!program.fieldEligibilityCriteria || program.fieldEligibilityCriteria.length === 0) {
+      return [];
+    }
+
+    return program.fieldEligibilityCriteria
+      .filter(field => field.isEligibilityCriteria === true)
+      .map(field => {
+        let description = field.fieldLabel || field.fieldName;
+
+        if (field.conditions) {
+          const { operator, value, value2 } = field.conditions;
+
+          switch (operator) {
+            case '>':
+              description += ` (doit être supérieur à ${value})`;
+              break;
+            case '<':
+              description += ` (doit être inférieur à ${value})`;
+              break;
+            case '>=':
+              description += ` (doit être supérieur ou égal à ${value})`;
+              break;
+            case '<=':
+              description += ` (doit être inférieur ou égal à ${value})`;
+              break;
+            case '==':
+              if (value) description += ` (doit être égal à ${value})`;
+              break;
+            case '!=':
+              description += ` (ne doit pas être égal à ${value})`;
+              break;
+            case 'between':
+              description += ` (doit être entre ${value} et ${value2})`;
+              break;
+            case 'contains':
+              description += ` (doit contenir "${value}")`;
+              break;
+            case 'required':
+              description += ' (requis)';
+              break;
+          }
+        }
+
+        return {
+          label: field.fieldLabel || field.fieldName,
+          description
+        };
+      });
   };
 
   const toggleCriteriaCheck = (projectId: string, criteriaIndex: number) => {
@@ -77,8 +124,15 @@ const EligibilityPage: React.FC = () => {
     if (!project) return;
 
     const program = getProgram(project.programId);
-    if (!program || !program.eligibilityCriteria || program.eligibilityCriteria.trim() === '') {
+    const eligibilityCriteria = getEligibilityCriteria(project.programId);
+
+    if (!program || eligibilityCriteria.length === 0) {
       alert('Ce programme n\'a pas de critères d\'éligibilité définis.');
+      return;
+    }
+
+    if (!project.formData) {
+      alert('Ce projet n\'a pas de données de formulaire pour vérifier l\'éligibilité.');
       return;
     }
 
@@ -87,13 +141,63 @@ const EligibilityPage: React.FC = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const isEligible = Math.random() > 0.3;
+      const failedCriteria: string[] = [];
+
+      program.fieldEligibilityCriteria?.forEach(field => {
+        if (!field.isEligibilityCriteria) return;
+
+        const fieldValue = project.formData?.[field.fieldName];
+        const { operator, value, value2 } = field.conditions;
+
+        let passes = true;
+
+        if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+          passes = false;
+        } else {
+          const numericValue = parseFloat(fieldValue);
+          const numericCondition = parseFloat(value);
+
+          switch (operator) {
+            case '>':
+              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue > numericCondition;
+              break;
+            case '<':
+              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue < numericCondition;
+              break;
+            case '>=':
+              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue >= numericCondition;
+              break;
+            case '<=':
+              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue <= numericCondition;
+              break;
+            case '==':
+              passes = String(fieldValue) === String(value);
+              break;
+            case '!=':
+              passes = String(fieldValue) !== String(value);
+              break;
+            case 'between':
+              passes = !isNaN(numericValue) && !isNaN(numericCondition) && !isNaN(parseFloat(value2 || '0')) &&
+                       numericValue >= numericCondition && numericValue <= parseFloat(value2 || '0');
+              break;
+            case 'contains':
+              passes = String(fieldValue).toLowerCase().includes(String(value).toLowerCase());
+              break;
+          }
+        }
+
+        if (!passes) {
+          failedCriteria.push(field.fieldLabel || field.fieldName);
+        }
+      });
+
+      const isEligible = failedCriteria.length === 0;
 
       await updateProject(projectId, {
         status: isEligible ? 'eligible' : 'ineligible',
         eligibilityNotes: isEligible
-          ? `[Vérification automatique] Le projet répond aux critères d'éligibilité du programme "${program.name}".`
-          : `[Vérification automatique] Le projet ne répond pas à tous les critères d'éligibilité du programme "${program.name}".`,
+          ? `[Vérification automatique] Le projet répond à tous les critères d'éligibilité du programme "${program.name}".`
+          : `[Vérification automatique] Le projet ne répond pas aux critères suivants: ${failedCriteria.join(', ')}.`,
         eligibilityCheckedBy: user?.id,
         eligibilityCheckedAt: new Date().toISOString()
       });
@@ -271,63 +375,68 @@ const EligibilityPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {program?.eligibilityCriteria && (
-                        <div className="mb-3">
-                          <button
-                            onClick={() => toggleProjectExpansion(project.id)}
-                            className="flex items-center justify-between w-full bg-gray-50 hover:bg-gray-100 p-3 rounded-md transition-colors"
-                          >
-                            <span className="text-xs font-medium text-gray-700">
-                              Critères d'éligibilité ({parseCriteria(program.eligibilityCriteria).length})
-                            </span>
-                            {expandedProjects.has(project.id) ? (
-                              <ChevronUp className="h-4 w-4 text-gray-500" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-gray-500" />
-                            )}
-                          </button>
+                      {(() => {
+                        const eligibilityCriteria = getEligibilityCriteria(project.programId);
+                        if (eligibilityCriteria.length === 0) return null;
 
-                          {expandedProjects.has(project.id) && (
-                            <div className="mt-2 bg-white border border-gray-200 rounded-md p-4">
-                              <div className="space-y-3">
-                                {parseCriteria(program.eligibilityCriteria).map((criterion, index) => (
-                                  <div key={index} className="flex items-start space-x-3">
-                                    <input
-                                      type="checkbox"
-                                      id={`${project.id}-criterion-${index}`}
-                                      checked={criteriaChecks[project.id]?.[index] || false}
-                                      onChange={() => toggleCriteriaCheck(project.id, index)}
-                                      className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                    />
-                                    <label
-                                      htmlFor={`${project.id}-criterion-${index}`}
-                                      className="text-sm text-gray-700 cursor-pointer flex-1"
-                                    >
-                                      {criterion}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {parseCriteria(program.eligibilityCriteria).length > 0 && (
-                                <div className="mt-4 pt-3 border-t border-gray-200">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600">
-                                      {Object.values(criteriaChecks[project.id] || {}).filter(Boolean).length} sur {parseCriteria(program.eligibilityCriteria).length} critères cochés
-                                    </span>
-                                    {areAllCriteriaChecked(project.id, parseCriteria(program.eligibilityCriteria).length) && (
-                                      <span className="flex items-center text-xs text-green-600 font-medium">
-                                        <CheckCircle className="h-3 w-3 mr-1" />
-                                        Tous les critères validés
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                        return (
+                          <div className="mb-3">
+                            <button
+                              onClick={() => toggleProjectExpansion(project.id)}
+                              className="flex items-center justify-between w-full bg-gray-50 hover:bg-gray-100 p-3 rounded-md transition-colors"
+                            >
+                              <span className="text-xs font-medium text-gray-700">
+                                Critères d'éligibilité ({eligibilityCriteria.length})
+                              </span>
+                              {expandedProjects.has(project.id) ? (
+                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
                               )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            </button>
+
+                            {expandedProjects.has(project.id) && (
+                              <div className="mt-2 bg-white border border-gray-200 rounded-md p-4">
+                                <div className="space-y-3">
+                                  {eligibilityCriteria.map((criterion, index) => (
+                                    <div key={index} className="flex items-start space-x-3">
+                                      <input
+                                        type="checkbox"
+                                        id={`${project.id}-criterion-${index}`}
+                                        checked={criteriaChecks[project.id]?.[index] || false}
+                                        onChange={() => toggleCriteriaCheck(project.id, index)}
+                                        className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                      />
+                                      <label
+                                        htmlFor={`${project.id}-criterion-${index}`}
+                                        className="text-sm text-gray-700 cursor-pointer flex-1"
+                                      >
+                                        {criterion.description}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {eligibilityCriteria.length > 0 && (
+                                  <div className="mt-4 pt-3 border-t border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-gray-600">
+                                        {Object.values(criteriaChecks[project.id] || {}).filter(Boolean).length} sur {eligibilityCriteria.length} critères cochés
+                                      </span>
+                                      {areAllCriteriaChecked(project.id, eligibilityCriteria.length) && (
+                                        <span className="flex items-center text-xs text-green-600 font-medium">
+                                          <CheckCircle className="h-3 w-3 mr-1" />
+                                          Tous les critères validés
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {project.eligibilityNotes && (
                         <div className="bg-blue-50 p-3 rounded-md mb-3">
