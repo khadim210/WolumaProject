@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { CheckCircle, XCircle, AlertCircle, Eye, Play, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Eye, Play, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const EligibilityPage: React.FC = () => {
@@ -17,6 +17,8 @@ const EligibilityPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [checkingProjectId, setCheckingProjectId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'submitted' | 'eligible' | 'ineligible'>('submitted');
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [criteriaChecks, setCriteriaChecks] = useState<Record<string, Record<number, boolean>>>({});
 
   useEffect(() => {
     fetchProjects();
@@ -32,6 +34,43 @@ const EligibilityPage: React.FC = () => {
     : submittedProjects.filter(p => p.status === selectedStatus);
 
   const getProgram = (programId: string) => programs.find(p => p.id === programId);
+
+  const toggleProjectExpansion = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
+
+  const parseCriteria = (criteriaText: string): string[] => {
+    if (!criteriaText || criteriaText.trim() === '') return [];
+
+    const lines = criteriaText.split('\n').filter(line => line.trim() !== '');
+    return lines.map(line => line.trim().replace(/^[-•*]\s*/, ''));
+  };
+
+  const toggleCriteriaCheck = (projectId: string, criteriaIndex: number) => {
+    setCriteriaChecks(prev => ({
+      ...prev,
+      [projectId]: {
+        ...(prev[projectId] || {}),
+        [criteriaIndex]: !(prev[projectId]?.[criteriaIndex] || false)
+      }
+    }));
+  };
+
+  const areAllCriteriaChecked = (projectId: string, totalCriteria: number): boolean => {
+    const checks = criteriaChecks[projectId] || {};
+    for (let i = 0; i < totalCriteria; i++) {
+      if (!checks[i]) return false;
+    }
+    return totalCriteria > 0;
+  };
 
   const checkEligibilityAutomatic = async (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
@@ -233,9 +272,60 @@ const EligibilityPage: React.FC = () => {
                       </div>
 
                       {program?.eligibilityCriteria && (
-                        <div className="bg-gray-50 p-3 rounded-md mb-3">
-                          <p className="text-xs font-medium text-gray-700 mb-1">Critères d'éligibilité:</p>
-                          <p className="text-xs text-gray-600">{program.eligibilityCriteria}</p>
+                        <div className="mb-3">
+                          <button
+                            onClick={() => toggleProjectExpansion(project.id)}
+                            className="flex items-center justify-between w-full bg-gray-50 hover:bg-gray-100 p-3 rounded-md transition-colors"
+                          >
+                            <span className="text-xs font-medium text-gray-700">
+                              Critères d'éligibilité ({parseCriteria(program.eligibilityCriteria).length})
+                            </span>
+                            {expandedProjects.has(project.id) ? (
+                              <ChevronUp className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                            )}
+                          </button>
+
+                          {expandedProjects.has(project.id) && (
+                            <div className="mt-2 bg-white border border-gray-200 rounded-md p-4">
+                              <div className="space-y-3">
+                                {parseCriteria(program.eligibilityCriteria).map((criterion, index) => (
+                                  <div key={index} className="flex items-start space-x-3">
+                                    <input
+                                      type="checkbox"
+                                      id={`${project.id}-criterion-${index}`}
+                                      checked={criteriaChecks[project.id]?.[index] || false}
+                                      onChange={() => toggleCriteriaCheck(project.id, index)}
+                                      className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                    />
+                                    <label
+                                      htmlFor={`${project.id}-criterion-${index}`}
+                                      className="text-sm text-gray-700 cursor-pointer flex-1"
+                                    >
+                                      {criterion}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {parseCriteria(program.eligibilityCriteria).length > 0 && (
+                                <div className="mt-4 pt-3 border-t border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">
+                                      {Object.values(criteriaChecks[project.id] || {}).filter(Boolean).length} sur {parseCriteria(program.eligibilityCriteria).length} critères cochés
+                                    </span>
+                                    {areAllCriteriaChecked(project.id, parseCriteria(program.eligibilityCriteria).length) && (
+                                      <span className="flex items-center text-xs text-green-600 font-medium">
+                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                        Tous les critères validés
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
