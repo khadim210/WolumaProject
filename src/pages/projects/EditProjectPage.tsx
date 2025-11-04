@@ -26,9 +26,13 @@ const projectSchema = Yup.object().shape({
   description: Yup.string()
     .required('Description requise')
     .min(20, 'La description doit contenir au moins 20 caractères'),
+  hasBudget: Yup.boolean(),
   budget: Yup.number()
-    .required('Budget requis')
-    .positive('Le budget doit être positif'),
+    .when('hasBudget', {
+      is: true,
+      then: () => Yup.number().required('Budget requis').positive('Le budget doit être positif'),
+      otherwise: () => Yup.number().notRequired(),
+    }),
   timeline: Yup.string()
     .required('Durée requise'),
   programId: Yup.string()
@@ -41,6 +45,7 @@ const projectSchema = Yup.object().shape({
 interface ProjectFormValues {
   title: string;
   description: string;
+  hasBudget: boolean;
   budget: number;
   timeline: string;
   programId: string;
@@ -164,6 +169,7 @@ const EditProjectPage: React.FC = () => {
   const initialValues: ProjectFormValues = {
     title: project.title,
     description: project.description,
+    hasBudget: project.budget > 0,
     budget: project.budget,
     timeline: project.timeline,
     programId: project.programId,
@@ -190,7 +196,7 @@ const EditProjectPage: React.FC = () => {
       const updatedProject = await updateProject(id, {
         title: values.title,
         description: values.description,
-        budget: values.budget,
+        budget: values.hasBudget ? values.budget : 0,
         timeline: values.timeline,
         programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
@@ -281,24 +287,40 @@ const EditProjectPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
-                      Budget estimé ({currencySymbol})*
+                <div>
+                  <div className="flex items-center mb-3">
+                    <Field
+                      id="hasBudget"
+                      name="hasBudget"
+                      type="checkbox"
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="hasBudget" className="ml-2 block text-sm font-medium text-gray-700">
+                      J'ai un budget estimé pour ce projet
                     </label>
-                    <div className="mt-1">
-                      <Field
-                        id="budget"
-                        name="budget"
-                        type="number"
-                        min="0"
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      />
-                      <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
-                    </div>
                   </div>
+                </div>
 
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {values.hasBudget && (
+                    <div>
+                      <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
+                        Budget estimé ({currencySymbol})*
+                      </label>
+                      <div className="mt-1">
+                        <Field
+                          id="budget"
+                          name="budget"
+                          type="number"
+                          min="0"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                        />
+                        <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={values.hasBudget ? '' : 'md:col-span-2'}>
                     <label htmlFor="timeline" className="block text-sm font-medium text-gray-700">
                       Durée du projet*
                     </label>
