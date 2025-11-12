@@ -23,10 +23,15 @@ export class ParametersService {
     try {
       const dbData = this.mapToDatabase(params);
 
-      const { data: existingData } = await supabase
+      const { data: existingData, error: selectError } = await supabase
         .from('system_parameters')
         .select('id')
         .maybeSingle();
+
+      if (selectError) {
+        console.error('Error checking existing parameters:', selectError);
+        throw new Error(`Failed to check existing parameters: ${selectError.message}`);
+      }
 
       if (existingData) {
         const { error } = await supabase
@@ -34,13 +39,19 @@ export class ParametersService {
           .update(dbData)
           .eq('id', existingData.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating parameters:', error);
+          throw new Error(`Failed to update parameters: ${error.message}`);
+        }
       } else {
         const { error } = await supabase
           .from('system_parameters')
           .insert([dbData]);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting parameters:', error);
+          throw new Error(`Failed to insert parameters: ${error.message}`);
+        }
       }
     } catch (error) {
       console.error('Error saving parameters:', error);

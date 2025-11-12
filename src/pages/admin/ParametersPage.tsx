@@ -76,6 +76,8 @@ const ParametersPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error saving parameters:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Erreur lors de la sauvegarde: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
