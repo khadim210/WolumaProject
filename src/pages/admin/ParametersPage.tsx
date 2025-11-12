@@ -589,6 +589,22 @@ const ParametersPage: React.FC = () => {
                     </div>
                   </div>
                 </CardContent>
+                <CardFooter className="bg-gray-50 border-t border-gray-200">
+                  <div className="flex items-center justify-between w-full">
+                    <p className="text-sm text-gray-600">
+                      N'oubliez pas d'enregistrer vos modifications
+                    </p>
+                    <Button
+                      variant="primary"
+                      onClick={handleSave}
+                      isLoading={isSaving}
+                      leftIcon={saveSuccess ? <CheckCircle className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                      className={saveSuccess ? 'bg-success-600 hover:bg-success-700' : ''}
+                    >
+                      {saveSuccess ? 'Sauvegardé !' : 'Enregistrer la configuration IA'}
+                    </Button>
+                  </div>
+                </CardFooter>
               </Card>
             )}
 
