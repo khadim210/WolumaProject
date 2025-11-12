@@ -27,23 +27,29 @@ import {
 } from 'lucide-react';
 
 const ParametersPage: React.FC = () => {
-  const { 
-    parameters, 
-    isLoading, 
+  const {
+    parameters,
+    isLoading,
     error,
-    updateParameters, 
+    loadParameters,
+    updateParameters,
     resetToDefaults,
     testDatabaseConnection,
     initializeDatabase,
     resetDatabase
   } = useParametersStore();
-  
+
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [formData, setFormData] = useState(parameters);
   const [connectionTest, setConnectionTest] = useState<{ success: boolean; message: string } | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    loadParameters();
+  }, [loadParameters]);
 
   useEffect(() => {
     setFormData(parameters);
@@ -58,8 +64,12 @@ const ParametersPage: React.FC = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveSuccess(false);
     try {
       await updateParameters(formData);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+
       // Force refresh of services when Supabase is enabled
       if (formData.enableSupabase) {
         window.location.reload();
@@ -129,16 +139,25 @@ const ParametersPage: React.FC = () => {
             variant="primary"
             onClick={handleSave}
             isLoading={isSaving}
-            leftIcon={<Save className="h-4 w-4" />}
+            leftIcon={saveSuccess ? <CheckCircle className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+            className={saveSuccess ? 'bg-success-600 hover:bg-success-700' : ''}
           >
-            {formData.enableSupabase ? 'Activer Supabase' : 'Enregistrer'}
+            {saveSuccess ? 'Sauvegardé !' : (formData.enableSupabase ? 'Activer Supabase' : 'Enregistrer')}
           </Button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-error-100 text-error-700 p-4 rounded-md">
+        <div className="bg-error-100 text-error-700 p-4 rounded-md flex items-center">
+          <XCircle className="h-5 w-5 mr-2" />
           Erreur: {error}
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="bg-success-100 text-success-700 p-4 rounded-md flex items-center">
+          <CheckCircle className="h-5 w-5 mr-2" />
+          Paramètres enregistrés avec succès!
         </div>
       )}
 
