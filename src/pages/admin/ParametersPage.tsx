@@ -9,19 +9,21 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { 
-  Save, 
-  RefreshCw, 
-  Database, 
-  TestTube, 
-  CheckCircle, 
+import {
+  Save,
+  RefreshCw,
+  Database,
+  TestTube,
+  CheckCircle,
   XCircle,
   AlertTriangle,
   Settings,
   Mail,
   Palette,
   Shield,
-  Server
+  Server,
+  Brain,
+  Key
 } from 'lucide-react';
 
 const ParametersPage: React.FC = () => {
@@ -99,6 +101,7 @@ const ParametersPage: React.FC = () => {
 
   const tabs = [
     { id: 'general', label: 'Général', icon: <Settings className="h-4 w-4" /> },
+    { id: 'ai', label: 'IA & APIs', icon: <Brain className="h-4 w-4" /> },
     { id: 'security', label: 'Sécurité', icon: <Shield className="h-4 w-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Mail className="h-4 w-4" /> },
     { id: 'appearance', label: 'Apparence', icon: <Palette className="h-4 w-4" /> },
@@ -239,6 +242,331 @@ const ParametersPage: React.FC = () => {
                         <option value="America/New_York">America/New_York</option>
                         <option value="Asia/Tokyo">Asia/Tokyo</option>
                       </select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'ai' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuration IA & APIs</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-4">
+                      Fournisseur d'IA pour l'évaluation
+                    </label>
+                    <select
+                      value={formData.aiProvider || 'openai'}
+                      onChange={(e) => handleInputChange('aiProvider', e.target.value)}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                    >
+                      <option value="openai">OpenAI (GPT-4, GPT-3.5)</option>
+                      <option value="anthropic">Anthropic (Claude)</option>
+                      <option value="google">Google (Gemini)</option>
+                      <option value="mistral">Mistral AI</option>
+                      <option value="cohere">Cohere</option>
+                      <option value="huggingface">Hugging Face</option>
+                      <option value="custom">API personnalisée</option>
+                    </select>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Sélectionnez le fournisseur d'IA à utiliser pour l'évaluation automatique des projets
+                    </p>
+                  </div>
+
+                  {/* OpenAI Configuration */}
+                  {formData.aiProvider === 'openai' && (
+                    <div className="space-y-6 border-t pt-6">
+                      <div className="flex items-center space-x-2">
+                        <Key className="h-5 w-5 text-gray-400" />
+                        <h3 className="text-lg font-medium text-gray-900">Configuration OpenAI</h3>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé API OpenAI <span className="text-error-600">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.openaiApiKey || ''}
+                          onChange={(e) => handleInputChange('openaiApiKey', e.target.value)}
+                          placeholder="sk-..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Disponible sur <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">platform.openai.com</a>
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Modèle
+                        </label>
+                        <select
+                          value={formData.openaiModel || 'gpt-4'}
+                          onChange={(e) => handleInputChange('openaiModel', e.target.value)}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        >
+                          <option value="gpt-4">GPT-4 (Recommandé)</option>
+                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Économique)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Organisation ID (Optionnel)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.openaiOrgId || ''}
+                          onChange={(e) => handleInputChange('openaiOrgId', e.target.value)}
+                          placeholder="org-..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Anthropic Configuration */}
+                  {formData.aiProvider === 'anthropic' && (
+                    <div className="space-y-6 border-t pt-6">
+                      <div className="flex items-center space-x-2">
+                        <Key className="h-5 w-5 text-gray-400" />
+                        <h3 className="text-lg font-medium text-gray-900">Configuration Anthropic (Claude)</h3>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé API Anthropic <span className="text-error-600">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.anthropicApiKey || ''}
+                          onChange={(e) => handleInputChange('anthropicApiKey', e.target.value)}
+                          placeholder="sk-ant-..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Disponible sur <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">console.anthropic.com</a>
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Modèle Claude
+                        </label>
+                        <select
+                          value={formData.anthropicModel || 'claude-3-opus-20240229'}
+                          onChange={(e) => handleInputChange('anthropicModel', e.target.value)}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        >
+                          <option value="claude-3-opus-20240229">Claude 3 Opus (Plus puissant)</option>
+                          <option value="claude-3-sonnet-20240229">Claude 3 Sonnet (Équilibré)</option>
+                          <option value="claude-3-haiku-20240307">Claude 3 Haiku (Rapide)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Google Gemini Configuration */}
+                  {formData.aiProvider === 'google' && (
+                    <div className="space-y-6 border-t pt-6">
+                      <div className="flex items-center space-x-2">
+                        <Key className="h-5 w-5 text-gray-400" />
+                        <h3 className="text-lg font-medium text-gray-900">Configuration Google Gemini</h3>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé API Google <span className="text-error-600">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.googleApiKey || ''}
+                          onChange={(e) => handleInputChange('googleApiKey', e.target.value)}
+                          placeholder="AIza..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Disponible sur <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Google AI Studio</a>
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Modèle Gemini
+                        </label>
+                        <select
+                          value={formData.googleModel || 'gemini-pro'}
+                          onChange={(e) => handleInputChange('googleModel', e.target.value)}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        >
+                          <option value="gemini-pro">Gemini Pro</option>
+                          <option value="gemini-pro-vision">Gemini Pro Vision</option>
+                          <option value="gemini-ultra">Gemini Ultra</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mistral Configuration */}
+                  {formData.aiProvider === 'mistral' && (
+                    <div className="space-y-6 border-t pt-6">
+                      <div className="flex items-center space-x-2">
+                        <Key className="h-5 w-5 text-gray-400" />
+                        <h3 className="text-lg font-medium text-gray-900">Configuration Mistral AI</h3>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé API Mistral <span className="text-error-600">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.mistralApiKey || ''}
+                          onChange={(e) => handleInputChange('mistralApiKey', e.target.value)}
+                          placeholder="..."
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Disponible sur <a href="https://console.mistral.ai/" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">console.mistral.ai</a>
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Modèle Mistral
+                        </label>
+                        <select
+                          value={formData.mistralModel || 'mistral-large-latest'}
+                          onChange={(e) => handleInputChange('mistralModel', e.target.value)}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        >
+                          <option value="mistral-large-latest">Mistral Large (Recommandé)</option>
+                          <option value="mistral-medium-latest">Mistral Medium</option>
+                          <option value="mistral-small-latest">Mistral Small</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom API Configuration */}
+                  {formData.aiProvider === 'custom' && (
+                    <div className="space-y-6 border-t pt-6">
+                      <div className="flex items-center space-x-2">
+                        <Key className="h-5 w-5 text-gray-400" />
+                        <h3 className="text-lg font-medium text-gray-900">Configuration API personnalisée</h3>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          URL de l'endpoint <span className="text-error-600">*</span>
+                        </label>
+                        <input
+                          type="url"
+                          value={formData.customApiUrl || ''}
+                          onChange={(e) => handleInputChange('customApiUrl', e.target.value)}
+                          placeholder="https://api.example.com/v1/evaluate"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Clé API
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.customApiKey || ''}
+                          onChange={(e) => handleInputChange('customApiKey', e.target.value)}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Headers personnalisés (JSON)
+                        </label>
+                        <textarea
+                          value={formData.customApiHeaders || ''}
+                          onChange={(e) => handleInputChange('customApiHeaders', e.target.value)}
+                          placeholder='{"Authorization": "Bearer token", "Custom-Header": "value"}'
+                          rows={3}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Common AI Settings */}
+                  <div className="space-y-6 border-t pt-6">
+                    <h3 className="text-lg font-medium text-gray-900">Paramètres généraux de l'IA</h3>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Température (0-1)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={formData.aiTemperature || 0.7}
+                        onChange={(e) => handleInputChange('aiTemperature', parseFloat(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Plus élevé = plus créatif, plus bas = plus déterministe
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Max tokens
+                      </label>
+                      <input
+                        type="number"
+                        min="100"
+                        max="4000"
+                        step="100"
+                        value={formData.aiMaxTokens || 2000}
+                        onChange={(e) => handleInputChange('aiMaxTokens', parseInt(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Nombre maximum de tokens dans la réponse
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData.enableAiEvaluation || false}
+                          onChange={(e) => handleInputChange('enableAiEvaluation', e.target.checked)}
+                          className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-900">Activer l'évaluation automatique par IA</span>
+                      </label>
+                      <p className="mt-1 ml-6 text-xs text-gray-500">
+                        L'IA analysera automatiquement les projets soumis
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex">
+                      <AlertTriangle className="h-5 w-5 text-blue-400 mr-2 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-800">Sécurité des clés API</h4>
+                        <p className="mt-1 text-sm text-blue-700">
+                          Les clés API sont stockées de manière sécurisée dans la base de données.
+                          Ne partagez jamais vos clés API avec des tiers.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
