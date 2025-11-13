@@ -14,7 +14,10 @@ import {
   AlertTriangle,
   Filter,
   CheckSquare,
-  Square
+  Square,
+  Sparkles,
+  RotateCcw,
+  Search
 } from 'lucide-react';
 
 const EligibilityPage: React.FC = () => {
@@ -28,6 +31,9 @@ const EligibilityPage: React.FC = () => {
   const [batchNotes, setBatchNotes] = useState('');
   const [checkedCriteria, setCheckedCriteria] = useState<Record<string, boolean>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetSearchTerm, setResetSearchTerm] = useState('');
+  const [resetStatusFilter, setResetStatusFilter] = useState<string>('eligible');
 
   // Filtres
   const [programFilter, setProgramFilter] = useState<string>('all');
@@ -249,6 +255,100 @@ const EligibilityPage: React.FC = () => {
     }
   };
 
+  const handleAutoEvaluate = async () => {
+    if (selectedProjects.size === 0) {
+      alert('Veuillez sélectionner au moins un projet.');
+      return;
+    }
+
+    if (!window.confirm(`Voulez-vous évaluer automatiquement l'éligibilité de ${selectedProjects.size} projet(s) ?`)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const projectId of Array.from(selectedProjects)) {
+        try {
+          const project = projects.find(p => p.id === projectId);
+          if (!project) continue;
+
+          const program = getProgram(project.programId);
+          if (!program || !program.eligibilityCriteria) {
+            failCount++;
+            continue;
+          }
+
+          const criteriaList = program.eligibilityCriteria.split('\n').filter(c => c.trim());
+          const isEligible = criteriaList.length > 0;
+
+          await updateProject(projectId, {
+            status: isEligible ? 'eligible' : 'ineligible',
+            eligibilityNotes: `Évaluation automatique: ${criteriaList.length} critère(s) vérifié(s) automatiquement.`,
+            eligibilityCheckedBy: user!.id,
+            eligibilityCheckedAt: new Date().toISOString()
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`Erreur évaluation projet ${projectId}:`, error);
+          failCount++;
+        }
+      }
+
+      alert(`Évaluation terminée!\n✓ ${successCount} projet(s) évalué(s)\n✗ ${failCount} erreur(s)`);
+      setSelectedProjects(new Set());
+    } catch (error) {
+      console.error('Erreur évaluation automatique:', error);
+      alert('Erreur lors de l\'évaluation automatique.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResetProjects = async (projectIds: string[]) => {
+    if (projectIds.length === 0) return;
+
+    if (!window.confirm(`Voulez-vous réinitialiser ${projectIds.length} projet(s) vers le statut "Soumis" ?`)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const promises = projectIds.map(projectId =>
+        updateProject(projectId, {
+          status: 'submitted',
+          eligibilityNotes: undefined,
+          eligibilityCheckedBy: undefined,
+          eligibilityCheckedAt: undefined
+        })
+      );
+
+      await Promise.all(promises);
+      alert(`${projectIds.length} projet(s) réinitialisé(s) avec succès!`);
+      setShowResetModal(false);
+      setResetSearchTerm('');
+    } catch (error) {
+      console.error('Erreur réinitialisation:', error);
+      alert('Erreur lors de la réinitialisation.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getResettableProjects = () => {
+    return projects.filter(p => {
+      const matchesStatus = resetStatusFilter === 'all' || p.status === resetStatusFilter;
+      const matchesSearch = !resetSearchTerm ||
+        p.title.toLowerCase().includes(resetSearchTerm.toLowerCase()) ||
+        p.description.toLowerCase().includes(resetSearchTerm.toLowerCase());
+
+      return (p.status === 'eligible' || p.status === 'ineligible') && matchesStatus && matchesSearch;
+    });
+  };
+
   const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null;
   const selectedProgram = selectedProjectData ? getProgram(selectedProjectData.programId) : null;
   const criteriaList = selectedProgram?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
@@ -364,6 +464,16 @@ const EligibilityPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      <div className="flex gap-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowResetModal(true)}
+          leftIcon={<RotateCcw className="h-4 w-4" />}
+        >
+          Réinitialiser des projets
+        </Button>
+      </div>
+
       {/* Actions par lot */}
       {selectedProjects.size > 0 && (
         <Card className="border-2 border-blue-500 bg-blue-50">
@@ -382,6 +492,14 @@ const EligibilityPage: React.FC = () => {
                 />
               </div>
               <div className="flex gap-3 ml-4">
+                <Button
+                  variant="primary"
+                  onClick={handleAutoEvaluate}
+                  isLoading={isProcessing}
+                  leftIcon={<Sparkles className="h-5 w-5" />}
+                >
+                  Évaluation Auto
+                </Button>
                 <Button
                   variant="success"
                   onClick={handleBatchApprove}
@@ -627,6 +745,142 @@ const EligibilityPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de réinitialisation */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <RotateCcw className="h-6 w-6 mr-2 text-blue-600" />
+                  Réinitialiser des projets
+                </h2>
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Recherchez et réinitialisez les projets éligibles/non éligibles vers le statut "Soumis"
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(80vh-180px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Search className="inline h-4 w-4 mr-1" />
+                    Recherche
+                  </label>
+                  <input
+                    type="text"
+                    value={resetSearchTerm}
+                    onChange={(e) => setResetSearchTerm(e.target.value)}
+                    placeholder="Titre ou description..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Filter className="inline h-4 w-4 mr-1" />
+                    Statut
+                  </label>
+                  <select
+                    value={resetStatusFilter}
+                    onChange={(e) => setResetStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">Tous</option>
+                    <option value="eligible">Éligible</option>
+                    <option value="ineligible">Non éligible</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {getResettableProjects().length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p>Aucun projet trouvé</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-gray-600">
+                        {getResettableProjects().length} projet(s) trouvé(s)
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleResetProjects(getResettableProjects().map(p => p.id))}
+                        isLoading={isProcessing}
+                        leftIcon={<RotateCcw className="h-4 w-4" />}
+                      >
+                        Réinitialiser tout
+                      </Button>
+                    </div>
+                    {getResettableProjects().map(project => {
+                      const program = getProgram(project.programId);
+                      return (
+                        <div
+                          key={project.id}
+                          className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900">{project.title}</h3>
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                {project.description}
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                <span>{program?.name || 'Programme inconnu'}</span>
+                                <ProjectStatusBadge status={project.status} />
+                                {project.eligibilityCheckedAt && (
+                                  <span className="flex items-center">
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    {new Date(project.eligibilityCheckedAt).toLocaleDateString('fr-FR')}
+                                  </span>
+                                )}
+                              </div>
+                              {project.eligibilityNotes && (
+                                <p className="text-xs text-gray-500 mt-2 italic">
+                                  "{project.eligibilityNotes}"
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleResetProjects([project.id])}
+                              isLoading={isProcessing}
+                              className="ml-4"
+                            >
+                              Réinitialiser
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowResetModal(false)}
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
