@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Project } from '../stores/projectStore';
 import { Program, Partner } from '../stores/programStore';
+import type { AIEvaluationResponse } from '../services/aiEvaluationService';
 
 export const generateEvaluationReport = async (
   project: Project, 
@@ -230,5 +231,317 @@ export const generateEvaluationReport = async (
 
   // Save the PDF
   const fileName = `Rapport_Evaluation_${project.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+  pdf.save(fileName);
+};
+
+export const generateWolumaEvaluationReport = async (
+  project: Project,
+  program: Program,
+  partner: Partner | null,
+  evaluatorName?: string,
+  aiAnalysis?: AIEvaluationResponse
+): Promise<void> => {
+  const pdf = new jsPDF();
+  const pageWidth = pdf.internal.pageSize.width;
+  const pageHeight = pdf.internal.pageSize.height;
+  const margin = 20;
+  let yPosition = margin;
+
+  const addText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10) => {
+    pdf.setFontSize(fontSize);
+    const lines = pdf.splitTextToSize(text, maxWidth);
+    pdf.text(lines, x, y);
+    return y + (lines.length * fontSize * 0.35);
+  };
+
+  const checkPageBreak = (requiredSpace: number) => {
+    if (yPosition + requiredSpace > pageHeight - margin) {
+      pdf.addPage();
+      yPosition = margin;
+      return true;
+    }
+    return false;
+  };
+
+  const addSection = (title: string) => {
+    checkPageBreak(20);
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(title, margin, yPosition);
+    yPosition += 8;
+  };
+
+  // TITRE PRINCIPAL
+  pdf.setFontSize(20);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 15;
+
+  // Sous-titre plateforme
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'bolditalic');
+  pdf.text('Plateforme Woluma', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 6;
+
+  pdf.setFont('helvetica', 'italic');
+  pdf.setFontSize(10);
+  pdf.text('Solution d\'évaluation et de financement intelligent des PME africaines', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 20;
+
+  // 1. INFORMATIONS GÉNÉRALES DU PROJET
+  addSection('1. Informations Générales du Projet');
+
+  // Tableau d'informations
+  const tableData = [
+    ['Titre du projet', project.title],
+    ['Chiffre d\'Affaires', `${project.budget.toLocaleString()} FCFA`],
+    ['Durée d\'existence', project.timeline],
+    ['Programme de rattachement', program.name],
+    ['Partenaire d\'exécution', partner?.name || 'N/A'],
+    ['Date d\'évaluation', new Date().toLocaleDateString('fr-FR')],
+    ['Évaluateur', evaluatorName || 'Système automatique']
+  ];
+
+  pdf.setFillColor(230, 230, 230);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+
+  tableData.forEach((row, index) => {
+    checkPageBreak(10);
+    if (index % 2 === 0) {
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(margin, yPosition - 4, pageWidth - 2 * margin, 8, 'F');
+    }
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(row[0], margin + 2, yPosition);
+    pdf.setFont('helvetica', 'normal');
+    const textLines = pdf.splitTextToSize(row[1], pageWidth - 2 * margin - 60);
+    pdf.text(textLines, margin + 60, yPosition);
+    yPosition += Math.max(8, textLines.length * 5);
+  });
+
+  yPosition += 10;
+
+  // 2. PRÉSENTATION SYNTHÉTIQUE DU PROJET
+  addSection('2. Présentation Synthétique du Projet');
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  yPosition = addText(project.description, margin, yPosition, pageWidth - 2 * margin, 10);
+  yPosition += 10;
+
+  // 3. OBJECTIF DE L'ÉVALUATION
+  addSection('3. Objectif de l\'Évaluation');
+  pdf.setFont('helvetica', 'normal');
+  const objectives = [
+    'Mesurer la pertinence, la faisabilité et la viabilité économique du projet ;',
+    'Identifier les risques et les leviers de succès ;',
+    'Formuler des recommandations pour la décision de financement.'
+  ];
+  objectives.forEach(obj => {
+    checkPageBreak(8);
+    pdf.text('• ' + obj, margin + 5, yPosition);
+    yPosition += 6;
+  });
+  yPosition += 10;
+
+  // 4. MÉTHODOLOGIE
+  addSection('4. Méthodologie');
+  pdf.setFont('helvetica', 'normal');
+  const methodology = [
+    'Analyse documentaire et validation des données financières ;',
+    'Évaluation selon les critères de la plateforme Woluma-Flow : pertinence, faisabilité, impact, durabilité, innovation et gouvernance ;',
+    'Scoring automatique et revue experte (hybrid model IA + analyse humain).'
+  ];
+  methodology.forEach(method => {
+    checkPageBreak(8);
+    pdf.text('• ' + method, margin + 5, yPosition);
+    yPosition += 6;
+  });
+  yPosition += 10;
+
+  // 5. RÉSULTATS DE L'ÉVALUATION
+  checkPageBreak(40);
+  addSection('5. Résultats de l\'Évaluation');
+
+  // Calculer le score total
+  const totalScore = program.evaluationCriteria.reduce((total, criterion) => {
+    const score = project.evaluationScores?.[criterion.id] || 0;
+    return total + (score / criterion.maxScore) * criterion.weight;
+  }, 0);
+
+  const maxTotalScore = program.evaluationCriteria.reduce((total, criterion) => {
+    return total + criterion.maxScore * (criterion.weight / 100);
+  }, 0);
+
+  // Tableau des scores
+  pdf.setFillColor(230, 230, 230);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+
+  // En-tête du tableau
+  pdf.rect(margin, yPosition - 4, pageWidth - 2 * margin, 8, 'FD');
+  pdf.text('Critère', margin + 2, yPosition);
+  pdf.text('Pondération', pageWidth / 2 - 10, yPosition);
+  pdf.text('Score obtenu', pageWidth / 2 + 30, yPosition);
+  pdf.text('Observation', pageWidth - margin - 45, yPosition);
+  yPosition += 8;
+
+  // Lignes du tableau
+  pdf.setFont('helvetica', 'normal');
+  program.evaluationCriteria.forEach((criterion, index) => {
+    checkPageBreak(12);
+
+    const score = project.evaluationScores?.[criterion.id] || 0;
+    const observation = aiAnalysis?.detailedAnalysis?.observations?.[criterion.name] ||
+                       project.evaluationComments?.[criterion.id] ||
+                       'Conforme aux attentes';
+
+    if (index % 2 === 0) {
+      pdf.setFillColor(250, 250, 250);
+      pdf.rect(margin, yPosition - 4, pageWidth - 2 * margin, 10, 'F');
+    }
+
+    pdf.text(criterion.name, margin + 2, yPosition);
+    pdf.text(criterion.weight.toString(), pageWidth / 2 - 5, yPosition);
+    pdf.text(`${score.toFixed(1)}`, pageWidth / 2 + 35, yPosition);
+
+    const obsLines = pdf.splitTextToSize(observation, 45);
+    pdf.setFontSize(8);
+    pdf.text(obsLines[0], pageWidth - margin - 45, yPosition);
+    pdf.setFontSize(9);
+
+    yPosition += 10;
+  });
+
+  // Score global
+  checkPageBreak(12);
+  pdf.setFillColor(220, 220, 220);
+  pdf.rect(margin, yPosition - 4, pageWidth - 2 * margin, 10, 'FD');
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(11);
+  pdf.text(`Score global / ${Math.round(maxTotalScore)}`, margin + 2, yPosition);
+  pdf.text(`${totalScore.toFixed(1)} / ${Math.round(maxTotalScore)}`, pageWidth / 2 + 30, yPosition);
+  pdf.text(`(${Math.round((totalScore / maxTotalScore) * 100)}%)`, pageWidth / 2 + 55, yPosition);
+
+  const recommendation = totalScore >= maxTotalScore * 0.8 ? 'Projet recommandé pour financement' :
+                        totalScore >= maxTotalScore * 0.6 ? 'Projet à considérer avec ajustements' :
+                        'Projet non recommandé';
+  pdf.setFontSize(9);
+  pdf.text(recommendation, pageWidth - margin - 45, yPosition);
+  yPosition += 15;
+
+  // 6. ANALYSE ET INTERPRÉTATION
+  checkPageBreak(40);
+  addSection('6. Analyse et Interprétation');
+
+  if (aiAnalysis?.detailedAnalysis) {
+    const analysis = aiAnalysis.detailedAnalysis;
+
+    // Forces
+    if (analysis.strengths?.length > 0) {
+      checkPageBreak(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Les forces', margin, yPosition);
+      yPosition += 6;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      analysis.strengths.forEach(strength => {
+        checkPageBreak(8);
+        pdf.text('• ' + strength, margin + 5, yPosition);
+        yPosition += 6;
+      });
+      yPosition += 5;
+    }
+
+    // Faiblesses
+    if (analysis.weaknesses?.length > 0) {
+      checkPageBreak(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Les faiblesses', margin, yPosition);
+      yPosition += 6;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      analysis.weaknesses.forEach(weakness => {
+        checkPageBreak(8);
+        pdf.text('• ' + weakness, margin + 5, yPosition);
+        yPosition += 6;
+      });
+      yPosition += 5;
+    }
+
+    // Opportunités
+    if (analysis.opportunities?.length > 0) {
+      checkPageBreak(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Les opportunités', margin, yPosition);
+      yPosition += 6;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      analysis.opportunities.forEach(opportunity => {
+        checkPageBreak(8);
+        pdf.text('• ' + opportunity, margin + 5, yPosition);
+        yPosition += 6;
+      });
+      yPosition += 5;
+    }
+
+    // Risques
+    if (analysis.risks?.length > 0) {
+      checkPageBreak(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Les risques', margin, yPosition);
+      yPosition += 6;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      analysis.risks.forEach(risk => {
+        checkPageBreak(8);
+        pdf.text('• ' + risk, margin + 5, yPosition);
+        yPosition += 6;
+      });
+    }
+  }
+
+  // Notes générales
+  if (project.evaluationNotes || aiAnalysis?.notes) {
+    checkPageBreak(30);
+    yPosition += 10;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.text('Synthèse globale', margin, yPosition);
+    yPosition += 8;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    const notes = aiAnalysis?.notes || project.evaluationNotes || '';
+    yPosition = addText(notes, margin, yPosition, pageWidth - 2 * margin, 10);
+  }
+
+  // Footer sur toutes les pages
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Page ${i} / ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    pdf.text('Woluma Platform - Rapport d\'évaluation', margin, pageHeight - 10);
+    pdf.text(new Date().toLocaleDateString('fr-FR'), pageWidth - margin - 20, pageHeight - 10);
+    pdf.setTextColor(0, 0, 0);
+  }
+
+  // Save the PDF
+  const fileName = `Rapport_Woluma_${project.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
   pdf.save(fileName);
 };
