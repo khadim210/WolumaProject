@@ -233,7 +233,14 @@ const ProgramManagementPage: React.FC = () => {
 
               <div className="flex items-center text-sm text-gray-600">
                 <Target className="h-4 w-4 mr-2" />
-                <span>{program.selectionCriteria?.length || 0} critères d'éligibilité</span>
+                <span>
+                  {(() => {
+                    const textCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()).length || 0;
+                    const fieldCriteria = program.fieldEligibilityCriteria?.filter(f => f.isEligibilityCriteria).length || 0;
+                    const total = textCriteria + fieldCriteria;
+                    return `${total} critère${total > 1 ? 's' : ''} d'éligibilité`;
+                  })()}
+                </span>
               </div>
             </div>
 
