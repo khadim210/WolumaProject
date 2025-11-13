@@ -71,26 +71,29 @@ const CreateProjectPage: React.FC = () => {
   const getAccessiblePrograms = () => {
     if (!user) return [];
 
+    // Filter out locked programs for all roles
+    let availablePrograms = programs.filter(p => !p.isLocked);
+
     if (user.role === 'admin') {
-      return programs;
+      return availablePrograms;
     } else if (user.role === 'manager') {
       // Manager can see programs from their assigned partners
       const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
       const partnerIds = managerPartners.map(p => p.id);
-      return programs.filter(p => partnerIds.includes(p.partnerId));
+      return availablePrograms.filter(p => partnerIds.includes(p.partnerId));
     } else if (user.role === 'partner') {
       // Partner can see their own programs
       const userPartner = partners.find(p => p.contactEmail === user.email);
-      return userPartner ? programs.filter(p => p.partnerId === userPartner.id) : [];
+      return userPartner ? availablePrograms.filter(p => p.partnerId === userPartner.id) : [];
     } else if (user.role === 'submitter') {
       // Submitters can only see programs where they haven't submitted yet
       const submittedProgramIds = projects
         .filter(p => p.submitterId === user.id)
         .map(p => p.programId);
-      return programs.filter(p => !submittedProgramIds.includes(p.id));
+      return availablePrograms.filter(p => !submittedProgramIds.includes(p.id));
     }
 
-    return programs;
+    return availablePrograms;
   };
 
   const accessiblePrograms = getAccessiblePrograms();

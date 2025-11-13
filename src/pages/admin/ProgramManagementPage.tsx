@@ -15,7 +15,9 @@ import {
   Calendar,
   DollarSign,
   Target,
-  FileText
+  FileText,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -23,6 +25,7 @@ import Badge from '../../components/ui/Badge';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
+import { useAuthStore } from '../../stores/authStore';
 import { getCurrencySymbol, formatCurrency } from '../../utils/currency';
 
 const AVAILABLE_CURRENCIES = [
@@ -72,18 +75,20 @@ const ProgramManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [lastInitializedFormId, setLastInitializedFormId] = useState<string | null>(null);
 
-  const { 
-    programs, 
-    isLoading, 
+  const {
+    programs,
+    isLoading,
     partners,
-    fetchPrograms, 
-    addProgram, 
-    updateProgram, 
-    deleteProgram 
+    fetchPrograms,
+    addProgram,
+    updateProgram,
+    deleteProgram,
+    toggleProgramLock
   } = useProgramStore();
 
   const { templates, fetchTemplates } = useFormTemplateStore();
   const { users, fetchUsers } = useUserManagementStore();
+  const { user: currentUser } = useAuthStore();
 
   // Filtrer les managers
   const managers = users.filter(user => user.role === 'manager');
@@ -156,6 +161,20 @@ const ProgramManagementPage: React.FC = () => {
     }
   };
 
+  const handleToggleLock = async (programId: string) => {
+    const program = programs.find(p => p.id === programId);
+    if (!program || !currentUser) return;
+
+    const action = program.isLocked ? 'déverrouiller' : 'verrouiller';
+    if (window.confirm(`Êtes-vous sûr de vouloir ${action} ce programme ?`)) {
+      try {
+        await toggleProgramLock(programId, currentUser.id);
+      } catch (error) {
+        console.error('Erreur lors du verrouillage/déverrouillage:', error);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -189,28 +208,45 @@ const ProgramManagementPage: React.FC = () => {
         {programs.map((program) => (
           <Card key={program.id} className="p-6">
             <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
+                  {program.isLocked && (
+                    <Badge variant="warning" className="flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Verrouillé
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600 mt-1">{program.description}</p>
               </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditProgram(program)}
-                  leftIcon={<Edit className="h-4 w-4" />}
-                >
-                  Modifier
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteProgram(program.id)}
-                  leftIcon={<Trash2 className="h-4 w-4" />}
-                >
-                  Supprimer
-                </Button>
-              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button
+                variant={program.isLocked ? "warning" : "outline"}
+                size="sm"
+                onClick={() => handleToggleLock(program.id)}
+                leftIcon={program.isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              >
+                {program.isLocked ? 'Déverrouiller' : 'Verrouiller'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEditProgram(program)}
+                leftIcon={<Edit className="h-4 w-4" />}
+              >
+                Modifier
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDeleteProgram(program.id)}
+                leftIcon={<Trash2 className="h-4 w-4" />}
+              >
+                Supprimer
+              </Button>
             </div>
 
             <div className="space-y-3">

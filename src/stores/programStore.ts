@@ -67,6 +67,9 @@ export interface Program {
   startDate: Date;
   endDate: Date;
   isActive: boolean;
+  isLocked: boolean; // Programme verrouillé (pas de nouvelles soumissions)
+  lockedAt?: Date; // Date de verrouillage
+  lockedBy?: string; // ID de l'utilisateur qui a verrouillé
   createdAt: Date;
   managerId?: string; // Manager responsable du programme
   selectionCriteria: SelectionCriterion[];
@@ -100,6 +103,9 @@ const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
   startDate: new Date(supabaseProgram.start_date),
   endDate: new Date(supabaseProgram.end_date),
   isActive: supabaseProgram.is_active,
+  isLocked: (supabaseProgram as any).is_locked || false,
+  lockedAt: (supabaseProgram as any).locked_at ? new Date((supabaseProgram as any).locked_at) : undefined,
+  lockedBy: (supabaseProgram as any).locked_by,
   createdAt: new Date(supabaseProgram.created_at),
   managerId: supabaseProgram.manager_id,
   selectionCriteria: supabaseProgram.selection_criteria || [],
@@ -127,7 +133,8 @@ interface ProgramState {
   addProgram: (program: Omit<Program, 'id' | 'createdAt'>) => Promise<Program>;
   updateProgram: (id: string, updates: Partial<Program>) => Promise<Program | null>;
   deleteProgram: (id: string) => Promise<boolean>;
-  
+  toggleProgramLock: (id: string, userId: string) => Promise<boolean>;
+
   // Getters
   getPartner: (id: string) => Partner | undefined;
   getProgram: (id: string) => Program | undefined;
@@ -335,7 +342,7 @@ export const useProgramStore = create<ProgramState>()(
         set({ isLoading: true, error: null });
         try {
           await ProgramService.deleteProgram(id);
-          
+
           set(state => ({
             programs: state.programs.filter(p => p.id !== id),
             isLoading: false
@@ -345,6 +352,40 @@ export const useProgramStore = create<ProgramState>()(
         } catch (error) {
           console.error('Error deleting program:', error);
           set({ error: 'Failed to delete program', isLoading: false });
+          return false;
+        }
+      },
+
+      toggleProgramLock: async (id, userId) => {
+        try {
+          const program = get().getProgram(id);
+          if (!program) return false;
+
+          const isLocked = !program.isLocked;
+          const updates: any = {
+            is_locked: isLocked,
+            locked_at: isLocked ? new Date().toISOString() : null,
+            locked_by: isLocked ? userId : null
+          };
+
+          await ProgramService.updateProgram(id, updates);
+
+          set(state => ({
+            programs: state.programs.map(p =>
+              p.id === id
+                ? {
+                    ...p,
+                    isLocked,
+                    lockedAt: isLocked ? new Date() : undefined,
+                    lockedBy: isLocked ? userId : undefined
+                  }
+                : p
+            )
+          }));
+
+          return true;
+        } catch (error) {
+          console.error('Error toggling program lock:', error);
           return false;
         }
       },
