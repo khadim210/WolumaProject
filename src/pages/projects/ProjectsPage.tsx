@@ -240,7 +240,7 @@ const ProjectsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Soumissions</h1>
         
         <div className="flex space-x-3">
         

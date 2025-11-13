@@ -163,7 +163,7 @@ const DashboardPage: React.FC = () => {
             <CardHeader className="bg-gradient-to-r from-primary-50 to-secondary-50">
               <CardTitle className="flex items-center">
                 <Target className="h-5 w-5 text-primary-600 mr-2" />
-                Progression de vos projets
+                Progression de vos soumissions
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -181,10 +181,10 @@ const DashboardPage: React.FC = () => {
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Projets</p>
+                <p className="text-sm font-medium text-gray-600">Soumissions</p>
                 <p className="text-3xl font-bold text-primary-600 mt-1">{userProjects.length}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Total des projets {user?.role === 'submitter' ? 'soumis' : ''}
+                  Total des soumissions {user?.role === 'submitter' ? 'envoyées' : ''}
                 </p>
               </div>
               <div className="p-3 bg-gradient-to-r from-primary-100 to-secondary-100 rounded-lg">
@@ -205,7 +205,7 @@ const DashboardPage: React.FC = () => {
           </CardContent>
           <CardFooter className="bg-gray-50 border-t border-gray-200">
             <Link to="/dashboard/projects" className="text-sm text-primary-600 hover:text-primary-700 flex items-center font-medium">
-              Voir tous les projets <ArrowRight className="ml-1 h-4 w-4" />
+              Voir toutes les soumissions <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </CardFooter>
         </Card>
@@ -270,7 +270,7 @@ const DashboardPage: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Activité récente</p>
                 <p className="text-2xl font-bold text-accent-600 mt-1">{recentProjects.length}</p>
-                <p className="text-sm text-gray-500 mt-1">Projets récents</p>
+                <p className="text-sm text-gray-500 mt-1">Soumissions récentes</p>
               </div>
               <div className="p-3 bg-gradient-to-r from-accent-100 to-primary-100 rounded-lg">
                 <Clock className="h-6 w-6 text-accent-600" />
@@ -299,7 +299,7 @@ const DashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-4 text-gray-500">
-                <div className="text-sm">Aucun projet récent</div>
+                <div className="text-sm">Aucune soumission récente</div>
               </div>
             )}
           </CardContent>

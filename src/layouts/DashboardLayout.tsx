@@ -94,7 +94,7 @@ const DashboardLayout: React.FC = () => {
                 <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('projects.view') && (
-                <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" onClick={() => setSidebarOpen(false)} />
+                <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" onClick={() => setSidebarOpen(false)} />
               )}
               {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
                 <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" onClick={() => setSidebarOpen(false)} />
@@ -177,7 +177,7 @@ const DashboardLayout: React.FC = () => {
                   <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" />
                 )}
                 {checkPermission('projects.view') && (
-                  <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
+                  <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" />
                 )}
                 {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
                   <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" />
