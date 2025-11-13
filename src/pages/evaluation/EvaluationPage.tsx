@@ -986,14 +986,15 @@ const EvaluationPage: React.FC = () => {
                                                 name={fieldName}
                                                 min="0"
                                                 max={criterion.maxScore}
-                                                className="block w-20 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                                value={currentScore}
+                                                className="block w-20 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm px-3 py-2"
                                               />
                                               <span className="mx-2 text-gray-500">/{criterion.maxScore}</span>
                                             </div>
                                             <div className="flex-grow">
                                               {renderScoreIndicator(currentScore, criterion.maxScore)}
                                             </div>
-                                            <div className="text-sm text-gray-600">
+                                            <div className="text-sm text-gray-600 font-medium">
                                               {Math.round((currentScore / criterion.maxScore) * criterion.weight)}% du total
                                             </div>
                                           </div>
@@ -1007,7 +1008,8 @@ const EvaluationPage: React.FC = () => {
                                               as="textarea"
                                               name={`comment_${criterion.id}`}
                                               rows={2}
-                                              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                              value={values[`comment_${criterion.id}`] || ''}
+                                              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm px-3 py-2"
                                               placeholder="Expliquez pourquoi vous attribuez cette note..."
                                             />
                                           </div>
@@ -1050,7 +1052,8 @@ const EvaluationPage: React.FC = () => {
                                     as="textarea"
                                     name="evaluationNotes"
                                     rows={5}
-                                    className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                    value={values.evaluationNotes || ''}
+                                    className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm px-3 py-2"
                                     placeholder="Détaillez votre évaluation et vos recommandations..."
                                   />
                                   <ErrorMessage name="evaluationNotes" component="div" className="mt-1 text-sm text-error-600" />
