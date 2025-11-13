@@ -12,18 +12,18 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { FolderPlus, FileSpreadsheet } from 'lucide-react';
+import { FolderPlus, FileSpreadsheet, Filter, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const {  fetchProjects, filterProjectsByUser } = useProjectStore();
+  const { addProject, fetchProjects, filterProjectsByUser } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   
-  const [searchTerm] = useState('');
-  const [statusFilter] = useState<ProjectStatus | 'all'>('all');
-  const [partnerFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
+  const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [selectedProgramForImport, setSelectedProgramForImport] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
@@ -237,14 +237,36 @@ const ProjectsPage: React.FC = () => {
     return labels[status];
   };
   
+  const statusCounts = React.useMemo(() => {
+    const counts: Record<ProjectStatus | 'all', number> = {
+      all: userProjects.length,
+      draft: 0,
+      submitted: 0,
+      under_review: 0,
+      eligible: 0,
+      ineligible: 0,
+      pre_selected: 0,
+      selected: 0,
+      formalization: 0,
+      financed: 0,
+      monitoring: 0,
+      closed: 0,
+      rejected: 0
+    };
+
+    userProjects.forEach(project => {
+      counts[project.status]++;
+    });
+
+    return counts;
+  }, [userProjects]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Soumissions</h1>
-        
+
         <div className="flex space-x-3">
-        
-          
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create">
               <Button
@@ -257,6 +279,117 @@ const ProjectsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Filtres */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="h-5 w-5 mr-2" />
+            Filtres
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Recherche */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Search className="inline h-4 w-4 mr-1" />
+                Recherche
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Titre ou description..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Filtre par statut */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Statut
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'all')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous ({statusCounts.all})</option>
+                <option value="draft">Brouillon ({statusCounts.draft})</option>
+                <option value="submitted">Soumis ({statusCounts.submitted})</option>
+                <option value="under_review">En revue ({statusCounts.under_review})</option>
+                <option value="eligible">Éligible ({statusCounts.eligible})</option>
+                <option value="ineligible">Non éligible ({statusCounts.ineligible})</option>
+                <option value="pre_selected">Présélectionné ({statusCounts.pre_selected})</option>
+                <option value="selected">Sélectionné ({statusCounts.selected})</option>
+                <option value="formalization">Formalisation ({statusCounts.formalization})</option>
+                <option value="financed">Financé ({statusCounts.financed})</option>
+                <option value="monitoring">Suivi ({statusCounts.monitoring})</option>
+                <option value="closed">Clôturé ({statusCounts.closed})</option>
+                <option value="rejected">Rejeté ({statusCounts.rejected})</option>
+              </select>
+            </div>
+
+            {/* Filtre par partenaire */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Partenaire
+              </label>
+              <select
+                value={partnerFilter}
+                onChange={(e) => setPartnerFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les partenaires</option>
+                {accessiblePartners.map(partner => (
+                  <option key={partner.id} value={partner.id}>
+                    {partner.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtre par programme */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Programme
+              </label>
+              <select
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les programmes</option>
+                {filteredPrograms.map(program => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Bouton de réinitialisation */}
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setPartnerFilter('all');
+                setProgramFilter('all');
+              }}
+            >
+              Réinitialiser les filtres
+            </Button>
+            <span className="ml-4 text-sm text-gray-600">
+              {filteredProjects.length} projet(s) trouvé(s)
+            </span>
+          </div>
+        </CardContent>
+      </Card>
      
       {/* Import Section */}
       {checkPermission('projects.create') && (
