@@ -493,6 +493,39 @@ const ProgramManagementPage: React.FC = () => {
                             </Field>
                             <ErrorMessage name="managerId" component="div" className="mt-1 text-sm text-error-600" />
                           </div>
+
+                          {/* Lien de soumission publique */}
+                          {editingProgram && (
+                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                                <FileText className="h-4 w-4 mr-2" />
+                                Lien de Soumission Publique
+                              </h4>
+                              <p className="text-sm text-blue-700 mb-3">
+                                Partagez ce lien pour permettre aux candidats de soumettre directement leur projet à ce programme. Ils pourront remplir le formulaire et créer un compte après la soumission.
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={`${window.location.origin}/submit/${editingProgram.id}`}
+                                  className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md text-sm font-mono text-blue-900"
+                                  onClick={(e) => e.currentTarget.select()}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/submit/${editingProgram.id}`);
+                                    alert('Lien copié dans le presse-papier!');
+                                  }}
+                                  className="shrink-0"
+                                >
+                                  Copier
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

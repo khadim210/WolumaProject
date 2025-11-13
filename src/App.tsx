@@ -32,6 +32,9 @@ import ParametersPage from './pages/admin/ParametersPage';
 import ProgramManagementPage from './pages/admin/ProgramManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 
+// Public Pages
+import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
+
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuthStore();
@@ -82,13 +85,16 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public Routes */}
+        <Route path="/submit/:programId" element={<PublicSubmissionPage />} />
+
         {/* Auth Routes */}
         <Route path="/" element={<AuthLayout />}>
           <Route index element={<Navigate to="/login" replace />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
         </Route>
-        
+
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
