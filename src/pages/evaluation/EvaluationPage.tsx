@@ -23,7 +23,7 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
-import { generateEvaluationReport } from '../../utils/pdfGenerator';
+import { generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -45,6 +45,7 @@ const EvaluationPage: React.FC = () => {
     currentProject: string;
   } | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [aiAnalysisCache, setAiAnalysisCache] = useState<Record<string, any>>({});
   
   if (!user || !checkPermission('evaluation.evaluate')) {
     return (
@@ -167,36 +168,50 @@ const EvaluationPage: React.FC = () => {
           };
 
           const response = await aiEvaluationService.evaluateProject(request);
-          
+
+          // Stocker l'analyse IA pour la génération du rapport
+          setAiAnalysisCache(prev => ({
+            ...prev,
+            [project.id]: response
+          }));
+
           // Préparer les scores et commentaires
           const evaluationScores: Record<string, number> = {};
           const evaluationComments: Record<string, string> = {};
           let totalScore = 0;
-          
+
           program.evaluationCriteria.forEach((criterion: any) => {
             const score = response.scores[criterion.name] || 0;
             evaluationScores[criterion.id] = score;
-            
-            const percentage = (score / criterion.maxScore) * 100;
-            let comment = '';
-            if (percentage >= 75) {
-              comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
-            } else if (percentage >= 50) {
-              comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+
+            // Utiliser l'observation de l'IA si disponible
+            const observation = response.detailedAnalysis?.observations?.[criterion.name];
+            if (observation) {
+              evaluationComments[criterion.id] = `[IA] ${observation}`;
             } else {
-              comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+              // Fallback sur un commentaire généré
+              const percentage = (score / criterion.maxScore) * 100;
+              let comment = '';
+              if (percentage >= 75) {
+                comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+              } else if (percentage >= 50) {
+                comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+              } else {
+                comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+              }
+              evaluationComments[criterion.id] = `[IA] ${comment}`;
             }
-            
-            evaluationComments[criterion.id] = `[IA] ${comment}`;
+
             totalScore += (score / criterion.maxScore) * criterion.weight;
           });
-          
+
           // Mettre à jour le projet
           await updateProject(project.id, {
             evaluationScores,
             evaluationComments,
             totalEvaluationScore: Math.round(totalScore),
-            evaluationNotes: `[Évaluation IA en lot] ${response.notes}`,
+            evaluationNotes: `[Évaluation IA en lot]\n\n${response.notes}`,
+            recommendedStatus: response.recommendation as ProjectStatus,
             evaluatedBy: user.id,
             evaluationDate: new Date(),
             // Don't change status automatically - wait for manual submission
@@ -318,33 +333,44 @@ const EvaluationPage: React.FC = () => {
       };
 
       const response = await aiEvaluationService.evaluateProject(request);
-      
+
+      // Stocker l'analyse IA pour la génération du rapport
+      setAiAnalysisCache(prev => ({
+        ...prev,
+        [project.id]: response
+      }));
+
       // Préparer les nouvelles valeurs pour Formik
       const newValues: any = {};
-      
-      // Mettre à jour les scores et commentaires
+
+      // Mettre à jour les scores et commentaires avec les observations de l'IA
       program.evaluationCriteria.forEach((criterion: any) => {
         const score = response.scores[criterion.name];
         if (score !== undefined) {
           newValues[`score_${criterion.id}`] = score;
-          
-          // Générer un commentaire basé sur le score
-          const percentage = (score / criterion.maxScore) * 100;
-          let comment = '';
-          if (percentage >= 75) {
-            comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
-          } else if (percentage >= 50) {
-            comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+
+          // Utiliser l'observation de l'IA si disponible
+          const observation = response.detailedAnalysis?.observations?.[criterion.name];
+          if (observation) {
+            newValues[`comment_${criterion.id}`] = `[IA] ${observation}`;
           } else {
-            comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+            // Fallback sur un commentaire généré
+            const percentage = (score / criterion.maxScore) * 100;
+            let comment = '';
+            if (percentage >= 75) {
+              comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+            } else if (percentage >= 50) {
+              comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+            } else {
+              comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+            }
+            newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
           }
-          
-          newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
         }
       });
-      
+
       // Mettre à jour les notes globales et la décision
-      newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
+      newValues.evaluationNotes = `[Évaluation IA]\n\n${response.notes}`;
       newValues.decision = response.recommendation;
       
       // Appliquer toutes les mises à jour
@@ -377,16 +403,26 @@ const EvaluationPage: React.FC = () => {
   const handleGenerateReport = async (project: Project) => {
     const program = programs.find(p => p.id === project.programId);
     const partner = program ? partners.find(p => p.id === program.partnerId) : null;
-    
+
     if (!program) {
       alert('Programme non trouvé pour ce projet');
       return;
     }
-    
+
     setIsGeneratingReport(true);
-    
+
     try {
-      await generateEvaluationReport(project, program, partner);
+      // Récupérer l'analyse IA stockée si disponible
+      const aiAnalysis = aiAnalysisCache[project.id];
+
+      // Utiliser le nouveau générateur de rapport Woluma
+      await generateWolumaEvaluationReport(
+        project,
+        program,
+        partner,
+        user?.email || 'Système',
+        aiAnalysis
+      );
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Erreur lors de la génération du rapport');
