@@ -70,6 +70,7 @@ export interface Program {
   createdAt: Date;
   managerId?: string; // Manager responsable du programme
   selectionCriteria: SelectionCriterion[];
+  eligibilityCriteria?: string; // Critères d'éligibilité textuels (un par ligne)
   fieldEligibilityCriteria?: FieldEligibilityCriterion[]; // Critères d'éligibilité basés sur les champs du formulaire
   evaluationCriteria: EvaluationCriterion[];
   customAiPrompt?: string; // Prompt personnalisé pour l'évaluation IA
@@ -102,6 +103,7 @@ const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
   createdAt: new Date(supabaseProgram.created_at),
   managerId: supabaseProgram.manager_id,
   selectionCriteria: supabaseProgram.selection_criteria || [],
+  eligibilityCriteria: supabaseProgram.eligibility_criteria,
   fieldEligibilityCriteria: supabaseProgram.field_eligibility_criteria || [],
   evaluationCriteria: supabaseProgram.evaluation_criteria || [],
   customAiPrompt: supabaseProgram.custom_ai_prompt
