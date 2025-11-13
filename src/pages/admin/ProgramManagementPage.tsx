@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  Settings, 
-  CheckCircle, 
-  ListChecks, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  Settings,
+  CheckCircle,
+  ListChecks,
   Bot,
   GripVertical,
   Users,
   Calendar,
   DollarSign,
-  Target
+  Target,
+  FileText
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
