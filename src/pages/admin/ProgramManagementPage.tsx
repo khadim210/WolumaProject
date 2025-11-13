@@ -934,17 +934,6 @@ const ProgramManagementPage: React.FC = () => {
                               Soyez spécifique sur les aspects à privilégier selon les objectifs du programme.
                             </p>
                           </div>
-                          
-                          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <h5 className="text-sm font-medium text-yellow-900 mb-2">💡 Conseils pour un bon prompt :</h5>
-                            <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside">
-                              <li>Mentionnez les secteurs d'activité prioritaires</li>
-                              <li>Précisez les critères de faisabilité importants</li>
-                              <li>Indiquez le niveau d'innovation attendu</li>
-                              <li>Spécifiez les impacts recherchés (social, environnemental, économique)</li>
-                              <li>Mentionnez les contraintes budgétaires ou temporelles</li>
-                            </ul>
-                          </div>
                         </div>
                       )}
 
