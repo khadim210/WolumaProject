@@ -2,22 +2,23 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { usePermissions } from '../hooks/usePermissions';
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  ListChecks, 
-  FileText, 
-  BarChart3, 
-  LogOut, 
-  ChevronDown, 
-  Menu, 
-  X, 
+import {
+  LayoutDashboard,
+  FolderKanban,
+  ListChecks,
+  FileText,
+  BarChart3,
+  LogOut,
+  ChevronDown,
+  Menu,
+  X,
   User,
   FileInput,
   Users,
   Settings,
   Target,
-  Building
+  Building,
+  ClipboardCheck
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -94,6 +95,9 @@ const DashboardLayout: React.FC = () => {
               )}
               {checkPermission('projects.view') && (
                 <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" onClick={() => setSidebarOpen(false)} />
+              )}
+              {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
+                <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('evaluation.view') && (
                 <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" onClick={() => setSidebarOpen(false)} />
@@ -174,6 +178,9 @@ const DashboardLayout: React.FC = () => {
                 )}
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Projets" />
+                )}
+                {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
+                  <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" />
                 )}
                 {checkPermission('evaluation.view') && (
                   <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" />

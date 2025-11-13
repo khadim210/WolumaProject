@@ -17,6 +17,7 @@ import ProjectsPage from './pages/projects/ProjectsPage';
 import ProjectDetailPage from './pages/projects/ProjectDetailPage';
 import CreateProjectPage from './pages/projects/CreateProjectPage';
 import EditProjectPage from './pages/projects/EditProjectPage';
+import EligibilityPage from './pages/eligibility/EligibilityPage';
 import EvaluationPage from './pages/evaluation/EvaluationPage';
 import FormalizationPage from './pages/formalization/FormalizationPage';
 import MonitoringPage from './pages/monitoring/MonitoringPage';
@@ -99,6 +100,7 @@ function App() {
           <Route path="projects/create" element={<CreateProjectPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="projects/:id/edit" element={<EditProjectPage />} />
+          <Route path="eligibility" element={<EligibilityPage />} />
           <Route path="evaluation" element={<EvaluationPage />} />
           <Route path="formalization" element={<FormalizationPage />} />
           <Route path="monitoring" element={<MonitoringPage />} />

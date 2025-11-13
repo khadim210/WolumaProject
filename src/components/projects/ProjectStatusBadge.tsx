@@ -10,6 +10,8 @@ type StatusConfig = {
 const statusConfigs: Record<ProjectStatus, StatusConfig> = {
   draft: { label: 'Brouillon', variant: 'default' },
   submitted: { label: 'Soumis', variant: 'primary' },
+  eligible: { label: 'Éligible', variant: 'success' },
+  ineligible: { label: 'Non Éligible', variant: 'error' },
   under_review: { label: 'En revue', variant: 'secondary' },
   pre_selected: { label: 'Présélectionné', variant: 'accent' },
   selected: { label: 'Sélectionné', variant: 'success' },
