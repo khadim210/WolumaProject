@@ -41,14 +41,31 @@ const PublicSubmissionPage: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchPrograms();
-    fetchTemplates();
-  }, [fetchPrograms, fetchTemplates]);
+    const loadData = async () => {
+      try {
+        console.log('🔍 Loading data for programId:', programId);
+        await fetchPrograms();
+        await fetchTemplates();
+        console.log('✅ Data loaded. Programs count:', programs.length);
+      } catch (error) {
+        console.error('❌ Error loading data:', error);
+      }
+    };
+    loadData();
+  }, [fetchPrograms, fetchTemplates, programId]);
 
   const program = programs.find(p => p.id === programId);
   const template = program?.formTemplateId
     ? templates.find(t => t.id === program.formTemplateId)
     : null;
+
+  useEffect(() => {
+    if (programs.length > 0) {
+      console.log('📋 Available programs:', programs.map(p => ({ id: p.id, name: p.name })));
+      console.log('🎯 Looking for program:', programId);
+      console.log('✨ Program found:', program ? program.name : 'NOT FOUND');
+    }
+  }, [programs, programId, program]);
 
   const handleFieldChange = (fieldId: string, value: any) => {
     setFormData(prev => ({
@@ -143,7 +160,7 @@ const PublicSubmissionPage: React.FC = () => {
     }
   };
 
-  if (!program) {
+  if (!program && programs.length > 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -153,8 +170,43 @@ const PublicSubmissionPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Programme Introuvable
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 Le programme demandé n'existe pas ou n'est plus disponible.
+              </p>
+              <div className="bg-gray-100 rounded-lg p-4 text-left">
+                <p className="text-sm text-gray-700 mb-2">
+                  <strong>ID recherché:</strong> <code className="bg-white px-2 py-1 rounded">{programId}</code>
+                </p>
+                <p className="text-sm text-gray-700">
+                  <strong>Programmes disponibles:</strong>
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {programs.slice(0, 5).map(p => (
+                    <li key={p.id} className="text-xs text-gray-600">
+                      • {p.name} <code className="bg-white px-1 rounded ml-1">{p.id}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!program) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Chargement...
+              </h3>
+              <p className="text-gray-600">
+                Récupération des informations du programme
               </p>
             </div>
           </CardContent>
