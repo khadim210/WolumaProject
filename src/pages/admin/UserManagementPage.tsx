@@ -153,10 +153,17 @@ const UserManagementPage: React.FC = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      await deleteUser(userId);
-      setShowDeleteConfirm(null);
+      const success = await deleteUser(userId);
+      if (success) {
+        setShowDeleteConfirm(null);
+        alert('Utilisateur supprimé avec succès');
+      } else {
+        alert('Erreur: La suppression de l\'utilisateur a échoué. Vérifiez qu\'il n\'y a pas de données associées.');
+      }
     } catch (error) {
       console.error('Error deleting user:', error);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'Impossible de supprimer l\'utilisateur'}`);
+      setShowDeleteConfirm(null);
     }
   };
 

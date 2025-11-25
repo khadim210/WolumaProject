@@ -230,14 +230,75 @@ export class UserService {
     if (supabaseAdmin === null) {
       throw new Error('Admin operations not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { error } = await supabaseAdmin
+
+    // First, get the user to retrieve the auth_user_id
+    const { data: user, error: getUserError } = await supabaseAdmin
+      .from('users')
+      .select('auth_user_id, name')
+      .eq('id', id)
+      .single();
+
+    if (getUserError) {
+      throw new Error(`Erreur lors de la récupération de l'utilisateur: ${getUserError.message}`);
+    }
+
+    // Check if user has submitted projects (cannot delete if they have projects)
+    const { data: projects, error: projectsError } = await supabaseAdmin
+      .from('projects')
+      .select('id')
+      .eq('submitter_id', id)
+      .limit(1);
+
+    if (projectsError) {
+      throw new Error(`Erreur lors de la vérification des projets: ${projectsError.message}`);
+    }
+
+    if (projects && projects.length > 0) {
+      throw new Error(`Impossible de supprimer cet utilisateur car il a soumis des projets. Veuillez d'abord réassigner ou supprimer ses projets.`);
+    }
+
+    // Set assigned_manager_id to NULL in partners table
+    await supabaseAdmin
+      .from('partners')
+      .update({ assigned_manager_id: null })
+      .eq('assigned_manager_id', id);
+
+    // Set manager_id to NULL in programs table
+    await supabaseAdmin
+      .from('programs')
+      .update({ manager_id: null })
+      .eq('manager_id', id);
+
+    // Set evaluated_by to NULL in projects table
+    await supabaseAdmin
+      .from('projects')
+      .update({ evaluated_by: null })
+      .eq('evaluated_by', id);
+
+    // Delete from users table (profile)
+    const { error: deleteUserError } = await supabaseAdmin
       .from('users')
       .delete()
       .eq('id', id);
-    
-    if (error) throw error;
+
+    if (deleteUserError) {
+      throw new Error(`Erreur lors de la suppression du profil: ${deleteUserError.message}`);
+    }
+
+    // Delete from auth.users if auth_user_id exists
+    if (user?.auth_user_id) {
+      try {
+        const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
+          user.auth_user_id
+        );
+
+        if (deleteAuthError) {
+          console.warn('Warning: Could not delete auth user:', deleteAuthError.message);
+        }
+      } catch (authError) {
+        console.warn('Warning: Error deleting auth user:', authError);
+      }
+    }
   }
 }
 
