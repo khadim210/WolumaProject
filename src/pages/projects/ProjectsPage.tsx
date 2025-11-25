@@ -4,23 +4,23 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent 
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { FolderPlus, FileSpreadsheet, Filter, Search } from 'lucide-react';
+import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const { addProject, fetchProjects, filterProjectsByUser } = useProjectStore();
+  const { addProject, fetchProjects, filterProjectsByUser, deleteProject } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
@@ -29,6 +29,8 @@ const ProjectsPage: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string>('');
   const [importSuccess, setImportSuccess] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   
   useEffect(() => {
     console.log('📁 ProjectsPage: Fetching all data...');
@@ -194,6 +196,24 @@ const ProjectsPage: React.FC = () => {
       setIsImporting(false);
       // Reset file input
       event.target.value = '';
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    setDeletingProjectId(projectId);
+    try {
+      const success = await deleteProject(projectId);
+      if (success) {
+        setShowDeleteConfirm(null);
+        alert('Projet supprimé avec succès');
+      } else {
+        alert('Erreur lors de la suppression du projet');
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'Impossible de supprimer le projet'}`);
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
@@ -521,17 +541,29 @@ const ProjectsPage: React.FC = () => {
                       <div className="text-sm text-gray-500">
                         <div>Budget: {project.budget.toLocaleString()} FCFA</div>
                         <div>Durée: {project.timeline}</div>
-                        <div>{project.submissionDate 
+                        <div>{project.submissionDate
                           ? `Soumis le ${project.submissionDate.toLocaleDateString()}`
                           : 'Non soumis'}
                         </div>
                       </div>
-                      
-                      <Link to={`/dashboard/projects/${project.id}`} className="mt-4">
-                        <Button variant="outline" size="sm">
-                          Voir le détail
-                        </Button>
-                      </Link>
+
+                      <div className="mt-4 flex gap-2">
+                        <Link to={`/dashboard/projects/${project.id}`}>
+                          <Button variant="outline" size="sm">
+                            Voir le détail
+                          </Button>
+                        </Link>
+                        {checkPermission('projects.delete') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDeleteConfirm(project.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -557,6 +589,45 @@ const ProjectsPage: React.FC = () => {
               </Button>
             </Link>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start mb-4">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Confirmer la suppression
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Êtes-vous sûr de vouloir supprimer ce projet ? Cette action est irréversible et toutes les données associées seront perdues.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(null)}
+                disabled={deletingProjectId === showDeleteConfirm}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => handleDeleteProject(showDeleteConfirm)}
+                isLoading={deletingProjectId === showDeleteConfirm}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Supprimer
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
