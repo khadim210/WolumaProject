@@ -87,20 +87,21 @@ const EvaluationPage: React.FC = () => {
   
   const accessiblePrograms = getAccessiblePrograms();
   
-  // Get projects in submitted status or evaluated but not yet submitted to next stage
+  // Get projects in submitted, eligible status or evaluated but not yet submitted to next stage
   const submittedProjects = projects.filter(project => {
     const isAccessible = accessiblePrograms.some(p => p.id === project.programId);
-    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesProgram = programFilter === 'all' || project.programId === programFilter;
-    
-    // Include projects that are submitted OR evaluated but waiting for manual submission
-    const isEvaluationPending = project.status === 'submitted' || 
+
+    // Include projects that are submitted, eligible OR evaluated but waiting for manual submission
+    const isEvaluationPending = project.status === 'submitted' ||
+                               project.status === 'eligible' ||
                                (project.evaluationScores && !project.manuallySubmitted);
-    
-    return isEvaluationPending && 
-           isAccessible && 
-           matchesSearch && 
+
+    return isEvaluationPending &&
+           isAccessible &&
+           matchesSearch &&
            matchesProgram;
   });
   

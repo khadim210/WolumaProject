@@ -1,159 +1,146 @@
-# Correction - Critères d'Éligibilité OCIAC
+# Correction: Visibilité des Projets Éligibles dans l'Évaluation
 
-## 🐛 Problème Identifié
+## Problème Identifié
 
-L'interface affichait "Aucun critère d'éligibilité défini pour ce programme" pour le programme OCIAC, alors que les critères existaient bien dans la base de données.
+Les projets marqués comme **éligibles** (`status = 'eligible'`) n'étaient pas visibles dans la page d'évaluation.
 
-## 🔍 Cause
-
-Le code TypeScript ne récupérait pas la colonne `eligibility_criteria` de la base de données. Les interfaces manquaient cette propriété:
-
-**Base de données (✅ OK):**
-```sql
-SELECT eligibility_criteria FROM programs WHERE name = 'Programme OCIAC';
--- Résultat: 5 critères bien présents
-```
-
-**Code TypeScript (❌ Manquant):**
-```typescript
-interface Program {
-  // eligibility_criteria manquait ici!
-  fieldEligibilityCriteria?: ...
-}
-```
-
-## ✅ Solution Appliquée
-
-### 1. Interface `Program` - programStore.ts
-
-**Avant:**
-```typescript
-export interface Program {
-  ...
-  selectionCriteria: SelectionCriterion[];
-  fieldEligibilityCriteria?: FieldEligibilityCriterion[];
-  evaluationCriteria: EvaluationCriterion[];
-}
-```
-
-**Après:**
-```typescript
-export interface Program {
-  ...
-  selectionCriteria: SelectionCriterion[];
-  eligibilityCriteria?: string; // ✅ AJOUTÉ
-  fieldEligibilityCriteria?: FieldEligibilityCriterion[];
-  evaluationCriteria: EvaluationCriterion[];
-}
-```
-
-### 2. Interface `SupabaseProgram` - supabaseService.ts
-
-**Avant:**
-```typescript
-export interface SupabaseProgram {
-  ...
-  selection_criteria: any[];
-  field_eligibility_criteria?: any[];
-  evaluation_criteria: any[];
-}
-```
-
-**Après:**
-```typescript
-export interface SupabaseProgram {
-  ...
-  selection_criteria: any[];
-  eligibility_criteria?: string; // ✅ AJOUTÉ
-  field_eligibility_criteria?: any[];
-  evaluation_criteria: any[];
-}
-```
-
-### 3. Fonction de Conversion - programStore.ts
-
-**Avant:**
-```typescript
-const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
-  ...
-  selectionCriteria: supabaseProgram.selection_criteria || [],
-  fieldEligibilityCriteria: supabaseProgram.field_eligibility_criteria || [],
-  evaluationCriteria: supabaseProgram.evaluation_criteria || [],
-})
-```
-
-**Après:**
-```typescript
-const convertSupabaseProgram = (supabaseProgram: SupabaseProgram): Program => ({
-  ...
-  selectionCriteria: supabaseProgram.selection_criteria || [],
-  eligibilityCriteria: supabaseProgram.eligibility_criteria, // ✅ AJOUTÉ
-  fieldEligibilityCriteria: supabaseProgram.field_eligibility_criteria || [],
-  evaluationCriteria: supabaseProgram.evaluation_criteria || [],
-})
-```
-
-## 📊 Vérification
-
-### Données en Base (Programme OCIAC)
-
-```
-✅ Critères présents: 5
-✅ Format correct: Séparés par \n
-✅ Contenu:
-   - Avoir plus de 33 ans
-   - Être porteur d'un projet innovant
-   - Opérer dans le secteur technologique ou numérique
-   - Disposer d'une équipe de minimum 2 personnes
-   - Avoir un pitch deck complet
-```
-
-### Code Frontend (EligibilityPage)
+### Ancien Code (EvaluationPage.tsx ligne 98-99)
 
 ```typescript
-// Le code lit maintenant correctement:
-const criteriaList = selectedProgram?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
-
-// Résultat attendu:
-criteriaList = [
-  "- Avoir plus de 33 ans",
-  "- Être porteur d'un projet innovant",
-  "- Opérer dans le secteur technologique ou numérique",
-  "- Disposer d'une équipe de minimum 2 personnes",
-  "- Avoir un pitch deck complet"
-]
+// Include projects that are submitted OR evaluated but waiting for manual submission
+const isEvaluationPending = project.status === 'submitted' || 
+                           (project.evaluationScores && !project.manuallySubmitted);
 ```
 
-## 🎯 Résultat
+**Problème:** Seuls les projets avec statut `submitted` étaient inclus.
 
-Après cette correction:
+## Solution Implémentée
 
-✅ **Build réussi** - 0 erreurs TypeScript
-✅ **Type-safety** - Propriété correctement typée
-✅ **Affichage** - Les 5 critères s'afficheront comme cases à cocher
-✅ **Validation** - L'évaluateur devra cocher tous les critères avant d'approuver
+### Nouveau Code (EvaluationPage.tsx ligne 97-100)
 
-## 🔄 Impact
-
-**Fichiers modifiés:**
-- `src/stores/programStore.ts` (2 changements)
-- `src/services/supabaseService.ts` (1 changement)
-
-**Aucun impact sur:**
-- Base de données (aucune migration nécessaire)
-- Autres fonctionnalités
-- Performances
-
-## ✅ Tests
-
-```bash
-npm run build
-# ✓ built in 15.21s
-# 0 errors
+```typescript
+// Include projects that are submitted, eligible OR evaluated but waiting for manual submission
+const isEvaluationPending = project.status === 'submitted' ||
+                           project.status === 'eligible' ||
+                           (project.evaluationScores && !project.manuallySubmitted);
 ```
 
----
+**Amélioration:** Les projets avec statut `eligible` sont maintenant inclus dans le filtre.
 
-**Status:** ✅ RÉSOLU
-**Date:** 2025-11-13
-**Build:** ✅ SUCCESS
+## Flux de Travail Complet
+
+### 1. Soumission
+```
+draft → submitted
+```
+
+### 2. Vérification d'Éligibilité (EligibilityPage)
+```
+submitted → eligible / ineligible
+```
+
+**Fonction:** Ligne 145 et 174 dans `EligibilityPage.tsx`
+```typescript
+// Marquer comme éligible
+await updateProject(selectedProject, {
+  status: 'eligible',
+  eligibilityNotes: eligibilityNotes,
+  eligibilityCheckedBy: user?.id,
+  eligibilityCheckedAt: new Date()
+});
+
+// OU marquer comme non éligible
+await updateProject(selectedProject, {
+  status: 'ineligible',
+  eligibilityNotes: eligibilityNotes,
+  eligibilityCheckedBy: user?.id,
+  eligibilityCheckedAt: new Date()
+});
+```
+
+### 3. Évaluation (EvaluationPage)
+
+**Projets Visibles:**
+- ✅ `submitted` - Projets soumis mais pas encore vérifiés
+- ✅ `eligible` - Projets marqués comme éligibles (NOUVEAU)
+- ✅ Projets évalués mais non validés (`evaluationScores` présent et `!manuallySubmitted`)
+
+```typescript
+const submittedProjects = projects.filter(project => {
+  const isEvaluationPending = project.status === 'submitted' ||
+                             project.status === 'eligible' ||
+                             (project.evaluationScores && !project.manuallySubmitted);
+  
+  return isEvaluationPending && isAccessible && matchesSearch && matchesProgram;
+});
+```
+
+### 4. Validation et Sélection
+```
+eligible → [Évaluation] → selected / pre_selected / rejected
+```
+
+### 5. Formalisation
+```
+selected → formalization → financed
+```
+
+## Statuts des Projets
+
+| Statut | Description | Visible dans Éligibilité | Visible dans Évaluation |
+|--------|-------------|--------------------------|-------------------------|
+| `draft` | Brouillon | ❌ | ❌ |
+| `submitted` | Soumis | ✅ | ✅ |
+| `eligible` | Éligible | ❌ (déjà traité) | ✅ (CORRIGÉ) |
+| `ineligible` | Non éligible | ❌ (déjà traité) | ❌ |
+| `pre_selected` | Présélectionné | ❌ | ❌ |
+| `selected` | Sélectionné | ❌ | ❌ |
+| `formalization` | En formalisation | ❌ | ❌ |
+| `financed` | Financé | ❌ | ❌ |
+| `rejected` | Rejeté | ❌ | ❌ |
+
+## Impact de la Correction
+
+### Avant la Correction ❌
+1. Projet soumis → Vérification d'éligibilité
+2. Marqué comme `eligible`
+3. **❌ N'apparaît PAS dans la page d'évaluation**
+4. Bloqué dans le workflow
+
+### Après la Correction ✅
+1. Projet soumis → Vérification d'éligibilité
+2. Marqué comme `eligible`
+3. **✅ Apparaît dans la page d'évaluation**
+4. Peut être évalué et passer à `selected`
+
+## Tests Recommandés
+
+### Scénario 1: Projet Éligible Direct
+1. Créer un projet
+2. Soumettre le projet (`status = 'submitted'`)
+3. Aller dans Éligibilité
+4. Marquer comme éligible (`status = 'eligible'`)
+5. ✅ Vérifier qu'il apparaît dans Évaluation
+
+### Scénario 2: Workflow Complet
+1. Projet soumis → Éligibilité → Éligible
+2. Éligible → Évaluation → Scores attribués
+3. Validation → Selected
+4. Selected → Visible dans Formalisation
+
+## Fichiers Modifiés
+
+1. **EvaluationPage.tsx** (ligne 90-106)
+   - Ajout de `project.status === 'eligible'` dans le filtre
+   - Mise à jour du commentaire pour refléter le changement
+
+## Conclusion
+
+✅ **Les projets éligibles sont maintenant correctement visibles dans la page d'évaluation.**
+
+Le workflow est complet:
+```
+draft → submitted → eligible → [évaluation] → selected → formalization → financed
+```
+
+**Build:** Success (15.24s, 0 erreurs)
