@@ -17,15 +17,8 @@ const registerSchema = Yup.object().shape({
   confirmPassword: Yup.string()
     .oneOf([Yup.ref('password')], 'Les mots de passe ne correspondent pas')
     .required('Confirmation du mot de passe requise'),
-  role: Yup.string()
-    .oneOf(['admin', 'partner', 'manager', 'submitter'], 'Rôle invalide')
-    .required('Rôle requis'),
   organization: Yup.string()
-    .when('role', {
-      is: (val: string) => val === 'partner' || val === 'submitter',
-      then: () => Yup.string().required('Organisation requise pour ce rôle'),
-      otherwise: () => Yup.string().optional(),
-    }),
+    .required('Organisation requise'),
 });
 
 interface RegisterFormValues {
@@ -33,7 +26,6 @@ interface RegisterFormValues {
   email: string;
   password: string;
   confirmPassword: string;
-  role: UserRole;
   organization: string;
 }
 
@@ -50,7 +42,7 @@ const RegisterPage: React.FC = () => {
         values.name,
         values.email,
         values.password,
-        values.role,
+        'submitter',
         values.organization
       );
       
@@ -83,13 +75,12 @@ const RegisterPage: React.FC = () => {
           email: '',
           password: '',
           confirmPassword: '',
-          role: 'submitter' as UserRole,
           organization: '',
         }}
         validationSchema={registerSchema}
         onSubmit={handleSubmit}
       >
-        {({ isSubmitting, values }) => (
+        {({ isSubmitting }) => (
           <Form className="space-y-6">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -153,41 +144,20 @@ const RegisterPage: React.FC = () => {
             </div>
             
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Rôle
+              <label htmlFor="organization" className="block text-sm font-medium text-gray-700">
+                Organisation
               </label>
               <div className="mt-1">
                 <Field
-                  as="select"
-                  id="role"
-                  name="role"
+                  id="organization"
+                  name="organization"
+                  type="text"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                >
-                  <option value="submitter">Soumissionnaire</option>
-                  <option value="manager">Gestionnaire de portefeuille</option>
-                  <option value="partner">Partenaire</option>
-                  <option value="admin">Administrateur</option>
-                </Field>
-                <ErrorMessage name="role" component="div" className="mt-1 text-sm text-error-600" />
+                  placeholder="Nom de votre organisation"
+                />
+                <ErrorMessage name="organization" component="div" className="mt-1 text-sm text-error-600" />
               </div>
             </div>
-            
-            {(values.role === 'partner' || values.role === 'submitter') && (
-              <div>
-                <label htmlFor="organization" className="block text-sm font-medium text-gray-700">
-                  Organisation
-                </label>
-                <div className="mt-1">
-                  <Field
-                    id="organization"
-                    name="organization"
-                    type="text"
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                  <ErrorMessage name="organization" component="div" className="mt-1 text-sm text-error-600" />
-                </div>
-              </div>
-            )}
             
             <div>
               <Button

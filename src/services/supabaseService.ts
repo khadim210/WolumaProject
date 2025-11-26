@@ -587,16 +587,24 @@ export class AuthService {
     return data;
   }
 
-  static async signUp(email: string, password: string, userData: { name: string; organization?: string }): Promise<{ user: any; session: any }> {
+  static async signUp(email: string, password: string, userData: { name: string; role?: string; organization?: string }): Promise<{ user: any; session: any }> {
     if (supabase === null) {
       throw new Error('Supabase not available');
     }
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: {
+          name: userData.name,
+          role: userData.role || 'submitter',
+          organization: userData.organization
+        },
+        emailRedirectTo: `${window.location.origin}/login`
+      }
     });
-    
+
     if (error) throw error;
     return data;
   }
