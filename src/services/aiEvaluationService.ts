@@ -45,11 +45,24 @@ export interface AIEvaluationResponse {
 class AIEvaluationService {
   private provider: AIProvider = 'mock';
   private apiKey: string = '';
+  private model: string = 'gpt-4o-mini';
 
   setProvider(provider: AIProvider, apiKey?: string) {
     this.provider = provider;
     if (apiKey) {
       this.apiKey = apiKey;
+    }
+  }
+
+  setModel(model: string) {
+    this.model = model;
+  }
+
+  configure(config: { provider: AIProvider; apiKey: string; model?: string }) {
+    this.provider = config.provider;
+    this.apiKey = config.apiKey;
+    if (config.model) {
+      this.model = config.model;
     }
   }
 
@@ -121,7 +134,7 @@ class AIEvaluationService {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: this.model,
           messages: [
             {
               role: 'system',

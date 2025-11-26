@@ -24,12 +24,14 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
 import { generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
+import { useParametersStore } from '../../stores/parametersStore';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { parameters, loadParameters } = useParametersStore();
   const navigate = useNavigate();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,7 +63,31 @@ const EvaluationPage: React.FC = () => {
   useEffect(() => {
     fetchPrograms();
     fetchPartners();
-  }, [fetchPrograms, fetchPartners]);
+    loadParameters();
+  }, [fetchPrograms, fetchPartners, loadParameters]);
+
+  useEffect(() => {
+    if (parameters.enableAiEvaluation) {
+      const provider = parameters.aiProvider === 'openai' ? 'chatgpt' :
+                      parameters.aiProvider === 'google' ? 'gemini' : 'mock';
+
+      let apiKey = '';
+      let model = 'gpt-4o-mini';
+
+      if (provider === 'chatgpt') {
+        apiKey = parameters.openaiApiKey;
+        model = parameters.openaiModel || 'gpt-4';
+      } else if (provider === 'gemini') {
+        apiKey = parameters.googleApiKey;
+      }
+
+      aiEvaluationService.configure({
+        provider: provider as any,
+        apiKey: apiKey,
+        model: model
+      });
+    }
+  }, [parameters]);
   
   // Ensure user is a manager
   useEffect(() => {
