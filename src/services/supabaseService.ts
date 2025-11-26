@@ -974,15 +974,15 @@ export class MigrationService {
       ];
       
       for (const program of defaultPrograms) {
-        // Check if program already exists
+        // Check if program already exists (case-insensitive and trim)
         const { data: existingProgram } = await supabaseAdmin
           .from('programs')
-          .select('id')
-          .eq('name', program.name)
+          .select('id, name')
+          .ilike('name', program.name.trim())
           .maybeSingle();
-        
+
         if (existingProgram) {
-          console.log(`✅ Program already exists: ${program.name}`);
+          console.log(`✅ Program already exists: ${existingProgram.name} (ID: ${existingProgram.id})`);
           continue;
         }
         

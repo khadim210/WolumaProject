@@ -65,9 +65,20 @@ function App() {
         if (hasSupabaseConfig) {
           console.log('✅ Supabase configuration found');
           console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
-          // Créer les données de démonstration
-          console.log('🌱 Starting seed data creation...');
-          await MigrationService.seedData();
+
+          // Seed data only once per browser using localStorage
+          const hasSeeded = localStorage.getItem('app_data_seeded');
+          if (!hasSeeded && import.meta.env.MODE === 'development') {
+            console.log('🌱 First run in development - seeding data...');
+            await MigrationService.seedData();
+            localStorage.setItem('app_data_seeded', 'true');
+            console.log('✅ Data seeded successfully');
+          } else if (hasSeeded) {
+            console.log('✅ Data already seeded, skipping...');
+          } else {
+            console.log('📦 Production mode - skipping automatic seed');
+          }
+
           console.log('✅ Supabase initialized successfully');
         } else {
           console.log('⚠️ Supabase not configured, running in demo mode');
