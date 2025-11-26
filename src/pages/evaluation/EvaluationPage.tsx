@@ -916,14 +916,14 @@ const EvaluationPage: React.FC = () => {
                 }
                 
                 const initialValues: any = {
-                  evaluationNotes: '',
-                  decision: 'pre_selected', // This will be stored as recommendedStatus
+                  evaluationNotes: selectedProject.evaluationNotes || '',
+                  decision: selectedProject.recommendedStatus || 'pre_selected',
                 };
-                
-                // Initialize scores for each criterion
+
+                // Initialize scores for each criterion with existing values if available
                 program.evaluationCriteria.forEach(criterion => {
-                  initialValues[`score_${criterion.id}`] = 0;
-                  initialValues[`comment_${criterion.id}`] = '';
+                  initialValues[`score_${criterion.id}`] = selectedProject.evaluationScores?.[criterion.id] || 0;
+                  initialValues[`comment_${criterion.id}`] = selectedProject.evaluationComments?.[criterion.id] || '';
                 });
                 
                 return (
@@ -986,6 +986,26 @@ const EvaluationPage: React.FC = () => {
                               {selectedProject.submissionDate?.toLocaleDateString()}
                             </p>
                           </div>
+
+                          {selectedProject.evaluationScores && selectedProject.evaluatedBy && (
+                            <div className="border-t pt-4">
+                              <div className="bg-success-50 border border-success-200 rounded-lg p-3">
+                                <div className="flex items-center mb-2">
+                                  <CheckCircle className="h-5 w-5 text-success-600 mr-2" />
+                                  <h4 className="text-sm font-medium text-success-900">Déjà évalué</h4>
+                                </div>
+                                <div className="text-xs text-success-700 space-y-1">
+                                  {selectedProject.evaluationDate && (
+                                    <p>Date: {new Date(selectedProject.evaluationDate).toLocaleDateString()}</p>
+                                  )}
+                                  {selectedProject.totalEvaluationScore !== undefined && (
+                                    <p>Score total: {selectedProject.totalEvaluationScore}%</p>
+                                  )}
+                                  <p className="italic mt-2">Les champs ci-contre sont pré-remplis avec les valeurs existantes. Vous pouvez les modifier si nécessaire.</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </div>
@@ -1003,6 +1023,7 @@ const EvaluationPage: React.FC = () => {
                         </CardHeader>
                         <Formik
                           initialValues={initialValues}
+                          enableReinitialize={true}
                           validationSchema={createEvaluationSchema(program)}
                           onSubmit={handleSubmitEvaluation}
                         >
