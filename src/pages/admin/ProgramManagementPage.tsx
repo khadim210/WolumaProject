@@ -578,25 +578,41 @@ const ProgramManagementPage: React.FC = () => {
                               <p className="text-sm text-blue-700 mb-3">
                                 Partagez ce lien pour permettre aux candidats de soumettre directement leur projet à ce programme. Ils pourront remplir le formulaire et créer un compte après la soumission.
                               </p>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  readOnly
-                                  value={`${window.location.origin}/submit/${editingProgram.id}`}
-                                  className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md text-sm font-mono text-blue-900"
-                                  onClick={(e) => e.currentTarget.select()}
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(`${window.location.origin}/submit/${editingProgram.id}`);
-                                    alert('Lien copié dans le presse-papier!');
-                                  }}
-                                  className="shrink-0"
-                                >
-                                  Copier
-                                </Button>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    value={`${window.location.origin}/submit/${editingProgram.id}`}
+                                    className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md text-sm font-mono text-blue-900 select-all"
+                                    onClick={(e) => e.currentTarget.select()}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const link = `${window.location.origin}/submit/${editingProgram.id}`;
+                                      navigator.clipboard.writeText(link);
+                                      alert('Lien copié dans le presse-papier!');
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    Copier
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      const link = `/submit/${editingProgram.id}`;
+                                      window.open(link, '_blank');
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    Tester
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-blue-600">
+                                  💡 Cliquez sur "Tester" pour ouvrir le formulaire dans un nouvel onglet
+                                </p>
                               </div>
                             </div>
                           )}
