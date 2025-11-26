@@ -966,20 +966,6 @@ const ParametersPage: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Seuil d'auto-approbation (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.autoApprovalThreshold}
-                        onChange={(e) => handleInputChange('autoApprovalThreshold', parseInt(e.target.value))}
-                        min="0"
-                        max="100"
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Taille max fichier (MB)
                       </label>
                       <input

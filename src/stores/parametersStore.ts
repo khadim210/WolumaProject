@@ -36,7 +36,6 @@ export interface SystemParameters {
   // System
   maxProjectsPerUser: number;
   evaluationDeadlineDays: number;
-  autoApprovalThreshold: number;
   maxFileSize: number;
   enableMaintenanceMode: boolean;
   enableRegistration: boolean;
@@ -142,7 +141,6 @@ const defaultParameters: SystemParameters = {
   // System
   maxProjectsPerUser: 10,
   evaluationDeadlineDays: 30,
-  autoApprovalThreshold: 85,
   maxFileSize: 10,
   enableMaintenanceMode: false,
   enableRegistration: true,

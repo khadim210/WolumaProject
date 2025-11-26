@@ -88,7 +88,6 @@ export class ParametersService {
 
       maxProjectsPerUser: data.max_projects_per_user || 10,
       evaluationDeadlineDays: data.evaluation_deadline_days || 30,
-      autoApprovalThreshold: data.auto_approval_threshold || 85,
       maxFileSize: data.max_file_size || 10,
       enableMaintenanceMode: data.enable_maintenance_mode || false,
       enableRegistration: data.enable_registration || true,
@@ -161,7 +160,6 @@ export class ParametersService {
 
     if (params.maxProjectsPerUser !== undefined) dbData.max_projects_per_user = params.maxProjectsPerUser;
     if (params.evaluationDeadlineDays !== undefined) dbData.evaluation_deadline_days = params.evaluationDeadlineDays;
-    if (params.autoApprovalThreshold !== undefined) dbData.auto_approval_threshold = params.autoApprovalThreshold;
     if (params.maxFileSize !== undefined) dbData.max_file_size = params.maxFileSize;
     if (params.enableMaintenanceMode !== undefined) dbData.enable_maintenance_mode = params.enableMaintenanceMode;
     if (params.enableRegistration !== undefined) dbData.enable_registration = params.enableRegistration;
