@@ -139,32 +139,6 @@ export class ParametersService {
     if (params.defaultLanguage !== undefined) dbData.default_language = params.defaultLanguage;
     if (params.timezone !== undefined) dbData.timezone = params.timezone;
 
-    if (params.sessionTimeout !== undefined) dbData.session_timeout = params.sessionTimeout;
-    if (params.maxLoginAttempts !== undefined) dbData.max_login_attempts = params.maxLoginAttempts;
-    if (params.requireEmailVerification !== undefined) dbData.require_email_verification = params.requireEmailVerification;
-    if (params.enableTwoFactor !== undefined) dbData.enable_two_factor = params.enableTwoFactor;
-    if (params.enablePasswordPolicy !== undefined) dbData.enable_password_policy = params.enablePasswordPolicy;
-
-    if (params.emailNotifications !== undefined) dbData.email_notifications = params.emailNotifications;
-    if (params.notifyNewSubmissions !== undefined) dbData.notify_new_submissions = params.notifyNewSubmissions;
-    if (params.notifyStatusChanges !== undefined) dbData.notify_status_changes = params.notifyStatusChanges;
-    if (params.notifyDeadlines !== undefined) dbData.notify_deadlines = params.notifyDeadlines;
-    if (params.smtpServer !== undefined) dbData.smtp_server = params.smtpServer;
-    if (params.smtpPort !== undefined) dbData.smtp_port = params.smtpPort;
-    if (params.smtpSecure !== undefined) dbData.smtp_secure = params.smtpSecure;
-
-    if (params.defaultTheme !== undefined) dbData.default_theme = params.defaultTheme;
-    if (params.showBranding !== undefined) dbData.show_branding = params.showBranding;
-    if (params.primaryColor !== undefined) dbData.primary_color = params.primaryColor;
-    if (params.secondaryColor !== undefined) dbData.secondary_color = params.secondaryColor;
-
-    if (params.maxProjectsPerUser !== undefined) dbData.max_projects_per_user = params.maxProjectsPerUser;
-    if (params.evaluationDeadlineDays !== undefined) dbData.evaluation_deadline_days = params.evaluationDeadlineDays;
-    if (params.maxFileSize !== undefined) dbData.max_file_size = params.maxFileSize;
-    if (params.enableMaintenanceMode !== undefined) dbData.enable_maintenance_mode = params.enableMaintenanceMode;
-    if (params.enableRegistration !== undefined) dbData.enable_registration = params.enableRegistration;
-    if (params.enableBackups !== undefined) dbData.enable_backups = params.enableBackups;
-
     if (params.aiProvider !== undefined) dbData.ai_provider = params.aiProvider;
     if (params.openaiApiKey !== undefined) dbData.openai_api_key = params.openaiApiKey;
     if (params.openaiModel !== undefined) dbData.openai_model = params.openaiModel;
