@@ -297,7 +297,7 @@ ${evaluationCriteria.map(c => `    "${c.name}": [score_entre_0_et_${c.maxScore}]
       "Risque 2: ..."
     ],
     "observations": {
-${evaluationCriteria.map(c => `      "${c.name}": "Observation détaillée sur ce critère (2-3 phrases)"`).join(',\n')}
+${evaluationCriteria.map(c => `      "${c.name}": "Commentaire détaillé justifiant la note attribuée pour ce critère. MINIMUM 150 MOTS REQUIS. Expliquez en profondeur les raisons de la notation, en vous appuyant sur des éléments concrets du dossier (données financières, stratégie, marché, équipe, innovation, etc.). Analysez les forces et faiblesses spécifiques à ce critère."`).join(',\n')}
     }
   }
 }
@@ -306,6 +306,23 @@ ${evaluationCriteria.map(c => `      "${c.name}": "Observation détaillée sur c
 - "selected": Score global ≥ 80% (Projet recommandé pour financement)
 - "pre_selected": Score global ≥ 60% (Projet intéressant, nécessite ajustements)
 - "rejected": Score global < 60% (Projet non recommandé)
+
+=== EXIGENCES DE QUALITÉ ===
+
+IMPORTANT - COMMENTAIRES PAR CRITÈRE:
+Chaque commentaire dans "observations" DOIT contenir AU MINIMUM 150 MOTS.
+- Justifiez la note attribuée avec des arguments détaillés
+- Citez des éléments concrets du dossier (chiffres, faits, documents)
+- Analysez en profondeur les points forts et faibles
+- Proposez des pistes d'amélioration si pertinent
+- Utilisez un langage professionnel et structuré
+
+Structure recommandée pour chaque commentaire:
+1. Rappel du critère et note attribuée
+2. Justification basée sur les documents et données
+3. Analyse des forces identifiées
+4. Analyse des faiblesses ou risques
+5. Conclusion et recommandations
 
 Soyez rigoureux, objectif et professionnel dans votre analyse.`;
 
