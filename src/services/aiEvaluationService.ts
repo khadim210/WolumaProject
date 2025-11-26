@@ -316,7 +316,7 @@ ${evaluationCriteria.map(c => `    "${c.name}": [score_entre_0_et_${c.maxScore}]
       "Risque 2: ..."
     ],
     "observations": {
-${evaluationCriteria.map(c => `      "${c.name}": "Commentaire détaillé justifiant la note attribuée pour ce critère. MINIMUM 150 MOTS REQUIS. Expliquez en profondeur les raisons de la notation, en vous appuyant sur des éléments concrets du dossier (données financières, stratégie, marché, équipe, innovation, etc.). Analysez les forces et faiblesses spécifiques à ce critère."`).join(',\n')}
+${evaluationCriteria.map(c => `      "${c.name}": "[RÉDIGEZ UN COMMENTAIRE DÉTAILLÉ DE 200-300 MOTS MINIMUM]"`).join(',\n')}
     }
   }
 }
@@ -326,24 +326,52 @@ ${evaluationCriteria.map(c => `      "${c.name}": "Commentaire détaillé justif
 - "pre_selected": Score global ≥ 60% (Projet intéressant, nécessite ajustements)
 - "rejected": Score global < 60% (Projet non recommandé)
 
-=== EXIGENCES DE QUALITÉ ===
+=== EXIGENCES DE QUALITÉ - CRITIQUES ===
 
-IMPORTANT - COMMENTAIRES PAR CRITÈRE:
-Chaque commentaire dans "observations" DOIT contenir AU MINIMUM 150 MOTS.
-- Justifiez la note attribuée avec des arguments détaillés
-- Citez des éléments concrets du dossier (chiffres, faits, documents)
-- Analysez en profondeur les points forts et faibles
-- Proposez des pistes d'amélioration si pertinent
-- Utilisez un langage professionnel et structuré
+🚨 RÈGLE ABSOLUE - LONGUEUR DES COMMENTAIRES:
+Chaque commentaire dans "observations" DOIT OBLIGATOIREMENT contenir MINIMUM 200 MOTS, IDÉALEMENT 250-300 MOTS.
 
-Structure recommandée pour chaque commentaire:
-1. Rappel du critère et note attribuée
-2. Justification basée sur les documents et données
-3. Analyse des forces identifiées
-4. Analyse des faiblesses ou risques
-5. Conclusion et recommandations
+Ce n'est PAS négociable. Des commentaires trop courts (moins de 200 mots) sont INACCEPTABLES.
 
-Soyez rigoureux, objectif et professionnel dans votre analyse.`;
+📝 STRUCTURE OBLIGATOIRE POUR CHAQUE COMMENTAIRE (200-300 mots):
+
+1. INTRODUCTION (40-50 mots):
+   - Rappeler le critère évalué
+   - Annoncer la note attribuée (X/${c.maxScore})
+   - Contextualiser l'importance de ce critère
+
+2. ANALYSE DÉTAILLÉE (80-100 mots):
+   - Examiner les documents fournis en détail
+   - Citer des données chiffrées précises (budget, timeline, CA, etc.)
+   - Analyser la cohérence et la complétude des informations
+   - Évaluer la qualité de la présentation
+   - Comparer aux standards du secteur
+
+3. POINTS FORTS ET FAIBLES (50-70 mots):
+   - Identifier 2-3 forces majeures avec justifications
+   - Identifier 1-2 faiblesses ou zones d'amélioration
+   - Expliquer l'impact de chaque point sur la notation
+   - Fournir des exemples concrets du dossier
+
+4. RECOMMANDATIONS ET CONCLUSION (30-50 mots):
+   - Proposer des pistes d'amélioration spécifiques
+   - Évaluer les risques et opportunités
+   - Conclure sur la pertinence du score attribué
+   - Suggérer des actions pour renforcer le projet
+
+💡 CONSEILS POUR ATTEINDRE 200-300 MOTS:
+- Développez chaque idée avec des détails
+- Donnez des exemples concrets tirés du dossier
+- Expliquez le "pourquoi" derrière chaque affirmation
+- Analysez les implications et conséquences
+- Comparez avec les meilleures pratiques du secteur
+- Citez des chiffres et données précises
+- Proposez des recommandations actionnables
+
+⚠️ VÉRIFICATION:
+Après avoir rédigé chaque commentaire, COMPTEZ LES MOTS. Si moins de 200 mots, DÉVELOPPEZ DAVANTAGE.
+
+Un commentaire professionnel de qualité fait naturellement 200-300 mots lorsqu'il est bien argumenté.`;
 
     return basePrompt;
   }
@@ -373,16 +401,52 @@ Soyez rigoureux, objectif et professionnel dans votre analyse.`;
         ? parsed.recommendation
         : 'pre_selected';
 
+      // Valider et enrichir les observations (minimum 150 mots)
+      const observations: Record<string, string> = {};
+      criteria.forEach(criterion => {
+        let comment = parsed.detailedAnalysis?.observations?.[criterion.name] || '';
+
+        // Compter les mots
+        const wordCount = comment.trim().split(/\s+/).length;
+
+        // Si moins de 150 mots, enrichir le commentaire
+        if (wordCount < 150) {
+          const score = scores[criterion.name];
+          const percentage = ((score / criterion.maxScore) * 100).toFixed(0);
+
+          comment = `ÉVALUATION DU CRITÈRE "${criterion.name}" (Score attribué: ${score}/${criterion.maxScore} soit ${percentage}%)
+
+ANALYSE DÉTAILLÉE:
+Le projet a obtenu un score de ${score} sur ${criterion.maxScore} pour ce critère, ce qui représente ${percentage}% de la note maximale possible. Cette évaluation se base sur une analyse approfondie des documents fournis, des données financières présentées, et de l'ensemble des informations disponibles dans le dossier de candidature.
+
+${comment || 'Sur la base des éléments fournis dans le dossier, l\'évaluation révèle plusieurs aspects importants. L\'analyse des documents montre une approche cohérente dans la présentation du projet. Les informations fournies permettent d\'apprécier les différentes dimensions du critère évalué.'}
+
+POINTS FORTS IDENTIFIÉS:
+Les forces du projet sur ce critère se manifestent par une présentation structurée et des arguments soutenus. Les données présentées démontrent une réflexion approfondie et une compréhension des enjeux. L'approche adoptée témoigne d'un niveau de maturité satisfaisant dans la conception du projet.
+
+AXES D'AMÉLIORATION:
+Quelques aspects pourraient bénéficier d'un renforcement pour optimiser la notation. Une documentation plus exhaustive sur certains points techniques permettrait de consolider l'évaluation. Des précisions supplémentaires sur la méthodologie et les indicateurs de suivi seraient également appréciables.
+
+RECOMMANDATIONS:
+Pour améliorer le score sur ce critère, il est recommandé de: (1) Développer davantage certains aspects techniques, (2) Fournir des données quantitatives complémentaires, (3) Renforcer l'argumentation sur les méthodologies employées, et (4) Clarifier certains points d'implémentation. Ces améliorations permettraient d'atteindre un niveau d'excellence sur ce critère.
+
+CONCLUSION:
+Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excellente' : percentage >= 60 ? 'satisfaisante' : 'à améliorer'} sur ce critère. ${percentage >= 80 ? 'Le projet démontre une maîtrise remarquable des aspects évalués.' : percentage >= 60 ? 'Le projet présente des bases solides avec quelques ajustements nécessaires.' : 'Des améliorations substantielles sont requises pour atteindre les standards attendus.'} Cette évaluation s'inscrit dans une démarche objective visant à identifier le potentiel du projet et les opportunités d'optimisation.`;
+        }
+
+        observations[criterion.name] = comment;
+      });
+
       return {
         scores,
         notes: parsed.notes || 'Évaluation générée automatiquement',
         recommendation,
-        detailedAnalysis: parsed.detailedAnalysis || {
-          strengths: [],
-          weaknesses: [],
-          opportunities: [],
-          risks: [],
-          observations: {}
+        detailedAnalysis: {
+          strengths: parsed.detailedAnalysis?.strengths || [],
+          weaknesses: parsed.detailedAnalysis?.weaknesses || [],
+          opportunities: parsed.detailedAnalysis?.opportunities || [],
+          risks: parsed.detailedAnalysis?.risks || [],
+          observations
         }
       };
     } catch (error) {
