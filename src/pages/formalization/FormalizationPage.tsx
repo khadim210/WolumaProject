@@ -38,7 +38,7 @@ type TabType = 'documents' | 'support' | 'financial' | 'archive';
 const FormalizationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const { projects } = useProjectStore();
+  const { projects, fetchProjects } = useProjectStore();
   const { programs, fetchPrograms } = useProgramStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('documents');
@@ -57,7 +57,8 @@ const FormalizationPage: React.FC = () => {
 
   useEffect(() => {
     fetchPrograms();
-  }, [fetchPrograms]);
+    fetchProjects();
+  }, [fetchPrograms, fetchProjects]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -231,18 +232,42 @@ const FormalizationPage: React.FC = () => {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Sélectionner un projet
         </label>
-        <select
-          value={selectedProject}
-          onChange={(e) => setSelectedProject(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">-- Choisir un projet --</option>
-          {selectedProjectsData.map(project => (
-            <option key={project.id} value={project.id}>
-              {project.title}
-            </option>
-          ))}
-        </select>
+        {selectedProjectsData.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Aucun projet sélectionné disponible
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Les projets doivent avoir le statut "Sélectionné" ou "Formalisation" pour apparaître ici.
+                </p>
+                <div className="bg-blue-50 rounded-lg p-4 text-left max-w-md mx-auto">
+                  <p className="text-sm text-blue-900 font-medium mb-2">Pour voir des projets ici :</p>
+                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Allez dans la page "Évaluation"</li>
+                    <li>Évaluez et sélectionnez des projets</li>
+                    <li>Les projets sélectionnés apparaîtront ici</li>
+                  </ol>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">-- Choisir un projet ({selectedProjectsData.length} disponible{selectedProjectsData.length > 1 ? 's' : ''}) --</option>
+            {selectedProjectsData.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.title} ({project.status})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {selectedProject && (
