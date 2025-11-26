@@ -149,7 +149,7 @@ Pour tester l'éligibilité:
 
 ### Providers Supportés
 
-1. **OpenAI** (GPT-4, GPT-3.5-turbo)
+1. **OpenAI** (GPT-5, GPT-4o, GPT-4, GPT-3.5-turbo)
 2. **Anthropic** (Claude 3)
 3. **Google** (Gemini Pro)
 4. **Mistral AI**

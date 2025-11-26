@@ -38,7 +38,7 @@
 
    ✅ Onglet Créé: "IA & APIs" dans Paramètres
    ✅ 7 Providers Supportés:
-      • OpenAI (GPT-4, GPT-3.5-turbo)
+      • OpenAI (GPT-5, GPT-4o, GPT-4, GPT-3.5-turbo)
       • Anthropic (Claude 3)
       • Google (Gemini Pro)
       • Mistral AI
