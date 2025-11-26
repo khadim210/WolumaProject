@@ -1,4 +1,5 @@
 import { supabase } from '../services/supabaseService';
+import mammoth from 'mammoth';
 
 export interface FileContent {
   fileName: string;
@@ -140,7 +141,32 @@ const extractPDFContent = async (blob: Blob): Promise<string> => {
 };
 
 const extractWordContent = async (blob: Blob, fileName: string): Promise<string> => {
-  return `[Document Word: ${fileName}] - L'extraction de contenu Word nécessite une bibliothèque spécialisée. Le fichier a été soumis et est disponible pour analyse manuelle.`;
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+
+    const result = await mammoth.extractRawText({ arrayBuffer });
+
+    if (result.value && result.value.trim().length > 0) {
+      let extractedText = result.value.trim();
+
+      if (result.messages && result.messages.length > 0) {
+        const warnings = result.messages
+          .filter(m => m.type === 'warning')
+          .map(m => m.message);
+
+        if (warnings.length > 0) {
+          extractedText += '\n\n[Note: Certains éléments du document n\'ont pas pu être extraits]';
+        }
+      }
+
+      return extractedText;
+    } else {
+      return `[Document Word: ${fileName}] - Le document semble vide ou le contenu n'a pas pu être extrait.`;
+    }
+  } catch (error) {
+    console.error('Erreur extraction Word:', error);
+    return `[Document Word: ${fileName}] - Erreur lors de l'extraction: ${error instanceof Error ? error.message : 'Erreur inconnue'}`;
+  }
 };
 
 const extractExcelContent = async (blob: Blob, fileName: string): Promise<string> => {
@@ -184,6 +210,6 @@ export const formatFileContentForPrompt = (fileContents: FileContent[]): string 
 };
 
 export const shouldExtractContent = (fileType: string): boolean => {
-  const extractableTypes = ['text', 'csv', 'json', 'xml', 'pdf'];
+  const extractableTypes = ['text', 'csv', 'json', 'xml', 'pdf', 'doc', 'docx'];
   return extractableTypes.includes(fileType);
 };

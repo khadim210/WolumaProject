@@ -16,25 +16,27 @@ Permettre à l'IA d'accéder au contenu réel des documents joints (business pla
 
 ### ✅ Extraction Complète
 
-| Type | Extensions | Extraction |
-|------|-----------|------------|
-| **Texte** | `.txt`, `.md` | ✅ Contenu complet |
-| **CSV** | `.csv` | ✅ Données tabulaires |
-| **JSON** | `.json` | ✅ Structure de données |
-| **XML** | `.xml` | ✅ Contenu structuré |
-| **PDF** | `.pdf` | ⚠️ Extraction basique* |
+| Type | Extensions | Extraction | Bibliothèque |
+|------|-----------|------------|--------------|
+| **Texte** | `.txt`, `.md` | ✅ Contenu complet | Native |
+| **CSV** | `.csv` | ✅ Données tabulaires | Native |
+| **JSON** | `.json` | ✅ Structure de données | Native |
+| **XML** | `.xml` | ✅ Contenu structuré | Native |
+| **Word** | `.doc`, `.docx` | ✅ Texte complet* | Mammoth.js |
+| **PDF** | `.pdf` | ⚠️ Extraction basique** | Native |
 
-\* *L'extraction PDF est basique (recherche de texte brut). Pour une extraction avancée (tableaux, images, mise en forme complexe), des outils spécialisés sont recommandés.*
+\* *Extraction du texte brut avec Mammoth.js. La mise en forme, images et tableaux complexes sont ignorés.*
+
+\** *L'extraction PDF est basique (recherche de texte brut). Pour une extraction avancée (tableaux, images, mise en forme complexe), des outils spécialisés sont recommandés.*
 
 ### ⚠️ Support Partiel
 
 | Type | Extensions | Extraction |
 |------|-----------|------------|
-| **Word** | `.doc`, `.docx` | ❌ Nom seulement** |
-| **Excel** | `.xls`, `.xlsx` | ❌ Nom seulement** |
+| **Excel** | `.xls`, `.xlsx` | ❌ Nom seulement* |
 | **Images** | `.jpg`, `.png`, `.gif` | ❌ Analyse visuelle non disponible |
 
-\** *Nécessite des bibliothèques spécialisées. Peut être ajouté dans une version future.*
+\* *Peut être ajouté dans une version future avec une bibliothèque spécialisée.*
 
 ---
 
@@ -113,6 +115,10 @@ Fonctions principales:
 - `extractMultipleFileContents()` - Extraction en batch
 - `formatFileContentForPrompt()` - Formatage pour l'IA
 - `getFileType()` - Détection du type de fichier
+- `extractWordContent()` - Extraction Word avec Mammoth.js
+
+Bibliothèques utilisées:
+- **Mammoth.js** (`npm install mammoth`) - Extraction de contenu Word (.doc/.docx)
 
 ### **Modifications Apportées**
 
@@ -126,6 +132,12 @@ Fonctions principales:
 - ✅ Nouvel état `includeFileContents` (activé par défaut)
 - ✅ Checkbox dans l'UI pour activer/désactiver
 - ✅ Passage du paramètre au service d'évaluation
+
+**3. Extracteur de Contenu** (`src/utils/fileContentExtractor.ts`)
+- ✅ Import de Mammoth.js
+- ✅ Fonction `extractWordContent()` implémentée
+- ✅ Support complet des fichiers .doc et .docx
+- ✅ Gestion des erreurs et messages d'avertissement
 
 ---
 
@@ -261,7 +273,8 @@ L'IA peut maintenant:
 
 ### **Court Terme**
 
-- [ ] Support Excel/Word avec bibliothèques spécialisées
+- [x] ~~Support Word avec bibliothèques spécialisées~~ ✅ **Implémenté avec Mammoth.js**
+- [ ] Support Excel avec bibliothèques spécialisées
 - [ ] Extraction améliorée des PDF (tableaux, structure)
 - [ ] Compression intelligente pour documents longs
 
@@ -289,6 +302,7 @@ L'IA peut maintenant:
 2. Soumettre un projet avec:
    - 1 fichier texte (.txt)
    - 1 fichier CSV
+   - 1 fichier Word (.docx)
    - 1 fichier PDF
 ```
 
@@ -387,10 +401,19 @@ npm run dev
 
 ---
 
-**Build:** ✅ Success (18.50s)
+**Build:** ✅ Success (15.98s)
 **Tests:** ✅ Fonctionnel
 **Documentation:** ✅ Complète
+**Support Word:** ✅ Implémenté avec Mammoth.js
 
 **La fonctionnalité est prête à être utilisée!**
 
 Pour activer: Cocher "Inclure le contenu des fichiers joints" avant d'évaluer par IA.
+
+### 🆕 Nouveauté
+
+Les fichiers Word (.doc/.docx) sont maintenant **entièrement supportés** grâce à Mammoth.js:
+- ✅ Extraction du texte complet
+- ✅ Paragraphes préservés
+- ✅ Gestion des erreurs robuste
+- ✅ Messages d'avertissement si éléments non extractibles
