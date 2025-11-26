@@ -1,3 +1,5 @@
+import { extractMultipleFileContents, formatFileContentForPrompt } from '../utils/fileContentExtractor';
+
 export type AIProvider = 'gemini' | 'chatgpt' | 'mock';
 
 export interface AIEvaluationRequest {
@@ -24,6 +26,7 @@ export interface AIEvaluationRequest {
     partnerName: string;
     budgetRange: string;
   };
+  includeFileContents?: boolean;
 }
 
 export interface AIEvaluationResponse {
@@ -66,7 +69,7 @@ class AIEvaluationService {
       throw new Error('Clé API Gemini manquante');
     }
 
-    const prompt = this.buildPrompt(request);
+    const prompt = await this.buildPrompt(request);
 
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${this.apiKey}`, {
@@ -108,7 +111,7 @@ class AIEvaluationService {
       throw new Error('Clé API OpenAI manquante');
     }
 
-    const prompt = this.buildPrompt(request);
+    const prompt = await this.buildPrompt(request);
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -157,7 +160,7 @@ class AIEvaluationService {
     }
   }
 
-  private buildPrompt(request: AIEvaluationRequest): string {
+  private async buildPrompt(request: AIEvaluationRequest): Promise<string> {
     const { projectData, evaluationCriteria } = request;
 
     let basePrompt = `
@@ -172,6 +175,8 @@ Chiffre d'Affaires (Budget): ${projectData.budget.toLocaleString()} FCFA
 Durée d'existence: ${projectData.timeline}
 Date de soumission: ${projectData.submissionDate || new Date().toLocaleDateString('fr-FR')}`;
 
+    const filesList: Array<{ path: string; name: string }> = [];
+
     // Ajouter les données du formulaire si disponibles
     if (projectData.formData && Object.keys(projectData.formData).length > 0) {
       basePrompt += `
@@ -183,12 +188,33 @@ INFORMATIONS ADDITIONNELLES DU FORMULAIRE:`;
           // C'est un champ fichier
           const files = value as any[];
           basePrompt += `\n- ${key}: ${files.length} fichier(s) joint(s) (${files.map(f => f.name).join(', ')})`;
+
+          // Collecter les fichiers pour extraction de contenu
+          if (request.includeFileContents) {
+            files.forEach(f => {
+              filesList.push({ path: f.path, name: f.name });
+            });
+          }
         } else if (value !== null && value !== undefined && value !== '') {
           // Autres types de champs
           const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
           basePrompt += `\n- ${key}: ${displayValue}`;
         }
       });
+    }
+
+    // Extraire et ajouter le contenu des fichiers si demandé
+    if (request.includeFileContents && filesList.length > 0) {
+      try {
+        const fileContents = await extractMultipleFileContents(filesList);
+        const formattedContents = formatFileContentForPrompt(fileContents);
+        basePrompt += formattedContents;
+      } catch (error) {
+        console.error('Erreur lors de l\'extraction du contenu des fichiers:', error);
+        basePrompt += `
+
+[Note: L'extraction du contenu des fichiers a échoué. Les fichiers sont disponibles mais leur contenu n'a pas pu être analysé automatiquement.]`;
+      }
     }
 
     // Ajouter le contexte du programme si disponible

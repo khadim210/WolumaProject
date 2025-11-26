@@ -46,7 +46,8 @@ const EvaluationPage: React.FC = () => {
   } | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [aiAnalysisCache, setAiAnalysisCache] = useState<Record<string, any>>({});
-  
+  const [includeFileContents, setIncludeFileContents] = useState(true);
+
   if (!user || !checkPermission('evaluation.evaluate')) {
     return (
       <div className="text-center py-12">
@@ -165,7 +166,8 @@ const EvaluationPage: React.FC = () => {
               description: criterion.description,
               maxScore: criterion.maxScore,
               weight: criterion.weight
-            }))
+            })),
+            includeFileContents
           };
 
           const response = await aiEvaluationService.evaluateProject(request);
@@ -654,15 +656,27 @@ const EvaluationPage: React.FC = () => {
                     </span>
                   </div>
                   
-                  <Button
-                    variant="secondary"
-                    onClick={handleBulkAIEvaluation}
-                    disabled={selectedProjects.length === 0 || isBulkEvaluating}
-                    isLoading={isBulkEvaluating}
-                    leftIcon={<Sparkles className="h-4 w-4" />}
-                  >
-                    {isBulkEvaluating ? 'Évaluation en cours...' : 'Évaluer par IA'}
-                  </Button>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeFileContents}
+                        onChange={(e) => setIncludeFileContents(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={isBulkEvaluating}
+                      />
+                      <span>Inclure le contenu des fichiers joints</span>
+                    </label>
+                    <Button
+                      variant="secondary"
+                      onClick={handleBulkAIEvaluation}
+                      disabled={selectedProjects.length === 0 || isBulkEvaluating}
+                      isLoading={isBulkEvaluating}
+                      leftIcon={<Sparkles className="h-4 w-4" />}
+                    >
+                      {isBulkEvaluating ? 'Évaluation en cours...' : 'Évaluer par IA'}
+                    </Button>
+                  </div>
                 </div>
                 
                 {bulkEvaluationProgress && (
