@@ -17,7 +17,9 @@ import {
   Target,
   FileText,
   Lock,
-  Unlock
+  Unlock,
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -74,6 +76,7 @@ const ProgramManagementPage: React.FC = () => {
   const [editingProgram, setEditingProgram] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('general');
   const [lastInitializedFormId, setLastInitializedFormId] = useState<string | null>(null);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
 
   const {
     programs,
@@ -175,6 +178,22 @@ const ProgramManagementPage: React.FC = () => {
     }
   };
 
+  const findDuplicatePrograms = () => {
+    const duplicates: { [key: string]: any[] } = {};
+
+    programs.forEach(program => {
+      const key = program.name.toLowerCase().trim();
+      if (!duplicates[key]) {
+        duplicates[key] = [];
+      }
+      duplicates[key].push(program);
+    });
+
+    return Object.values(duplicates).filter(group => group.length > 1);
+  };
+
+  const duplicateGroups = findDuplicatePrograms();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -190,17 +209,28 @@ const ProgramManagementPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestion des programmes</h1>
           <p className="text-gray-600">Créez et gérez les programmes de financement</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingProgram(null);
-            setShowCreateModal(true);
-            setActiveTab('general');
-            setLastInitializedFormId(null);
-          }}
-          leftIcon={<Plus className="h-4 w-4" />}
-        >
-          Nouveau programme
-        </Button>
+        <div className="flex gap-3">
+          {duplicateGroups.length > 0 && (
+            <Button
+              variant="warning"
+              onClick={() => setShowDuplicatesModal(true)}
+              leftIcon={<AlertTriangle className="h-4 w-4" />}
+            >
+              {duplicateGroups.length} doublons détectés
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setEditingProgram(null);
+              setShowCreateModal(true);
+              setActiveTab('general');
+              setLastInitializedFormId(null);
+            }}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            Nouveau programme
+          </Button>
+        </div>
       </div>
 
       {/* Liste des programmes */}
@@ -999,6 +1029,149 @@ const ProgramManagementPage: React.FC = () => {
                     );
                   }}
                 </Formik>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal des doublons */}
+      {showDuplicatesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Programmes en double détectés</h2>
+                  <p className="text-gray-600 mt-1">
+                    {duplicateGroups.length} groupe(s) de programmes avec des noms similaires ont été trouvés
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDuplicatesModal(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <span className="sr-only">Fermer</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {duplicateGroups.map((group, groupIndex) => (
+                <div key={groupIndex} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Copy className="h-5 w-5 text-amber-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Groupe {groupIndex + 1}: "{group[0].name}" ({group.length} occurrences)
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {group.map((program) => {
+                      const partner = partners.find(p => p.id === program.partnerId);
+                      const manager = managers.find(m => m.id === program.managerId);
+
+                      return (
+                        <div key={program.id} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-semibold text-gray-900">{program.name}</h4>
+                                {program.isLocked && (
+                                  <Badge variant="warning" className="flex items-center gap-1">
+                                    <Lock className="h-3 w-3" />
+                                    Verrouillé
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">{program.description}</p>
+
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <span className="text-gray-500">Partenaire:</span>{' '}
+                                  <span className="font-medium">{partner?.name || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Budget:</span>{' '}
+                                  <span className="font-medium">
+                                    {formatCurrency(program.budget, program.currency || 'XOF')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Gestionnaire:</span>{' '}
+                                  <span className="font-medium">{manager?.name || 'Non assigné'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Période:</span>{' '}
+                                  <span className="font-medium">
+                                    {new Date(program.startDate).toLocaleDateString()} - {new Date(program.endDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Créé le:</span>{' '}
+                                  <span className="font-medium">
+                                    {new Date(program.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">ID:</span>{' '}
+                                  <span className="font-mono text-xs">{program.id.substring(0, 8)}...</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setShowDuplicatesModal(false);
+                                  handleEditProgram(program);
+                                }}
+                                leftIcon={<Edit className="h-3 w-3" />}
+                              >
+                                Modifier
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${program.name}" ?`)) {
+                                    handleDeleteProgram(program.id);
+                                  }
+                                }}
+                                leftIcon={<Trash2 className="h-3 w-3" />}
+                              >
+                                Supprimer
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>Conseil:</strong> Comparez les dates de création, les budgets et les partenaires pour identifier
+                      les vrais doublons. Conservez le plus récent ou celui avec le plus d'informations.
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  Total: {duplicateGroups.reduce((sum, group) => sum + group.length, 0)} programmes dans {duplicateGroups.length} groupe(s)
+                </p>
+                <Button variant="outline" onClick={() => setShowDuplicatesModal(false)}>
+                  Fermer
+                </Button>
               </div>
             </div>
           </div>
