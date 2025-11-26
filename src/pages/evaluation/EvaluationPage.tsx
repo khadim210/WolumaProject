@@ -76,7 +76,21 @@ const EvaluationPage: React.FC = () => {
 
       if (provider === 'chatgpt') {
         apiKey = parameters.openaiApiKey;
-        model = parameters.openaiModel || 'gpt-4';
+
+        const validModels: Record<string, string> = {
+          'gpt-5': 'gpt-4o',
+          'gpt-4o': 'gpt-4o',
+          'gpt-4': 'gpt-4',
+          'gpt-4-turbo': 'gpt-4-turbo-preview',
+          'gpt-4-turbo-preview': 'gpt-4-turbo-preview',
+          'gpt-3.5-turbo': 'gpt-3.5-turbo',
+          'gpt-4o-mini': 'gpt-4o-mini'
+        };
+
+        const configuredModel = parameters.openaiModel || 'gpt-4';
+        model = validModels[configuredModel] || validModels[configuredModel.toLowerCase()] || 'gpt-4o-mini';
+
+        console.log(`[AI Config] Configured model: "${parameters.openaiModel}" → Using: "${model}"`);
       } else if (provider === 'gemini') {
         apiKey = parameters.googleApiKey;
       }

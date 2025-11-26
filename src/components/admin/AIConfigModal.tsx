@@ -35,7 +35,7 @@ const AIConfigModal: React.FC<AIConfigModalProps> = ({ isOpen, onClose }) => {
     {
       id: 'chatgpt' as AIProvider,
       name: 'OpenAI ChatGPT',
-      description: 'API OpenAI GPT-4o-mini',
+      description: 'API OpenAI (GPT-4o, GPT-4, GPT-3.5)',
       icon: <Bot className="h-5 w-5" />,
       requiresApiKey: true,
       color: 'text-green-600'

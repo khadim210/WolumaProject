@@ -284,7 +284,7 @@ const ParametersPage: React.FC = () => {
                       onChange={(e) => handleInputChange('aiProvider', e.target.value)}
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                     >
-                      <option value="openai">OpenAI (GPT-5, GPT-4, GPT-3.5)</option>
+                      <option value="openai">OpenAI (GPT-4o, GPT-4, GPT-3.5)</option>
                       <option value="anthropic">Anthropic (Claude)</option>
                       <option value="google">Google (Gemini)</option>
                       <option value="mistral">Mistral AI</option>
@@ -326,16 +326,19 @@ const ParametersPage: React.FC = () => {
                           Modèle
                         </label>
                         <select
-                          value={formData.openaiModel || 'gpt-4'}
+                          value={formData.openaiModel || 'gpt-4o-mini'}
                           onChange={(e) => handleInputChange('openaiModel', e.target.value)}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         >
-                          <option value="gpt-5">GPT-5 (Dernier modèle)</option>
-                          <option value="gpt-4o">GPT-4o (Optimisé)</option>
-                          <option value="gpt-4">GPT-4 (Recommandé)</option>
-                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Économique)</option>
+                          <option value="gpt-4o">GPT-4o (Recommandé - Rapide et performant)</option>
+                          <option value="gpt-4o-mini">GPT-4o Mini (Économique)</option>
+                          <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
+                          <option value="gpt-4">GPT-4 (Standard)</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
                         </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          GPT-4o est recommandé pour un bon équilibre performance/coût. <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Voir les modèles</a>
+                        </p>
                       </div>
 
                       <div>

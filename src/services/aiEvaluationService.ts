@@ -151,13 +151,19 @@ class AIEvaluationService {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || 'Erreur inconnue';
+
         if (response.status === 401) {
           throw new Error('Clé API OpenAI invalide ou expirée. Vérifiez votre clé API dans la configuration.');
         }
         if (response.status === 429) {
           throw new Error('Limite de taux API OpenAI dépassée. Veuillez vérifier votre quota ou réessayer plus tard.');
         }
-        throw new Error(`Erreur API OpenAI: ${response.status}`);
+        if (response.status === 400) {
+          throw new Error(`Requête invalide (400): ${errorMessage}. Modèle utilisé: "${this.model}". Vérifiez que le modèle est correct dans les paramètres.`);
+        }
+        throw new Error(`Erreur API OpenAI: ${response.status} - ${errorMessage}`);
       }
 
       const data = await response.json();
