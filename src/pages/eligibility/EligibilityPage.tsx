@@ -41,6 +41,7 @@ const EligibilityPage: React.FC = () => {
   // Filtres
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -48,15 +49,18 @@ const EligibilityPage: React.FC = () => {
     fetchPrograms();
   }, [fetchProjects, fetchPrograms]);
 
-  const submittedProjects = projects.filter(p => p.status === 'submitted');
-
   const getProgram = (programId: string) => {
     return programs.find(p => p.id === programId);
   };
 
   // Filtrage des projets
   const filteredProjects = useMemo(() => {
-    let filtered = submittedProjects;
+    let filtered = projects;
+
+    // Filtre par statut
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(p => p.status === statusFilter);
+    }
 
     // Filtre par programme
     if (programFilter !== 'all') {
@@ -94,7 +98,7 @@ const EligibilityPage: React.FC = () => {
     }
 
     return filtered;
-  }, [submittedProjects, programFilter, dateFilter, searchTerm]);
+  }, [projects, statusFilter, programFilter, dateFilter, searchTerm]);
 
   const handleSelectProject = (projectId: string) => {
     setSelectedProject(projectId);
@@ -486,7 +490,7 @@ const EligibilityPage: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Recherche
@@ -498,6 +502,26 @@ const EligibilityPage: React.FC = () => {
                 placeholder="Titre ou description..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Statut
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="draft">Brouillon</option>
+                <option value="submitted">Soumis</option>
+                <option value="eligible">Éligible</option>
+                <option value="ineligible">Non éligible</option>
+                <option value="under_evaluation">En évaluation</option>
+                <option value="approved">Approuvé</option>
+                <option value="rejected">Rejeté</option>
+              </select>
             </div>
 
             <div>
@@ -538,6 +562,7 @@ const EligibilityPage: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={() => {
+                  setStatusFilter('all');
                   setProgramFilter('all');
                   setDateFilter('all');
                   setSearchTerm('');
@@ -616,9 +641,9 @@ const EligibilityPage: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Projets en Attente</CardTitle>
+                  <CardTitle>Projets</CardTitle>
                   <p className="text-sm text-gray-600 mt-1">
-                    {filteredProjects.length} projet(s) affiché(s)
+                    {filteredProjects.length} projet(s) affiché(s) sur {projects.length} au total
                   </p>
                 </div>
                 <button
@@ -893,26 +918,45 @@ const EligibilityPage: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <div className="flex gap-4">
-                <Button
-                  variant="success"
-                  onClick={handleApprove}
-                  isLoading={isProcessing}
-                  leftIcon={<CheckCircle className="h-5 w-5" />}
-                  className="flex-1"
-                >
-                  Approuver (Éligible)
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={handleReject}
-                  isLoading={isProcessing}
-                  leftIcon={<XCircle className="h-5 w-5" />}
-                  className="flex-1"
-                >
-                  Rejeter (Non Éligible)
-                </Button>
-              </div>
+              {selectedProjectData.status === 'submitted' ? (
+                <div className="flex gap-4">
+                  <Button
+                    variant="success"
+                    onClick={handleApprove}
+                    isLoading={isProcessing}
+                    leftIcon={<CheckCircle className="h-5 w-5" />}
+                    className="flex-1"
+                  >
+                    Approuver (Éligible)
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleReject}
+                    isLoading={isProcessing}
+                    leftIcon={<XCircle className="h-5 w-5" />}
+                    className="flex-1"
+                  >
+                    Rejeter (Non Éligible)
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800">
+                        Ce projet ne peut pas être évalué
+                      </p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Statut actuel: <ProjectStatusBadge status={selectedProjectData.status} />
+                      </p>
+                      <p className="text-xs text-yellow-600 mt-2">
+                        Seuls les projets avec le statut "Soumis" peuvent être approuvés ou rejetés.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
