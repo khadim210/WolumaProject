@@ -128,6 +128,76 @@ const EligibilityPage: React.FC = () => {
     }));
   };
 
+  const generateEligibilityNotes = (
+    isApproved: boolean,
+    textualCriteria: string[],
+    fieldCriteria: any[],
+    checkedCriteria: Record<string, boolean>
+  ): string => {
+    const timestamp = new Date().toLocaleString('fr-FR', {
+      dateStyle: 'long',
+      timeStyle: 'short'
+    });
+
+    let notes = `=== ÉVALUATION D'ÉLIGIBILITÉ ===\n`;
+    notes += `Date: ${timestamp}\n`;
+    notes += `Décision: ${isApproved ? 'ÉLIGIBLE ✓' : 'NON ÉLIGIBLE ✗'}\n\n`;
+
+    if (textualCriteria.length > 0) {
+      notes += `--- CRITÈRES TEXTUELS (${textualCriteria.length}) ---\n`;
+      const checkedCount = textualCriteria.filter((_, idx) => checkedCriteria[idx]).length;
+      const uncheckedCount = textualCriteria.length - checkedCount;
+
+      notes += `Validés: ${checkedCount}/${textualCriteria.length}\n`;
+      if (uncheckedCount > 0) {
+        notes += `Non validés: ${uncheckedCount}\n`;
+      }
+      notes += `\n`;
+
+      textualCriteria.forEach((criteria, index) => {
+        const isChecked = checkedCriteria[index];
+        const status = isChecked ? '✓' : '✗';
+        notes += `${status} ${criteria}\n`;
+      });
+      notes += `\n`;
+    }
+
+    if (fieldCriteria.length > 0) {
+      notes += `--- CRITÈRES BASÉS SUR FORMULAIRE (${fieldCriteria.length}) ---\n`;
+      notes += `Ces critères sont vérifiés automatiquement lors de la soumission.\n\n`;
+
+      fieldCriteria.forEach((criterion, index) => {
+        const fieldName = criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`;
+        notes += `• ${fieldName}\n`;
+        if (criterion.conditions) {
+          notes += `  Condition: ${criterion.conditions.operator} ${criterion.conditions.value}`;
+          if (criterion.conditions.value2) {
+            notes += ` et ${criterion.conditions.value2}`;
+          }
+          notes += `\n`;
+        }
+      });
+      notes += `\n`;
+    }
+
+    if (!isApproved) {
+      notes += `--- RAISONS DU REJET ---\n`;
+      const uncheckedCriteria = textualCriteria.filter((_, idx) => !checkedCriteria[idx]);
+      if (uncheckedCriteria.length > 0) {
+        notes += `Critères non respectés:\n`;
+        uncheckedCriteria.forEach(criteria => {
+          notes += `• ${criteria}\n`;
+        });
+        notes += `\n`;
+      }
+      notes += `Notes complémentaires:\n`;
+    } else {
+      notes += `--- NOTES COMPLÉMENTAIRES ---\n`;
+    }
+
+    return notes;
+  };
+
   const handleApprove = async () => {
     if (!selectedProject || !user) return;
 
@@ -135,20 +205,24 @@ const EligibilityPage: React.FC = () => {
     if (!project) return;
 
     const program = getProgram(project.programId);
-    const criteriaList = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const fieldCriteria = program?.fieldEligibilityCriteria || [];
 
-    const allChecked = criteriaList.every((_, index) => checkedCriteria[index]);
+    const allChecked = textualCriteria.every((_, index) => checkedCriteria[index]);
 
-    if (!allChecked && criteriaList.length > 0) {
+    if (!allChecked && textualCriteria.length > 0) {
       alert('Veuillez cocher tous les critères d\'éligibilité avant d\'approuver.');
       return;
     }
 
     setIsProcessing(true);
     try {
+      const generatedNotes = generateEligibilityNotes(true, textualCriteria, fieldCriteria, checkedCriteria);
+      const finalNotes = generatedNotes + (eligibilityNotes.trim() ? `\n${eligibilityNotes}` : '');
+
       await updateProject(selectedProject, {
         status: 'eligible',
-        eligibilityNotes,
+        eligibilityNotes: finalNotes,
         eligibilityCheckedBy: user.id,
         eligibilityCheckedAt: new Date().toISOString()
       });
@@ -168,16 +242,21 @@ const EligibilityPage: React.FC = () => {
   const handleReject = async () => {
     if (!selectedProject || !user) return;
 
-    if (!eligibilityNotes.trim()) {
-      alert('Veuillez fournir une raison pour le rejet.');
-      return;
-    }
+    const project = projects.find(p => p.id === selectedProject);
+    if (!project) return;
+
+    const program = getProgram(project.programId);
+    const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const fieldCriteria = program?.fieldEligibilityCriteria || [];
 
     setIsProcessing(true);
     try {
+      const generatedNotes = generateEligibilityNotes(false, textualCriteria, fieldCriteria, checkedCriteria);
+      const finalNotes = generatedNotes + (eligibilityNotes.trim() ? `\n${eligibilityNotes}` : '');
+
       await updateProject(selectedProject, {
         status: 'ineligible',
-        eligibilityNotes,
+        eligibilityNotes: finalNotes,
         eligibilityCheckedBy: user.id,
         eligibilityCheckedAt: new Date().toISOString()
       });
@@ -771,19 +850,46 @@ const EligibilityPage: React.FC = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Notes d'Éligibilité</CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Ajoutez des notes pour justifier votre décision (obligatoire en cas de rejet)
-                  </p>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle>Notes d'Éligibilité</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Ajoutez des notes complémentaires pour votre décision
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const preview = generateEligibilityNotes(
+                          true,
+                          textualCriteria,
+                          fieldCriteria,
+                          checkedCriteria
+                        );
+                        alert('Aperçu de l\'évaluation:\n\n' + preview + '\n\nCes notes seront automatiquement ajoutées lors de la validation.');
+                      }}
+                      leftIcon={<FileText className="h-4 w-4" />}
+                    >
+                      Aperçu
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <textarea
-                    value={eligibilityNotes}
-                    onChange={(e) => setEligibilityNotes(e.target.value)}
-                    placeholder="Entrez vos notes et commentaires..."
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="space-y-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        ℹ️ Un rapport détaillé avec l'état de tous les critères sera automatiquement généré lors de la validation ou du rejet.
+                      </p>
+                    </div>
+                    <textarea
+                      value={eligibilityNotes}
+                      onChange={(e) => setEligibilityNotes(e.target.value)}
+                      placeholder="Ajoutez ici vos notes complémentaires (optionnel)..."
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
