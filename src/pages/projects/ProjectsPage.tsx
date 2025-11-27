@@ -535,6 +535,29 @@ const ProjectsPage: React.FC = () => {
                           </span>
                         ))}
                       </div>
+
+                      {project.evaluationScores && project.evaluatedBy && (
+                        <div className="mt-3 p-2 bg-success-50 border border-success-200 rounded-md">
+                          <div className="text-xs font-medium text-success-900 flex items-center">
+                            <span className="mr-2">✅</span>
+                            Évalué {project.evaluationDate && `le ${new Date(project.evaluationDate).toLocaleDateString()}`}
+                          </div>
+                          {project.totalEvaluationScore !== undefined && (
+                            <div className="text-xs text-success-700 mt-1">
+                              Score total: {project.totalEvaluationScore}%
+                              {project.recommendedStatus && (
+                                <span className="ml-2">
+                                  • Recommandation: {
+                                    project.recommendedStatus === 'selected' ? 'Sélectionné' :
+                                    project.recommendedStatus === 'pre_selected' ? 'Présélectionné' :
+                                    'Rejeté'
+                                  }
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex flex-col justify-between items-end">
