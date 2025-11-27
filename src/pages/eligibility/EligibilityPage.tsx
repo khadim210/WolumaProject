@@ -17,7 +17,9 @@ import {
   Square,
   Sparkles,
   RotateCcw,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const EligibilityPage: React.FC = () => {
@@ -33,6 +35,7 @@ const EligibilityPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetSearchTerm, setResetSearchTerm] = useState('');
+  const [isFormDataExpanded, setIsFormDataExpanded] = useState(false);
   const [resetStatusFilter, setResetStatusFilter] = useState<string>('eligible');
 
   // Filtres
@@ -97,6 +100,7 @@ const EligibilityPage: React.FC = () => {
     setSelectedProject(projectId);
     setEligibilityNotes('');
     setCheckedCriteria({});
+    setIsFormDataExpanded(false);
   };
 
   const handleToggleProject = (projectId: string) => {
@@ -658,12 +662,28 @@ const EligibilityPage: React.FC = () => {
 
                   {selectedProjectData.formData && (
                     <div className="pt-4 border-t">
-                      <h4 className="font-medium text-gray-900 mb-3">Données du Formulaire</h4>
-                      <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                        <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                          {JSON.stringify(selectedProjectData.formData, null, 2)}
-                        </pre>
-                      </div>
+                      <button
+                        onClick={() => setIsFormDataExpanded(!isFormDataExpanded)}
+                        className="flex items-center justify-between w-full font-medium text-gray-900 hover:text-primary-600 transition-colors"
+                      >
+                        <span className="flex items-center">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Données du Formulaire
+                        </span>
+                        {isFormDataExpanded ? (
+                          <ChevronUp className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-gray-500" />
+                        )}
+                      </button>
+
+                      {isFormDataExpanded && (
+                        <div className="mt-3 bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                          <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                            {JSON.stringify(selectedProjectData.formData, null, 2)}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
