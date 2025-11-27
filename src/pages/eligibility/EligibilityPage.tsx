@@ -351,7 +351,12 @@ const EligibilityPage: React.FC = () => {
 
   const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null;
   const selectedProgram = selectedProjectData ? getProgram(selectedProjectData.programId) : null;
-  const criteriaList = selectedProgram?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+
+  // Combine textual and field-based criteria
+  const textualCriteria = selectedProgram?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+  const fieldCriteria = selectedProgram?.fieldEligibilityCriteria || [];
+  const totalCriteriaCount = textualCriteria.length + fieldCriteria.length;
+  const criteriaList = textualCriteria;
 
   if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
     return (
@@ -666,13 +671,20 @@ const EligibilityPage: React.FC = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Critères d'Éligibilité</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Critères d'Éligibilité</span>
+                    {totalCriteriaCount > 0 && (
+                      <span className="text-sm font-normal bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                        {totalCriteriaCount} critère{totalCriteriaCount > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </CardTitle>
                   <p className="text-sm text-gray-600 mt-1">
                     Vérifiez tous les critères avant de prendre une décision
                   </p>
                 </CardHeader>
                 <CardContent>
-                  {criteriaList.length === 0 ? (
+                  {totalCriteriaCount === 0 ? (
                     <div className="text-center py-8">
                       <AlertTriangle className="h-12 w-12 mx-auto mb-3 text-amber-500" />
                       <p className="text-gray-600">
@@ -683,21 +695,55 @@ const EligibilityPage: React.FC = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {criteriaList.map((criteria, index) => (
-                        <label
-                          key={index}
-                          className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checkedCriteria[index] || false}
-                            onChange={(e) => handleCriteriaCheck(index, e.target.checked)}
-                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <span className="ml-3 text-gray-700">{criteria}</span>
-                        </label>
-                      ))}
+                    <div className="space-y-4">
+                      {textualCriteria.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-700">Critères textuels ({textualCriteria.length})</h4>
+                          {textualCriteria.map((criteria, index) => (
+                            <label
+                              key={`textual-${index}`}
+                              className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checkedCriteria[index] || false}
+                                onChange={(e) => handleCriteriaCheck(index, e.target.checked)}
+                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-3 text-gray-700">{criteria}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+
+                      {fieldCriteria.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-700">
+                            Critères basés sur les champs du formulaire ({fieldCriteria.length})
+                          </h4>
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <p className="text-sm text-blue-800 mb-2">
+                              ℹ️ Ces critères sont automatiquement vérifiés lors de la soumission du formulaire
+                            </p>
+                            <ul className="space-y-2">
+                              {fieldCriteria.map((criterion, index) => (
+                                <li key={`field-${index}`} className="text-sm text-gray-700 flex items-start">
+                                  <span className="text-blue-600 mr-2">•</span>
+                                  <span>
+                                    <span className="font-medium">{criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}</span>
+                                    {criterion.conditions && (
+                                      <span className="text-gray-600">
+                                        {' '}- {criterion.conditions.operator} {criterion.conditions.value}
+                                        {criterion.conditions.value2 && ` et ${criterion.conditions.value2}`}
+                                      </span>
+                                    )}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
