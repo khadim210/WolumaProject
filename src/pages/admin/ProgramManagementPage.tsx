@@ -29,6 +29,7 @@ import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getCurrencySymbol, formatCurrency } from '../../utils/currency';
+import { getPublicSubmissionUrl } from '../../utils/url';
 
 const AVAILABLE_CURRENCIES = [
   { code: 'XOF', name: 'Franc CFA (XOF)', symbol: 'FCFA' },
@@ -583,7 +584,7 @@ const ProgramManagementPage: React.FC = () => {
                                   <input
                                     type="text"
                                     readOnly
-                                    value={`${window.location.origin}/submit/${editingProgram.id}`}
+                                    value={getPublicSubmissionUrl(editingProgram.id)}
                                     className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md text-sm font-mono text-blue-900 select-all"
                                     onClick={(e) => e.currentTarget.select()}
                                   />
@@ -591,7 +592,7 @@ const ProgramManagementPage: React.FC = () => {
                                     type="button"
                                     variant="outline"
                                     onClick={() => {
-                                      const link = `${window.location.origin}/submit/${editingProgram.id}`;
+                                      const link = getPublicSubmissionUrl(editingProgram.id);
                                       navigator.clipboard.writeText(link);
                                       alert('Lien copié dans le presse-papier!');
                                     }}
@@ -602,7 +603,7 @@ const ProgramManagementPage: React.FC = () => {
                                   <Button
                                     type="button"
                                     onClick={() => {
-                                      const link = `/submit/${editingProgram.id}`;
+                                      const link = getPublicSubmissionUrl(editingProgram.id);
                                       window.open(link, '_blank');
                                     }}
                                     className="shrink-0"
