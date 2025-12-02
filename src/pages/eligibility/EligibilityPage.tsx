@@ -132,6 +132,13 @@ const EligibilityPage: React.FC = () => {
     }));
   };
 
+  const handleFieldCriteriaCheck = (criteriaKey: string, checked: boolean) => {
+    setCheckedCriteria(prev => ({
+      ...prev,
+      [criteriaKey]: checked
+    }));
+  };
+
   const generateEligibilityNotes = (
     isApproved: boolean,
     textualCriteria: string[],
@@ -168,29 +175,52 @@ const EligibilityPage: React.FC = () => {
 
     if (fieldCriteria.length > 0) {
       notes += `--- CRITÈRES BASÉS SUR FORMULAIRE (${fieldCriteria.length}) ---\n`;
-      notes += `Ces critères sont vérifiés automatiquement lors de la soumission.\n\n`;
+      const fieldCheckedCount = fieldCriteria.filter((_, idx) => checkedCriteria[`field-${idx}`]).length;
+      const fieldUncheckedCount = fieldCriteria.length - fieldCheckedCount;
+
+      notes += `Validés: ${fieldCheckedCount}/${fieldCriteria.length}\n`;
+      if (fieldUncheckedCount > 0) {
+        notes += `Non validés: ${fieldUncheckedCount}\n`;
+      }
+      notes += `\n`;
 
       fieldCriteria.forEach((criterion, index) => {
+        const isChecked = checkedCriteria[`field-${index}`];
+        const status = isChecked ? '✓' : '✗';
         const fieldName = criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`;
-        notes += `• ${fieldName}\n`;
+        notes += `${status} ${fieldName}`;
         if (criterion.conditions) {
-          notes += `  Condition: ${criterion.conditions.operator} ${criterion.conditions.value}`;
+          notes += ` - ${criterion.conditions.operator} ${criterion.conditions.value}`;
           if (criterion.conditions.value2) {
             notes += ` et ${criterion.conditions.value2}`;
           }
-          notes += `\n`;
         }
+        notes += `\n`;
       });
       notes += `\n`;
     }
 
     if (!isApproved) {
       notes += `--- RAISONS DU REJET ---\n`;
-      const uncheckedCriteria = textualCriteria.filter((_, idx) => !checkedCriteria[idx]);
-      if (uncheckedCriteria.length > 0) {
+      const uncheckedTextualCriteria = textualCriteria.filter((_, idx) => !checkedCriteria[idx]);
+      const uncheckedFieldCriteria = fieldCriteria.filter((_, idx) => !checkedCriteria[`field-${idx}`]);
+
+      if (uncheckedTextualCriteria.length > 0 || uncheckedFieldCriteria.length > 0) {
         notes += `Critères non respectés:\n`;
-        uncheckedCriteria.forEach(criteria => {
+        uncheckedTextualCriteria.forEach(criteria => {
           notes += `• ${criteria}\n`;
+        });
+        uncheckedFieldCriteria.forEach((criterion, index) => {
+          const fieldName = criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`;
+          notes += `• ${fieldName}`;
+          if (criterion.conditions) {
+            notes += ` (${criterion.conditions.operator} ${criterion.conditions.value}`;
+            if (criterion.conditions.value2) {
+              notes += ` et ${criterion.conditions.value2}`;
+            }
+            notes += `)`;
+          }
+          notes += `\n`;
         });
         notes += `\n`;
       }
@@ -212,9 +242,10 @@ const EligibilityPage: React.FC = () => {
     const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
     const fieldCriteria = program?.fieldEligibilityCriteria || [];
 
-    const allChecked = textualCriteria.every((_, index) => checkedCriteria[index]);
+    const allTextualChecked = textualCriteria.every((_, index) => checkedCriteria[index]);
+    const allFieldChecked = fieldCriteria.every((_, index) => checkedCriteria[`field-${index}`]);
 
-    if (!allChecked && textualCriteria.length > 0) {
+    if ((!allTextualChecked && textualCriteria.length > 0) || (!allFieldChecked && fieldCriteria.length > 0)) {
       alert('Veuillez cocher tous les critères d\'éligibilité avant d\'approuver.');
       return;
     }
@@ -845,27 +876,28 @@ const EligibilityPage: React.FC = () => {
                           <h4 className="text-sm font-medium text-gray-700">
                             Critères basés sur les champs du formulaire ({fieldCriteria.length})
                           </h4>
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <p className="text-sm text-blue-800 mb-2">
-                              ℹ️ Ces critères sont automatiquement vérifiés lors de la soumission du formulaire
-                            </p>
-                            <ul className="space-y-2">
-                              {fieldCriteria.map((criterion, index) => (
-                                <li key={`field-${index}`} className="text-sm text-gray-700 flex items-start">
-                                  <span className="text-blue-600 mr-2">•</span>
-                                  <span>
-                                    <span className="font-medium">{criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}</span>
-                                    {criterion.conditions && (
-                                      <span className="text-gray-600">
-                                        {' '}- {criterion.conditions.operator} {criterion.conditions.value}
-                                        {criterion.conditions.value2 && ` et ${criterion.conditions.value2}`}
-                                      </span>
-                                    )}
+                          {fieldCriteria.map((criterion, index) => (
+                            <label
+                              key={`field-${index}`}
+                              className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checkedCriteria[`field-${index}`] || false}
+                                onChange={(e) => handleFieldCriteriaCheck(`field-${index}`, e.target.checked)}
+                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-3 text-gray-700">
+                                <span className="font-medium">{criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}</span>
+                                {criterion.conditions && (
+                                  <span className="text-gray-600">
+                                    {' '}- {criterion.conditions.operator} {criterion.conditions.value}
+                                    {criterion.conditions.value2 && ` et ${criterion.conditions.value2}`}
                                   </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                                )}
+                              </span>
+                            </label>
+                          ))}
                         </div>
                       )}
                     </div>
