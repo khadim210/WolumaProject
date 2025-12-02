@@ -19,8 +19,13 @@ import {
   RotateCcw,
   Search,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const EligibilityPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -469,6 +474,135 @@ const EligibilityPage: React.FC = () => {
     });
   };
 
+  const getEligibilityStatus = (project: any) => {
+    const program = getProgram(project.programId);
+    if (!program) return 'N/A';
+
+    const textualCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const allFieldCriteria = program.fieldEligibilityCriteria || [];
+    const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+    const totalCriteria = textualCriteria.length + fieldCriteria.length;
+
+    if (totalCriteria === 0) return 'Aucun critère';
+
+    if (project.status === 'eligible') {
+      return `✓ Éligible (${totalCriteria} critères validés)`;
+    } else if (project.status === 'ineligible') {
+      return `✗ Non éligible`;
+    } else if (project.status === 'submitted') {
+      return `En attente (${totalCriteria} critères à vérifier)`;
+    } else {
+      return `Statut: ${project.status}`;
+    }
+  };
+
+  const handleExportExcel = () => {
+    const exportData = filteredProjects.map(project => {
+      const program = getProgram(project.programId);
+      const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+      const allFieldCriteria = program?.fieldEligibilityCriteria || [];
+      const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+      const totalCriteria = textualCriteria.length + fieldCriteria.length;
+
+      let eligibilityDetail = '';
+      if (totalCriteria > 0) {
+        eligibilityDetail = `Total: ${totalCriteria} critères (${textualCriteria.length} textuels, ${fieldCriteria.length} champs)`;
+      } else {
+        eligibilityDetail = 'Aucun critère défini';
+      }
+
+      return {
+        'Titre': project.title,
+        'Programme': program?.name || 'N/A',
+        'Statut': project.status,
+        'État Éligibilité': getEligibilityStatus(project),
+        'Détails Critères': eligibilityDetail,
+        'Date de soumission': new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR'),
+        'Vérifié par': project.eligibilityCheckedBy || 'Non vérifié',
+        'Date de vérification': project.eligibilityCheckedAt
+          ? new Date(project.eligibilityCheckedAt).toLocaleDateString('fr-FR')
+          : 'N/A',
+        'Notes': project.eligibilityNotes || ''
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Projets Éligibilité');
+
+    const colWidths = [
+      { wch: 30 },
+      { wch: 25 },
+      { wch: 15 },
+      { wch: 40 },
+      { wch: 35 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 50 }
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text('Liste des Projets - État d\'Éligibilité', 14, 15);
+
+    doc.setFontSize(10);
+    doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Total: ${filteredProjects.length} projet(s)`, 14, 28);
+
+    const tableData = filteredProjects.map(project => {
+      const program = getProgram(project.programId);
+      return [
+        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        program?.name || 'N/A',
+        project.status,
+        getEligibilityStatus(project),
+        new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR')
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Titre', 'Programme', 'Statut', 'État Éligibilité', 'Date Soumission']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 70 },
+        4: { cellWidth: 35 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (data: any) => {
+        const pageCount = doc.getNumberOfPages();
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${data.pageNumber} sur ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+    });
+
+    doc.save(`Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null;
   const selectedProgram = selectedProjectData ? getProgram(selectedProjectData.programId) : null;
 
@@ -611,14 +745,35 @@ const EligibilityPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <div className="flex gap-4">
-        <Button
-          variant="outline"
-          onClick={() => setShowResetModal(true)}
-          leftIcon={<RotateCcw className="h-4 w-4" />}
-        >
-          Réinitialiser des projets
-        </Button>
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex gap-4">
+          <Button
+            variant="outline"
+            onClick={() => setShowResetModal(true)}
+            leftIcon={<RotateCcw className="h-4 w-4" />}
+          >
+            Réinitialiser des projets
+          </Button>
+        </div>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            disabled={filteredProjects.length === 0}
+          >
+            Exporter Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            leftIcon={<Download className="h-4 w-4" />}
+            disabled={filteredProjects.length === 0}
+          >
+            Exporter PDF
+          </Button>
+        </div>
       </div>
 
       {/* Actions par lot */}
