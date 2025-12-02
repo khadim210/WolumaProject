@@ -60,7 +60,11 @@ const EligibilityPage: React.FC = () => {
 
   // Filtrage des projets
   const filteredProjects = useMemo(() => {
-    let filtered = projects;
+    let filtered = projects.filter(p =>
+      p.status === 'submitted' ||
+      p.status === 'eligible' ||
+      p.status === 'ineligible'
+    );
 
     // Filtre par statut
     if (statusFilter !== 'all') {
@@ -682,13 +686,9 @@ const EligibilityPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="draft">Brouillon</option>
                 <option value="submitted">Soumis</option>
                 <option value="eligible">Éligible</option>
                 <option value="ineligible">Non éligible</option>
-                <option value="under_evaluation">En évaluation</option>
-                <option value="approved">Approuvé</option>
-                <option value="rejected">Rejeté</option>
               </select>
             </div>
 
