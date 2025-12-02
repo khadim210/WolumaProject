@@ -19,8 +19,11 @@ import {
   Clock,
   Edit,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
@@ -90,7 +93,7 @@ const FormalizationPage: React.FC = () => {
   }
 
   const selectedProjectsData = projects.filter(
-    p => p.status === 'selected' || p.status === 'formalization'
+    p => p.status === 'selected'
   );
 
   const currentProject = projects.find(p => p.id === selectedProject);
@@ -219,13 +222,139 @@ const FormalizationPage: React.FC = () => {
     );
   };
 
+  const getFormalizationSummary = (project: any) => {
+    const projDocRequests = documentRequests.filter(d => d.project_id === project.id);
+    const projSupports = technicalSupports.filter(s => s.project_id === project.id);
+    const projPlan = disbursementPlan?.project_id === project.id ? disbursementPlan : null;
+    const projTranches = projPlan ? disbursementTranches.filter(t => t.plan_id === projPlan.id) : [];
+
+    const docsApproved = projDocRequests.filter(d => d.status === 'approved').length;
+    const docsTotal = projDocRequests.length;
+
+    const supportsCompleted = projSupports.filter(s => s.status === 'completed').length;
+    const supportsTotal = projSupports.length;
+
+    const tranchesDisbursed = projTranches.filter(t => t.status === 'disbursed').length;
+    const tranchesTotal = projTranches.length;
+    const totalAmount = projPlan?.total_amount || 0;
+    const amountDisbursed = projTranches
+      .filter(t => t.status === 'disbursed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return {
+      documents: `${docsApproved}/${docsTotal} approuvés`,
+      support: `${supportsCompleted}/${supportsTotal} complétés`,
+      financial: tranchesTotal > 0
+        ? `${tranchesDisbursed}/${tranchesTotal} tranches (${amountDisbursed.toLocaleString('fr-FR')} / ${totalAmount.toLocaleString('fr-FR')} ${projPlan?.currency || 'XOF'})`
+        : 'Pas de plan',
+      progress: docsTotal > 0 ? Math.round((docsApproved / docsTotal) * 100) : 0
+    };
+  };
+
+  const handleExportFormalizationPDF = async () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text('Projets en Formalisation - Résumé', 14, 15);
+
+    doc.setFontSize(10);
+    doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Total: ${selectedProjectsData.length} projet(s)`, 14, 28);
+
+    const allData = await Promise.all(
+      selectedProjectsData.map(async (project) => {
+        const [docs, supports, financial] = await Promise.all([
+          formalizationService.getDocumentRequestsByProject(project.id),
+          formalizationService.getTechnicalSupportByProject(project.id),
+          formalizationService.getDisbursementPlanByProject(project.id)
+        ]);
+
+        const docsApproved = docs.filter(d => d.status === 'approved').length;
+        const supportsCompleted = supports.filter(s => s.status === 'completed').length;
+        const tranchesDisbursed = financial.tranches.filter(t => t.status === 'disbursed').length;
+        const totalAmount = financial.plan?.total_amount || 0;
+        const amountDisbursed = financial.tranches
+          .filter(t => t.status === 'disbursed')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        return {
+          project,
+          docs: `${docsApproved}/${docs.length} approuvés`,
+          support: `${supportsCompleted}/${supports.length} complétés`,
+          financial: financial.tranches.length > 0
+            ? `${tranchesDisbursed}/${financial.tranches.length} tranches (${amountDisbursed.toLocaleString('fr-FR')} / ${totalAmount.toLocaleString('fr-FR')} ${financial.plan?.currency || 'XOF'})`
+            : 'Pas de plan',
+          progress: docs.length > 0 ? Math.round((docsApproved / docs.length) * 100) : 0
+        };
+      })
+    );
+
+    const tableData = allData.map(data => {
+      const program = programs.find(p => p.id === data.project.programId);
+      return [
+        data.project.title.length > 25 ? data.project.title.substring(0, 22) + '...' : data.project.title,
+        program?.name.substring(0, 20) || 'N/A',
+        data.docs,
+        data.support,
+        data.financial.length > 35 ? data.financial.substring(0, 32) + '...' : data.financial,
+        `${data.progress}%`
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Projet', 'Programme', 'Documents', 'Accompagnement', 'Plan Financier', 'Progression']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 65 },
+        5: { cellWidth: 20 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (data: any) => {
+        const pageCount = doc.getNumberOfPages();
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${data.pageNumber} sur ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+    });
+
+    doc.save(`Formalisation_Projets_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Formalisation des Projets</h1>
-        <p className="text-gray-600">
-          Gestion des documents, accompagnement et décaissement
-        </p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Formalisation des Projets</h1>
+          <p className="text-gray-600">
+            Gestion des documents, accompagnement et décaissement
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleExportFormalizationPDF}
+          leftIcon={<Printer className="h-4 w-4" />}
+          disabled={selectedProjectsData.length === 0}
+        >
+          Exporter en PDF
+        </Button>
       </div>
 
       <div className="mb-6">
@@ -241,7 +370,7 @@ const FormalizationPage: React.FC = () => {
                   Aucun projet sélectionné disponible
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Les projets doivent avoir le statut "Sélectionné" ou "Formalisation" pour apparaître ici.
+                  Les projets doivent avoir le statut "Sélectionné" pour apparaître ici.
                 </p>
                 <div className="bg-blue-50 rounded-lg p-4 text-left max-w-md mx-auto">
                   <p className="text-sm text-blue-900 font-medium mb-2">Pour voir des projets ici :</p>
