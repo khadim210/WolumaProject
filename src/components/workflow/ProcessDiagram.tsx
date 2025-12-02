@@ -44,16 +44,20 @@ const getStatusIndex = (status: ProjectStatus): number => {
   const statusOrder: ProjectStatus[] = [
     'draft',
     'submitted',
+    'eligible',
+    'ineligible',
     'under_review',
     'pre_selected',
     'selected',
     'formalization',
     'financed',
     'monitoring',
-    'closed'
+    'closed',
+    'rejected'
   ];
-  
-  return statusOrder.indexOf(status);
+
+  const index = statusOrder.indexOf(status);
+  return index !== -1 ? index : 0;
 };
 
 interface ProcessDiagramProps {
@@ -65,21 +69,20 @@ const ProcessDiagram: React.FC<ProcessDiagramProps> = ({ currentStatus, classNam
   const currentIndex = getStatusIndex(currentStatus);
 
   const steps = [
-    { number: 1, title: 'Préparation', statuses: ['draft'] },
-    { number: 2, title: 'Soumission', statuses: ['submitted'] },
-    { number: 3, title: 'Sélection', statuses: ['under_review', 'pre_selected', 'selected'] },
-    { number: 4, title: 'Formalisation', statuses: ['formalization'] },
-    { number: 5, title: 'Suivi', statuses: ['financed', 'monitoring'] },
-    { number: 6, title: 'Clôture', statuses: ['closed'] },
+    { number: 1, title: 'Préparation', statuses: ['draft'], minIndex: 0 },
+    { number: 2, title: 'Soumission', statuses: ['submitted', 'eligible', 'ineligible'], minIndex: 1 },
+    { number: 3, title: 'Sélection', statuses: ['under_review', 'pre_selected', 'selected'], minIndex: 4 },
+    { number: 4, title: 'Formalisation', statuses: ['formalization'], minIndex: 7 },
+    { number: 5, title: 'Suivi', statuses: ['financed', 'monitoring'], minIndex: 8 },
+    { number: 6, title: 'Clôture', statuses: ['closed'], minIndex: 10 },
   ];
 
   return (
     <div className={`flex flex-col ${className}`}>
       <div className="space-y-6">
         {steps.map((step, index) => {
-          const stepIndex = getStatusIndex(step.statuses[0]);
           const isActive = step.statuses.includes(currentStatus);
-          const isCompleted = stepIndex < currentIndex;
+          const isCompleted = currentIndex > step.minIndex && !isActive;
           const isLast = index === steps.length - 1;
 
           return (
