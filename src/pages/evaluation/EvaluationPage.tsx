@@ -18,8 +18,11 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
   Send,
   Shield,
   AlertTriangle,
-  X
+  X,
+  Printer
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
@@ -36,6 +39,8 @@ const EvaluationPage: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [programFilter, setProgramFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAIEvaluating, setIsAIEvaluating] = useState(false);
@@ -128,22 +133,51 @@ const EvaluationPage: React.FC = () => {
   
   const accessiblePrograms = getAccessiblePrograms();
   
-  // Get projects in submitted, eligible status or evaluated but not yet submitted to next stage
+  // Get projects with specific statuses for evaluation
   const submittedProjects = projects.filter(project => {
+    // Filter by relevant statuses only
+    const hasRelevantStatus = project.status === 'eligible' ||
+                              project.status === 'selected' ||
+                              project.status === 'pre_selected' ||
+                              project.status === 'rejected';
+
+    if (!hasRelevantStatus) return false;
+
     const isAccessible = accessiblePrograms.some(p => p.id === project.programId);
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesProgram = programFilter === 'all' || project.programId === programFilter;
+    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
 
-    // Include projects that are submitted, eligible OR evaluated but waiting for manual submission
-    const isEvaluationPending = project.status === 'submitted' ||
-                               project.status === 'eligible' ||
-                               (project.evaluationScores && !project.manuallySubmitted);
+    // Date filter
+    let matchesDate = true;
+    if (dateFilter !== 'all' && project.evaluatedAt) {
+      const evaluationDate = new Date(project.evaluatedAt);
+      const now = new Date();
+      const diffDays = Math.floor((now.getTime() - evaluationDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    return isEvaluationPending &&
-           isAccessible &&
+      switch (dateFilter) {
+        case 'today':
+          matchesDate = diffDays === 0;
+          break;
+        case 'week':
+          matchesDate = diffDays <= 7;
+          break;
+        case 'month':
+          matchesDate = diffDays <= 30;
+          break;
+        default:
+          matchesDate = true;
+      }
+    } else if (dateFilter !== 'all' && !project.evaluatedAt) {
+      matchesDate = false;
+    }
+
+    return isAccessible &&
            matchesSearch &&
-           matchesProgram;
+           matchesProgram &&
+           matchesStatus &&
+           matchesDate;
   });
   
   const handleSelectProjectForEvaluation = (project: Project) => {
@@ -611,37 +645,145 @@ const EvaluationPage: React.FC = () => {
       </div>
     );
   };
-  
+
+  const getEvaluationState = (project: Project) => {
+    if (!project.evaluationScores || Object.keys(project.evaluationScores).length === 0) {
+      return 'Non évalué';
+    }
+
+    const program = programs.find(p => p.id === project.programId);
+    if (!program || !program.evaluationCriteria) return 'Non évalué';
+
+    const criteria = program.evaluationCriteria;
+    const scores = project.evaluationScores;
+
+    let totalScore = 0;
+    let maxScore = 0;
+
+    criteria.forEach(criterion => {
+      const score = scores[criterion.id] || 0;
+      totalScore += score;
+      maxScore += criterion.maxScore;
+    });
+
+    const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+    const statusLabel = project.status === 'selected' ? 'Sélectionné' :
+                       project.status === 'pre_selected' ? 'Présélectionné' :
+                       project.status === 'rejected' ? 'Rejeté' :
+                       project.status === 'eligible' ? 'Éligible' : 'En attente';
+
+    return `${statusLabel} - Score: ${totalScore}/${maxScore} (${percentage.toFixed(1)}%)`;
+  };
+
+  const handlePrintProjects = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text('Liste des Projets - État d\'Évaluation', 14, 15);
+
+    doc.setFontSize(10);
+    doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Total: ${submittedProjects.length} projet(s)`, 14, 28);
+
+    const tableData = submittedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      return [
+        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        program?.name || 'N/A',
+        project.status === 'selected' ? 'Sélectionné' :
+        project.status === 'pre_selected' ? 'Présélectionné' :
+        project.status === 'rejected' ? 'Rejeté' :
+        project.status === 'eligible' ? 'Éligible' : project.status,
+        getEvaluationState(project),
+        project.evaluatedAt ? new Date(project.evaluatedAt).toLocaleDateString('fr-FR') : 'N/A'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Titre', 'Programme', 'Statut', 'État Évaluation', 'Date Évaluation']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 80 },
+        4: { cellWidth: 30 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (data: any) => {
+        const pageCount = doc.getNumberOfPages();
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${data.pageNumber} sur ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+    });
+
+    doc.save(`Projets_Evaluation_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Évaluation des Projets</h1>
+        <Button
+          variant="outline"
+          onClick={handlePrintProjects}
+          leftIcon={<Printer className="h-4 w-4" />}
+          disabled={submittedProjects.length === 0}
+        >
+          Imprimer la liste
+        </Button>
       </div>
       
       {!isEvaluating ? (
         <>
           <Card className="mb-6">
-            <CardContent className="py-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-grow">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
+            <CardHeader>
+              <div className="flex items-center">
+                <Filter className="h-5 w-5 text-gray-500 mr-2" />
+                <CardTitle>Filtres</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Recherche
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <Search className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                      placeholder="Titre ou description..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                  <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                    placeholder="Rechercher un projet..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
                 </div>
-                
-                <div className="relative w-64">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Filter className="h-5 w-5 text-gray-400" />
-                  </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Programme
+                  </label>
                   <select
-                    className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     value={programFilter}
                     onChange={(e) => setProgramFilter(e.target.value)}
                   >
@@ -656,6 +798,54 @@ const EvaluationPage: React.FC = () => {
                     })}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Statut
+                  </label>
+                  <select
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">Tous les statuts</option>
+                    <option value="eligible">Éligible</option>
+                    <option value="selected">Sélectionné</option>
+                    <option value="pre_selected">Présélectionné</option>
+                    <option value="rejected">Rejeté</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Période d'évaluation
+                  </label>
+                  <select
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                  >
+                    <option value="all">Toutes les dates</option>
+                    <option value="today">Aujourd'hui</option>
+                    <option value="week">Cette semaine</option>
+                    <option value="month">Ce mois</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setProgramFilter('all');
+                    setStatusFilter('all');
+                    setDateFilter('all');
+                  }}
+                >
+                  Réinitialiser les filtres
+                </Button>
               </div>
             </CardContent>
           </Card>
