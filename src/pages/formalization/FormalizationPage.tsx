@@ -93,7 +93,7 @@ const FormalizationPage: React.FC = () => {
   }
 
   const selectedProjectsData = projects.filter(
-    p => p.status === 'selected'
+    p => p.status === 'selected' || p.recommendedStatus === 'selected'
   );
 
   const currentProject = projects.find(p => p.id === selectedProject);
@@ -370,14 +370,15 @@ const FormalizationPage: React.FC = () => {
                   Aucun projet sélectionné disponible
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Les projets doivent avoir le statut "Sélectionné" pour apparaître ici.
+                  Les projets doivent être évalués avec une recommandation "Sélectionné" pour apparaître ici.
                 </p>
                 <div className="bg-blue-50 rounded-lg p-4 text-left max-w-md mx-auto">
                   <p className="text-sm text-blue-900 font-medium mb-2">Pour voir des projets ici :</p>
                   <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
                     <li>Allez dans la page "Évaluation"</li>
-                    <li>Évaluez et sélectionnez des projets</li>
-                    <li>Les projets sélectionnés apparaîtront ici</li>
+                    <li>Évaluez des projets éligibles</li>
+                    <li>Attribuez une recommandation "Sélectionné"</li>
+                    <li>Les projets apparaîtront automatiquement ici</li>
                   </ol>
                 </div>
               </div>
@@ -390,17 +391,38 @@ const FormalizationPage: React.FC = () => {
             className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">-- Choisir un projet ({selectedProjectsData.length} disponible{selectedProjectsData.length > 1 ? 's' : ''}) --</option>
-            {selectedProjectsData.map(project => (
-              <option key={project.id} value={project.id}>
-                {project.title} ({project.status})
-              </option>
-            ))}
+            {selectedProjectsData.map(project => {
+              const isFormalized = project.status === 'selected';
+              const statusLabel = isFormalized ? 'Sélectionné' : 'Recommandé pour sélection';
+              return (
+                <option key={project.id} value={project.id}>
+                  {project.title} - {statusLabel}
+                </option>
+              );
+            })}
           </select>
         )}
       </div>
 
-      {selectedProject && (
+      {selectedProject && currentProject && (
         <>
+          {currentProject.status !== 'selected' && currentProject.recommendedStatus === 'selected' && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-amber-900 mb-1">
+                    Projet recommandé pour sélection
+                  </h4>
+                  <p className="text-sm text-amber-700">
+                    Ce projet a été évalué et recommandé pour sélection, mais n'a pas encore été formellement validé.
+                    Pour le valider définitivement, retournez à la page "Évaluation" et cliquez sur "Soumettre le résultat".
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="border-b border-gray-200 mb-6">
             <nav className="flex space-x-8">
               {tabs.map((tab) => {
