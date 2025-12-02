@@ -240,7 +240,8 @@ const EligibilityPage: React.FC = () => {
 
     const program = getProgram(project.programId);
     const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
-    const fieldCriteria = program?.fieldEligibilityCriteria || [];
+    const allFieldCriteria = program?.fieldEligibilityCriteria || [];
+    const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
 
     const allTextualChecked = textualCriteria.every((_, index) => checkedCriteria[index]);
     const allFieldChecked = fieldCriteria.every((_, index) => checkedCriteria[`field-${index}`]);
@@ -282,7 +283,8 @@ const EligibilityPage: React.FC = () => {
 
     const program = getProgram(project.programId);
     const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
-    const fieldCriteria = program?.fieldEligibilityCriteria || [];
+    const allFieldCriteria = program?.fieldEligibilityCriteria || [];
+    const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
 
     setIsProcessing(true);
     try {
@@ -472,7 +474,8 @@ const EligibilityPage: React.FC = () => {
 
   // Combine textual and field-based criteria
   const textualCriteria = selectedProgram?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
-  const fieldCriteria = selectedProgram?.fieldEligibilityCriteria || [];
+  const allFieldCriteria = selectedProgram?.fieldEligibilityCriteria || [];
+  const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
   const totalCriteriaCount = textualCriteria.length + fieldCriteria.length;
   const criteriaList = textualCriteria;
 
