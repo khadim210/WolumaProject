@@ -337,7 +337,7 @@ Ce n'est PAS négociable. Des commentaires trop courts (moins de 200 mots) sont 
 
 1. INTRODUCTION (40-50 mots):
    - Rappeler le critère évalué
-   - Annoncer la note attribuée (X/${c.maxScore})
+   - Annoncer la note attribuée avec le score maximum
    - Contextualiser l'importance de ce critère
 
 2. ANALYSE DÉTAILLÉE (80-100 mots):
