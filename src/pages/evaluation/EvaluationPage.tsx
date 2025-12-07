@@ -386,9 +386,14 @@ const EvaluationPage: React.FC = () => {
   
   const handleAIEvaluation = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
     setIsAIEvaluating(true);
-    
+
     try {
       const partner = partners.find(p => p.id === program?.partnerId);
+
+      console.log('[AI Evaluation] Starting evaluation for project:', project.title);
+      console.log('[AI Evaluation] Program:', program.name);
+      console.log('[AI Evaluation] Criteria count:', program.evaluationCriteria.length);
+
       const request = {
         projectData: {
           title: project.title,
@@ -406,10 +411,13 @@ const EvaluationPage: React.FC = () => {
           description: program.description || '',
           partnerName: partner?.name || 'Non spécifié',
           budgetRange: `${program.budget.toLocaleString()} FCFA`
-        }
+        },
+        includeFileContents: includeFileContents
       };
 
+      console.log('[AI Evaluation] Sending request to AI service...');
       const response = await aiEvaluationService.evaluateProject(request);
+      console.log('[AI Evaluation] Received response:', response);
 
       // Stocker l'analyse IA pour la génération du rapport
       setAiAnalysisCache(prev => ({
@@ -417,13 +425,23 @@ const EvaluationPage: React.FC = () => {
         [project.id]: response
       }));
 
+      // Vérifier que la réponse contient des données
+      if (!response || !response.scores) {
+        console.error('[AI Evaluation] Invalid response - no scores found');
+        throw new Error('La réponse de l\'IA ne contient pas de scores');
+      }
+
+      console.log('[AI Evaluation] Processing scores...');
+
       // Préparer les nouvelles valeurs pour Formik
       const newValues: any = {};
+      let processedCount = 0;
 
       // Mettre à jour les scores et commentaires avec les observations de l'IA
       program.evaluationCriteria.forEach((criterion: any) => {
         const score = response.scores[criterion.name];
         if (score !== undefined) {
+          processedCount++;
           newValues[`score_${criterion.id}`] = score;
 
           // Utiliser l'observation de l'IA si disponible
@@ -443,18 +461,25 @@ const EvaluationPage: React.FC = () => {
             }
             newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
           }
+        } else {
+          console.warn(`[AI Evaluation] No score found for criterion: ${criterion.name}`);
         }
       });
+
+      console.log(`[AI Evaluation] Processed ${processedCount}/${program.evaluationCriteria.length} criteria`);
 
       // Mettre à jour les notes globales et la décision
       newValues.evaluationNotes = `[Évaluation IA]\n\n${response.notes}`;
       newValues.decision = response.recommendation;
-      
+
+      console.log('[AI Evaluation] Updating form values...');
       // Appliquer toutes les mises à jour
       setValues((prevValues: any) => ({
         ...prevValues,
         ...newValues
       }));
+
+      console.log('[AI Evaluation] Form updated successfully!');
       
     } catch (error) {
       console.error('Erreur lors de l\'évaluation IA:', error);
