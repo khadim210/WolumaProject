@@ -59,23 +59,8 @@ Le build créera un dossier `dist/` avec tous les fichiers optimisés.
    - etc.
 
 ##### Netlify
-
-Le projet est configuré pour être déployé automatiquement sur **wolumaFlow.netlify.app**.
-
-**Configuration automatique via `netlify.toml`:**
-- URL de production: `https://wolumaFlow.netlify.app`
-- Build command: `npm run build`
-- Publish directory: `dist`
-- Redirects SPA configurés automatiquement
-
-**Variables d'environnement à ajouter manuellement:**
 1. Allez dans `Site settings` > `Environment variables`
-2. Ajoutez les variables Supabase:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_SUPABASE_SERVICE_ROLE_KEY`
-
-Note: `VITE_APP_URL` est configuré automatiquement dans `netlify.toml`
+2. Ajoutez les variables comme ci-dessus
 
 ##### Heroku
 ```bash
