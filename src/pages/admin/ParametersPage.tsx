@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParametersStore } from '../../stores/parametersStore';
 import { DatabaseManager } from '../../utils/database';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
+import { EmailService } from '../../services/emailService';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
   CardContent,
   CardFooter
 } from '../../components/ui/Card';
@@ -23,7 +24,8 @@ import {
   Shield,
   Server,
   Brain,
-  Key
+  Key,
+  Send
 } from 'lucide-react';
 
 const ParametersPage: React.FC = () => {
@@ -46,6 +48,9 @@ const ParametersPage: React.FC = () => {
   const [connectionTest, setConnectionTest] = useState<{ success: boolean; message: string } | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [testEmail, setTestEmail] = useState('ahmathbamba.mbacke@gmail.com');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     loadParameters();
@@ -108,6 +113,40 @@ const ParametersPage: React.FC = () => {
       });
     } finally {
       setIsTestingConnection(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail) {
+      setEmailTestResult({
+        success: false,
+        message: 'Veuillez entrer une adresse email'
+      });
+      return;
+    }
+
+    setIsTestingEmail(true);
+    setEmailTestResult(null);
+    try {
+      const result = await EmailService.sendTestEmail(testEmail);
+      if (result.success) {
+        setEmailTestResult({
+          success: true,
+          message: `Email de test envoyé avec succès à ${testEmail}`
+        });
+      } else {
+        setEmailTestResult({
+          success: false,
+          message: result.error || 'Échec de l\'envoi de l\'email'
+        });
+      }
+    } catch (error) {
+      setEmailTestResult({
+        success: false,
+        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+      });
+    } finally {
+      setIsTestingEmail(false);
     }
   };
 
@@ -808,6 +847,67 @@ const ParametersPage: React.FC = () => {
                       />
                       <span className="ml-2 text-sm text-gray-900">Notifier les échéances</span>
                     </label>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Test d'envoi d'email</h3>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Adresse email de test
+                        </label>
+                        <div className="flex gap-3">
+                          <input
+                            type="email"
+                            value={testEmail}
+                            onChange={(e) => setTestEmail(e.target.value)}
+                            placeholder="votre.email@exemple.com"
+                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="primary"
+                            onClick={handleTestEmail}
+                            isLoading={isTestingEmail}
+                            leftIcon={<Send className="h-4 w-4" />}
+                          >
+                            Envoyer un test
+                          </Button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Envoyez un email de test pour vérifier que le système de notification fonctionne
+                        </p>
+                      </div>
+
+                      {emailTestResult && (
+                        <div className={`p-4 rounded-lg border ${
+                          emailTestResult.success
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}>
+                          <div className="flex items-center">
+                            {emailTestResult.success ? (
+                              <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-400 mr-2" />
+                            )}
+                            <div>
+                              <h4 className={`text-sm font-medium ${
+                                emailTestResult.success ? 'text-green-800' : 'text-red-800'
+                              }`}>
+                                {emailTestResult.success ? 'Email envoyé avec succès' : 'Échec de l\'envoi'}
+                              </h4>
+                              <p className={`text-sm ${
+                                emailTestResult.success ? 'text-green-700' : 'text-red-700'
+                              }`}>
+                                {emailTestResult.message}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {formData.emailNotifications && (
