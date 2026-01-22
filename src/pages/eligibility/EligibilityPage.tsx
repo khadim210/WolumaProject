@@ -26,6 +26,7 @@ import {
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EligibilityPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -265,17 +266,29 @@ const EligibilityPage: React.FC = () => {
       const generatedNotes = generateEligibilityNotes(true, textualCriteria, fieldCriteria, checkedCriteria);
       const finalNotes = generatedNotes + (eligibilityNotes.trim() ? `\n${eligibilityNotes}` : '');
 
-      await updateProject(selectedProject, {
-        status: 'eligible',
-        eligibilityNotes: finalNotes,
-        eligibilityCheckedBy: user.id,
-        eligibilityCheckedAt: new Date().toISOString()
-      });
+      const result = await ProjectStatusService.changeProjectStatus(
+        selectedProject,
+        'eligible',
+        project.status,
+        user.role,
+        'Projet approuvé comme éligible'
+      );
 
-      alert('Projet marqué comme éligible avec succès!');
-      setSelectedProject(null);
-      setEligibilityNotes('');
-      setCheckedCriteria({});
+      if (result.success) {
+        await updateProject(selectedProject, {
+          eligibilityNotes: finalNotes,
+          eligibilityCheckedBy: user.id,
+          eligibilityCheckedAt: new Date().toISOString()
+        });
+
+        alert('Projet marqué comme éligible avec succès!');
+        setSelectedProject(null);
+        setEligibilityNotes('');
+        setCheckedCriteria({});
+        await fetchProjects();
+      } else if (result.error) {
+        alert(result.error);
+      }
     } catch (error) {
       console.error('Error approving project:', error);
       alert('Erreur lors de l\'approbation du projet.');
@@ -300,17 +313,29 @@ const EligibilityPage: React.FC = () => {
       const generatedNotes = generateEligibilityNotes(false, textualCriteria, fieldCriteria, checkedCriteria);
       const finalNotes = generatedNotes + (eligibilityNotes.trim() ? `\n${eligibilityNotes}` : '');
 
-      await updateProject(selectedProject, {
-        status: 'ineligible',
-        eligibilityNotes: finalNotes,
-        eligibilityCheckedBy: user.id,
-        eligibilityCheckedAt: new Date().toISOString()
-      });
+      const result = await ProjectStatusService.changeProjectStatus(
+        selectedProject,
+        'ineligible',
+        project.status,
+        user.role,
+        'Projet marqué comme non éligible'
+      );
 
-      alert('Projet marqué comme non éligible.');
-      setSelectedProject(null);
-      setEligibilityNotes('');
-      setCheckedCriteria({});
+      if (result.success) {
+        await updateProject(selectedProject, {
+          eligibilityNotes: finalNotes,
+          eligibilityCheckedBy: user.id,
+          eligibilityCheckedAt: new Date().toISOString()
+        });
+
+        alert('Projet marqué comme non éligible.');
+        setSelectedProject(null);
+        setEligibilityNotes('');
+        setCheckedCriteria({});
+        await fetchProjects();
+      } else if (result.error) {
+        alert(result.error);
+      }
     } catch (error) {
       console.error('Error rejecting project:', error);
       alert('Erreur lors du rejet du projet.');

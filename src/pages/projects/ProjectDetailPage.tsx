@@ -5,10 +5,10 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
+import {
+  Card,
+  CardHeader,
+  CardTitle,
   CardContent,
   CardFooter
 } from '../../components/ui/Card';
@@ -20,6 +20,7 @@ import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, Check
 import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
+import { ProjectStatusService } from '../../services/projectStatusService';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -69,22 +70,35 @@ const ProjectDetailPage: React.FC = () => {
   }, [id, navigate]);
   
   const handleSubmitProject = async () => {
-    if (!project || !id) return;
-    
+    if (!project || !id || !user) return;
+
     setIsSubmitting(true);
-    
+
     try {
-      const updatedProject = await updateProject(id, {
-        status: 'submitted',
-        submissionDate: new Date(),
-      });
-      
-      if (updatedProject) {
-        setProject(updatedProject);
-        setShowSubmitConfirm(false);
+      const result = await ProjectStatusService.changeProjectStatus(
+        id,
+        'submitted',
+        project.status,
+        user.role,
+        'Projet soumis pour évaluation'
+      );
+
+      if (result.success) {
+        const updatedProject = await updateProject(id, {
+          submissionDate: new Date(),
+        });
+
+        if (updatedProject) {
+          setProject(updatedProject);
+          setShowSubmitConfirm(false);
+          await fetchProjects();
+        }
+      } else if (result.error) {
+        alert(result.error);
       }
     } catch (error) {
       console.error('Error submitting project:', error);
+      alert('Erreur lors de la soumission du projet');
     } finally {
       setIsSubmitting(false);
     }

@@ -4,10 +4,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
+import {
+  Card,
+  CardHeader,
+  CardTitle,
   CardContent,
   CardFooter,
   CardDescription
@@ -28,6 +28,7 @@ import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
 import { generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
 import { useParametersStore } from '../../stores/parametersStore';
+import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -490,15 +491,28 @@ const EvaluationPage: React.FC = () => {
   };
   
   const handleSubmitEvaluatedProject = async (project: Project) => {
-    if (!project.recommendedStatus) return;
-    
+    if (!project.recommendedStatus || !user) return;
+
     try {
-      await updateProject(project.id, {
-        status: project.recommendedStatus,
-        manuallySubmitted: true,
-      });
+      const result = await ProjectStatusService.changeProjectStatus(
+        project.id,
+        project.recommendedStatus,
+        project.status,
+        user.role,
+        'Application de la recommandation d\'évaluation'
+      );
+
+      if (result.success) {
+        await updateProject(project.id, {
+          manuallySubmitted: true,
+        });
+        await fetchProjects();
+      } else if (result.error) {
+        alert(result.error);
+      }
     } catch (error) {
       console.error('Error submitting evaluated project:', error);
+      alert('Erreur lors de la soumission du projet évalué');
     }
   };
   

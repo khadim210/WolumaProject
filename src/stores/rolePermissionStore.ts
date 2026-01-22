@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Permission = 
+export type Permission =
   | 'dashboard.view'
   | 'projects.view'
   | 'projects.create'
   | 'projects.edit'
   | 'projects.delete'
   | 'projects.submit'
+  | 'projects.change_status'
+  | 'eligibility.view'
+  | 'eligibility.check'
   | 'evaluation.view'
   | 'evaluation.evaluate'
   | 'formalization.view'
@@ -25,6 +28,7 @@ export type Permission =
   | 'users.delete'
   | 'parameters.view'
   | 'parameters.edit'
+  | 'status_history.view'
   | 'profile.view'
   | 'profile.edit';
 
@@ -71,7 +75,16 @@ const defaultPermissionGroups: PermissionGroup[] = [
       { id: 'projects.create', name: 'Créer des projets', description: 'Créer de nouveaux projets' },
       { id: 'projects.edit', name: 'Modifier les projets', description: 'Modifier les projets existants' },
       { id: 'projects.delete', name: 'Supprimer les projets', description: 'Supprimer des projets' },
-      { id: 'projects.submit', name: 'Soumettre les projets', description: 'Soumettre des projets pour évaluation' }
+      { id: 'projects.submit', name: 'Soumettre les projets', description: 'Soumettre des projets pour évaluation' },
+      { id: 'projects.change_status', name: 'Changer le statut', description: 'Modifier le statut des projets' }
+    ]
+  },
+  {
+    id: 'eligibility',
+    name: 'Éligibilité',
+    permissions: [
+      { id: 'eligibility.view', name: 'Voir l\'éligibilité', description: 'Consulter les vérifications d\'éligibilité' },
+      { id: 'eligibility.check', name: 'Vérifier l\'éligibilité', description: 'Effectuer des vérifications d\'éligibilité' }
     ]
   },
   {
@@ -134,6 +147,13 @@ const defaultPermissionGroups: PermissionGroup[] = [
     ]
   },
   {
+    id: 'status_history',
+    name: 'Historique des statuts',
+    permissions: [
+      { id: 'status_history.view', name: 'Voir l\'historique', description: 'Consulter l\'historique des changements de statut' }
+    ]
+  },
+  {
     id: 'profile',
     name: 'Profil',
     permissions: [
@@ -146,7 +166,8 @@ const defaultPermissionGroups: PermissionGroup[] = [
 const defaultRolePermissions: RolePermissions = {
   admin: [
     'dashboard.view',
-    'projects.view', 'projects.create', 'projects.edit', 'projects.delete', 'projects.submit',
+    'projects.view', 'projects.create', 'projects.edit', 'projects.delete', 'projects.submit', 'projects.change_status',
+    'eligibility.view', 'eligibility.check',
     'evaluation.view', 'evaluation.evaluate',
     'formalization.view', 'formalization.manage',
     'monitoring.view', 'monitoring.manage',
@@ -154,25 +175,30 @@ const defaultRolePermissions: RolePermissions = {
     'form_templates.view', 'form_templates.create', 'form_templates.edit', 'form_templates.delete',
     'users.view', 'users.create', 'users.edit', 'users.delete',
     'parameters.view', 'parameters.edit',
+    'status_history.view',
     'profile.view', 'profile.edit'
   ],
   manager: [
     'dashboard.view',
-    'projects.view',
+    'projects.view', 'projects.change_status',
+    'eligibility.view', 'eligibility.check',
     'evaluation.view', 'evaluation.evaluate',
     'formalization.view', 'formalization.manage',
     'monitoring.view', 'monitoring.manage',
     'statistics.view',
     'form_templates.view', 'form_templates.create', 'form_templates.edit', 'form_templates.delete',
+    'status_history.view',
     'profile.view', 'profile.edit'
   ],
   partner: [
     'dashboard.view',
     'projects.view',
+    'eligibility.view',
     'evaluation.view',
     'formalization.view',
     'monitoring.view',
     'statistics.view',
+    'status_history.view',
     'profile.view', 'profile.edit'
   ],
   submitter: [

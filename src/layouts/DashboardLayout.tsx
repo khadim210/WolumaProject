@@ -18,7 +18,8 @@ import {
   Settings,
   Target,
   Building,
-  ClipboardCheck
+  ClipboardCheck,
+  History
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -129,6 +130,9 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('parameters.view') && (
                 <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
               )}
+              {checkPermission('status_history.view') && (
+                <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" onClick={() => setSidebarOpen(false)} />
+              )}
             </nav>
           </div>
           
@@ -196,6 +200,9 @@ const DashboardLayout: React.FC = () => {
                 )}
                 {checkPermission('parameters.view') && (
                   <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" />
+                )}
+                {checkPermission('status_history.view') && (
+                  <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" />
                 )}
               </nav>
             </div>
