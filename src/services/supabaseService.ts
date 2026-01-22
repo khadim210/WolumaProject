@@ -179,64 +179,64 @@ export interface SupabaseFormTemplate {
 export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
     console.log('UserService.getUsers called');
-    
-    if (supabaseAdmin === null) {
-      console.error('❌ Supabase admin client not available. Check SERVICE_ROLE_KEY.');
-      throw new Error('Admin operations not available');
+
+    if (!supabase) {
+      console.error('❌ Supabase client not available.');
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS - admins will see all users via RLS policy
+    const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     console.log('Supabase response - data:', data, 'error:', error);
-    
+
     if (error) throw error;
     return data || [];
   }
 
   static async createUser(user: Omit<SupabaseUser, 'id' | 'created_at'>): Promise<SupabaseUser> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS - admins can insert via RLS policy
+    const { data, error } = await supabase
       .from('users')
       .insert([user])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updateUser(id: string, updates: Partial<SupabaseUser>): Promise<SupabaseUser> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS - admins can update all users via RLS policy
+    const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async deleteUser(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
 
     // First, get the user to retrieve the auth_user_id
-    const { data: user, error: getUserError } = await supabaseAdmin
+    const { data: user, error: getUserError } = await supabase
       .from('users')
       .select('auth_user_id, name')
       .eq('id', id)
@@ -247,7 +247,7 @@ export class UserService {
     }
 
     // Check if user has submitted projects (cannot delete if they have projects)
-    const { data: projects, error: projectsError } = await supabaseAdmin
+    const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('id')
       .eq('submitter_id', id)
@@ -262,25 +262,25 @@ export class UserService {
     }
 
     // Set assigned_manager_id to NULL in partners table
-    await supabaseAdmin
+    await supabase
       .from('partners')
       .update({ assigned_manager_id: null })
       .eq('assigned_manager_id', id);
 
     // Set manager_id to NULL in programs table
-    await supabaseAdmin
+    await supabase
       .from('programs')
       .update({ manager_id: null })
       .eq('manager_id', id);
 
     // Set evaluated_by to NULL in projects table
-    await supabaseAdmin
+    await supabase
       .from('projects')
       .update({ evaluated_by: null })
       .eq('evaluated_by', id);
 
     // Delete from users table (profile)
-    const { error: deleteUserError } = await supabaseAdmin
+    const { error: deleteUserError } = await supabase
       .from('users')
       .delete()
       .eq('id', id);
@@ -289,19 +289,10 @@ export class UserService {
       throw new Error(`Erreur lors de la suppression du profil: ${deleteUserError.message}`);
     }
 
-    // Delete from auth.users if auth_user_id exists
+    // Note: Cannot delete from auth.users from client side
+    // The auth user will remain but without a profile
     if (user?.auth_user_id) {
-      try {
-        const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
-          user.auth_user_id
-        );
-
-        if (deleteAuthError) {
-          console.warn('Warning: Could not delete auth user:', deleteAuthError.message);
-        }
-      } catch (authError) {
-        console.warn('Warning: Error deleting auth user:', authError);
-      }
+      console.warn('Auth user will remain active. Admin must delete it manually from Supabase dashboard if needed.');
     }
   }
 }
@@ -338,49 +329,49 @@ export class PartnerService {
   }
 
   static async createPartner(partner: Omit<SupabasePartner, 'id' | 'created_at'>): Promise<SupabasePartner> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS
+    const { data, error } = await supabase
       .from('partners')
       .insert([partner])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updatePartner(id: string, updates: Partial<SupabasePartner>): Promise<SupabasePartner> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS
+    const { data, error } = await supabase
       .from('partners')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async deletePartner(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { error } = await supabaseAdmin
+
+    // Use regular client with RLS
+    const { error } = await supabase
       .from('partners')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 }
@@ -402,46 +393,46 @@ export class ProgramService {
   }
 
   static async createProgram(program: Omit<SupabaseProgram, 'id' | 'created_at'>): Promise<SupabaseProgram> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('programs')
       .insert([program])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updateProgram(id: string, updates: Partial<SupabaseProgram>): Promise<SupabaseProgram> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('programs')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async deleteProgram(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { error } = await supabaseAdmin
+
+    const { error } = await supabase
       .from('programs')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 }
@@ -531,46 +522,46 @@ export class FormTemplateService {
   }
 
   static async createFormTemplate(template: Omit<SupabaseFormTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<SupabaseFormTemplate> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('form_templates')
       .insert([template])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updateFormTemplate(id: string, updates: Partial<SupabaseFormTemplate>): Promise<SupabaseFormTemplate> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('form_templates')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async deleteFormTemplate(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { error } = await supabaseAdmin
+
+    const { error } = await supabase
       .from('form_templates')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 }
@@ -677,16 +668,9 @@ export class AuthService {
   }
 
   static async updateUserPassword(authUserId: string, newPassword: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
-    }
-
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(
-      authUserId,
-      { password: newPassword }
-    );
-
-    if (error) throw error;
+    // NOTE: Password updates from client side are not supported for security reasons
+    // This functionality requires an edge function with admin privileges
+    throw new Error('Password updates must be performed through secure admin endpoints. This feature requires an edge function.');
   }
 }
 
