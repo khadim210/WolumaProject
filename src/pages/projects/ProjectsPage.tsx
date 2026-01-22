@@ -12,8 +12,9 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle } from 'lucide-react';
+import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle, Download, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { exportSubmissionsToExcel, exportSubmissionsToPDF } from '../../utils/submissionExport';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -29,6 +30,7 @@ const ProjectsPage: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string>('');
   const [importSuccess, setImportSuccess] = useState<string>('');
+  const [selectedProgramForExport, setSelectedProgramForExport] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   
@@ -239,6 +241,38 @@ const ProjectsPage: React.FC = () => {
     worksheet['!cols'] = colWidths;
 
     XLSX.writeFile(workbook, 'Modele_Import_Projets.xlsx');
+  };
+
+  const handleExportExcel = () => {
+    if (!selectedProgramForExport) {
+      alert('Veuillez sélectionner un programme');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === selectedProgramForExport);
+    if (!program) {
+      alert('Programme non trouvé');
+      return;
+    }
+
+    const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
+    exportSubmissionsToExcel({ projects: programProjects, program });
+  };
+
+  const handleExportPDF = () => {
+    if (!selectedProgramForExport) {
+      alert('Veuillez sélectionner un programme');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === selectedProgramForExport);
+    if (!program) {
+      alert('Programme non trouvé');
+      return;
+    }
+
+    const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
+    exportSubmissionsToPDF({ projects: programProjects, program });
   };
   
   const getStatusLabel = (status: ProjectStatus): string => {
@@ -490,7 +524,74 @@ const ProjectsPage: React.FC = () => {
           </CardContent>
         </Card>
       )}
-      
+
+      {/* Export Section */}
+      {(checkPermission('projects.read') || checkPermission('projects.manage')) && (
+        <Card className="border-l-4 border-l-primary-500">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Download className="h-5 w-5 text-primary-600 mr-2" />
+              Exportation des soumissions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sélectionner un programme*
+                </label>
+                <select
+                  value={selectedProgramForExport}
+                  onChange={(e) => setSelectedProgramForExport(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                >
+                  <option value="">Choisir un programme...</option>
+                  {accessiblePrograms.map(program => {
+                    const partner = partners.find(p => p.id === program.partnerId);
+                    const projectCount = userProjects.filter(p => p.programId === program.id).length;
+                    return (
+                      <option key={program.id} value={program.id}>
+                        {program.name} {partner && `(${partner.name})`} - {projectCount} soumission(s)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="md:col-span-2 flex items-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  disabled={!selectedProgramForExport}
+                  leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+                  className="flex-1"
+                >
+                  Exporter en Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={!selectedProgramForExport}
+                  leftIcon={<FileDown className="h-4 w-4" />}
+                  className="flex-1"
+                >
+                  Exporter en PDF
+                </Button>
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+              <p className="font-medium text-blue-900 mb-1">À propos de l'exportation :</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-800">
+                <li>Les fichiers incluront toutes les informations des formulaires de soumission</li>
+                <li>Le format Excel permet une manipulation facile des données</li>
+                <li>Le format PDF est adapté pour l'archivage et l'impression (format auto-ajusté selon le nombre de colonnes)</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {sortedProjects.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
           {sortedProjects.map(project => {
