@@ -159,6 +159,10 @@ export interface SupabaseProject {
   form_data?: any;
   recommended_status?: string;
   manually_submitted: boolean;
+  eligibility_notes?: string;
+  eligibility_checked_by?: string;
+  eligibility_checked_at?: string;
+  submitted_at?: string;
 }
 
 export interface SupabaseFormTemplate {

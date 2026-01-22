@@ -74,6 +74,20 @@ export interface DisbursementTranche {
   updated_at: Date;
 }
 
+export interface ProjectArchive {
+  id: string;
+  project_id: string;
+  archive_type: 'closure' | 'export' | 'backup';
+  archive_path: string;
+  archive_size: number;
+  status: 'active' | 'archived' | 'deleted';
+  archived_by: string;
+  archived_at: Date;
+  notes?: string;
+  metadata: Record<string, any>;
+  created_at: Date;
+}
+
 class FormalizationService {
   async createDocumentRequest(data: Partial<DocumentRequest>): Promise<DocumentRequest | null> {
     const { data: result, error } = await supabase
