@@ -14,9 +14,16 @@ import {
   CheckCircle2,
   Clock,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { getStatusLabel } from '../../utils/statusTransitions';
+import { formatCurrency } from '../../utils/currency';
 
 const MonitoringPage = () => {
   const { projects, fetchProjects, isLoading } = useProjectStore();
@@ -222,6 +229,197 @@ const MonitoringPage = () => {
     await Promise.all([fetchProjects(), fetchPrograms()]);
   };
 
+  const handleExportExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    const summaryData = [
+      ['Statistiques du tableau de bord'],
+      [''],
+      ['Métrique', 'Valeur'],
+      ['Période', selectedPeriod === 'all' ? 'Toutes les périodes' : selectedPeriod === 'month' ? 'Dernier mois' : selectedPeriod === 'quarter' ? 'Dernier trimestre' : 'Dernière année'],
+      ['Date d\'export', new Date().toLocaleDateString('fr-FR')],
+      [''],
+      ['Projets actifs', statistics.activeProjectsCount],
+      ['Taux de réussite', `${statistics.successRate}%`],
+      ['Budget total actif', formatCurrency(statistics.totalBudget)],
+      ['Risques actifs', statistics.risks.filter(r => r.status === 'active').length],
+      [''],
+      ['Distribution par statut', ''],
+      ['Monitoring', statistics.statusDistribution.monitoring],
+      ['Financé', statistics.statusDistribution.financed],
+      ['Formalisation', statistics.statusDistribution.formalization],
+      ['Clôturé', statistics.statusDistribution.closed],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé');
+
+    const activeProjects = filteredProjects.filter(p => ['monitoring', 'financed', 'formalization'].includes(p.status));
+    const projectsData = activeProjects.map(p => {
+      const program = programs.find(pr => pr.id === p.programId);
+      const daysSinceUpdate = p.updatedAt ? Math.floor((Date.now() - new Date(p.updatedAt).getTime()) / (1000 * 60 * 60 * 24)) : '-';
+      const daysSinceSubmission = p.submissionDate ? Math.floor((Date.now() - new Date(p.submissionDate).getTime()) / (1000 * 60 * 60 * 24)) : '-';
+
+      return {
+        'Titre': p.title,
+        'Programme': program?.name || 'N/A',
+        'Statut': getStatusLabel(p.status as any),
+        'Budget': formatCurrency(p.budget),
+        'Score évaluation': p.totalEvaluationScore ? `${p.totalEvaluationScore}%` : 'N/A',
+        'Date soumission': p.submissionDate ? new Date(p.submissionDate).toLocaleDateString('fr-FR') : 'N/A',
+        'Jours depuis soumission': daysSinceSubmission,
+        'Dernière mise à jour': p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('fr-FR') : 'N/A',
+        'Jours depuis MAJ': daysSinceUpdate,
+      };
+    });
+    const wsProjects = XLSX.utils.json_to_sheet(projectsData);
+    XLSX.utils.book_append_sheet(wb, wsProjects, 'Projets actifs');
+
+    const milestonesData = statistics.milestones.map(m => ({
+      'Étape': m.name,
+      'Statut': m.status === 'completed' ? 'Complété' : m.status === 'in_progress' ? 'En cours' : 'À venir',
+      'Nombre': m.count,
+    }));
+    const wsMilestones = XLSX.utils.json_to_sheet(milestonesData);
+    XLSX.utils.book_append_sheet(wb, wsMilestones, 'Jalons');
+
+    const risksData = statistics.risks.map(r => ({
+      'Description': r.description,
+      'Niveau': r.level === 'high' ? 'Élevé' : r.level === 'medium' ? 'Moyen' : 'Faible',
+      'Statut': r.status === 'active' ? 'Actif' : 'Atténué',
+    }));
+    const wsRisks = XLSX.utils.json_to_sheet(risksData);
+    XLSX.utils.book_append_sheet(wb, wsRisks, 'Risques');
+
+    const updatesData = statistics.recentUpdates.map(u => ({
+      'Date': u.date,
+      'Type': u.type === 'meeting' ? 'Réunion' : u.type === 'report' ? 'Rapport' : 'Jalon',
+      'Description': u.description,
+    }));
+    const wsUpdates = XLSX.utils.json_to_sheet(updatesData);
+    XLSX.utils.book_append_sheet(wb, wsUpdates, 'Mises à jour');
+
+    const allProjectsData = filteredProjects.map(p => {
+      const program = programs.find(pr => pr.id === p.programId);
+      return {
+        'Titre': p.title,
+        'Programme': program?.name || 'N/A',
+        'Statut': getStatusLabel(p.status as any),
+        'Budget': formatCurrency(p.budget),
+        'Score': p.totalEvaluationScore || 'N/A',
+        'Date création': new Date(p.createdAt).toLocaleDateString('fr-FR'),
+        'Date soumission': p.submissionDate ? new Date(p.submissionDate).toLocaleDateString('fr-FR') : 'N/A',
+      };
+    });
+    const wsAllProjects = XLSX.utils.json_to_sheet(allProjectsData);
+    XLSX.utils.book_append_sheet(wb, wsAllProjects, 'Tous les projets');
+
+    XLSX.writeFile(wb, `suivi-projets-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    let yPosition = 15;
+
+    doc.setFontSize(18);
+    doc.text('Rapport de Suivi des Projets', 14, yPosition);
+    yPosition += 7;
+
+    doc.setFontSize(10);
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, yPosition);
+    yPosition += 5;
+    doc.text(`Période: ${selectedPeriod === 'all' ? 'Toutes les périodes' : selectedPeriod === 'month' ? 'Dernier mois' : selectedPeriod === 'quarter' ? 'Dernier trimestre' : 'Dernière année'}`, 14, yPosition);
+    yPosition += 10;
+
+    doc.setFontSize(14);
+    doc.text('Statistiques principales', 14, yPosition);
+    yPosition += 7;
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Métrique', 'Valeur']],
+      body: [
+        ['Projets actifs', statistics.activeProjectsCount.toString()],
+        ['Taux de réussite', `${statistics.successRate}%`],
+        ['Budget total actif', formatCurrency(statistics.totalBudget)],
+        ['Risques actifs', statistics.risks.filter(r => r.status === 'active').length.toString()],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    yPosition = (doc as any).lastAutoTable.finalY + 10;
+
+    doc.setFontSize(14);
+    doc.text('Distribution par statut', 14, yPosition);
+    yPosition += 7;
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Statut', 'Nombre']],
+      body: [
+        ['Monitoring', statistics.statusDistribution.monitoring.toString()],
+        ['Financé', statistics.statusDistribution.financed.toString()],
+        ['Formalisation', statistics.statusDistribution.formalization.toString()],
+        ['Clôturé', statistics.statusDistribution.closed.toString()],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.addPage();
+    yPosition = 15;
+
+    doc.setFontSize(14);
+    doc.text('Projets actifs', 14, yPosition);
+    yPosition += 7;
+
+    const activeProjects = filteredProjects.filter(p => ['monitoring', 'financed', 'formalization'].includes(p.status));
+    const projectsTableData = activeProjects.slice(0, 20).map(p => {
+      const program = programs.find(pr => pr.id === p.programId);
+      return [
+        p.title.length > 30 ? p.title.substring(0, 27) + '...' : p.title,
+        program?.name || 'N/A',
+        getStatusLabel(p.status as any),
+        formatCurrency(p.budget),
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Projet', 'Programme', 'Statut', 'Budget']],
+      body: projectsTableData,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    yPosition = (doc as any).lastAutoTable.finalY + 10;
+
+    if (yPosition > 250) {
+      doc.addPage();
+      yPosition = 15;
+    }
+
+    doc.setFontSize(14);
+    doc.text('Risques identifiés', 14, yPosition);
+    yPosition += 7;
+
+    const risksTableData = statistics.risks.map(r => [
+      r.description,
+      r.level === 'high' ? 'Élevé' : r.level === 'medium' ? 'Moyen' : 'Faible',
+      r.status === 'active' ? 'Actif' : 'Atténué',
+    ]);
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Description', 'Niveau', 'Statut']],
+      body: risksTableData,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.save(`suivi-projets-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   if (isLoading && projects.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -241,6 +439,24 @@ const MonitoringPage = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+          >
+            Excel
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            leftIcon={<Download className="h-4 w-4" />}
+          >
+            PDF
+          </Button>
+
           <Button
             variant="outline"
             size="sm"

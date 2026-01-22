@@ -526,6 +526,8 @@ const EligibilityPage: React.FC = () => {
   };
 
   const handleExportExcel = () => {
+    const wb = XLSX.utils.book_new();
+
     const exportData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
       const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
@@ -542,7 +544,9 @@ const EligibilityPage: React.FC = () => {
 
       return {
         'Titre': project.title,
+        'Description': project.description || 'N/A',
         'Programme': program?.name || 'N/A',
+        'Budget': project.budget,
         'Statut': project.status,
         'État Éligibilité': getEligibilityStatus(project),
         'Détails Critères': eligibilityDetail,
@@ -556,12 +560,11 @@ const EligibilityPage: React.FC = () => {
     });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Projets Éligibilité');
-
-    const colWidths = [
+    ws['!cols'] = [
       { wch: 30 },
+      { wch: 40 },
       { wch: 25 },
+      { wch: 15 },
       { wch: 15 },
       { wch: 40 },
       { wch: 35 },
@@ -570,7 +573,43 @@ const EligibilityPage: React.FC = () => {
       { wch: 20 },
       { wch: 50 }
     ];
-    ws['!cols'] = colWidths;
+    XLSX.utils.book_append_sheet(wb, ws, 'Projets');
+
+    const criteriaData: any[] = [];
+    const addedPrograms = new Set<string>();
+
+    filteredProjects.forEach(project => {
+      const program = getProgram(project.programId);
+      if (program && !addedPrograms.has(program.id)) {
+        addedPrograms.add(program.id);
+
+        const textualCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+        textualCriteria.forEach((criterion, index) => {
+          criteriaData.push({
+            'Programme': program.name,
+            'Type': 'Textuel',
+            'Numéro': index + 1,
+            'Critère': criterion,
+          });
+        });
+
+        const allFieldCriteria = program.fieldEligibilityCriteria || [];
+        const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+        fieldCriteria.forEach((criterion, index) => {
+          criteriaData.push({
+            'Programme': program.name,
+            'Type': 'Champ de formulaire',
+            'Numéro': textualCriteria.length + index + 1,
+            'Critère': `${criterion.fieldLabel} (${criterion.fieldName})`,
+          });
+        });
+      }
+    });
+
+    if (criteriaData.length > 0) {
+      const wsCriteria = XLSX.utils.json_to_sheet(criteriaData);
+      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Critères d\'éligibilité');
+    }
 
     XLSX.writeFile(wb, `Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.xlsx`);
   };

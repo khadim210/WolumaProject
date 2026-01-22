@@ -19,10 +19,12 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
   Shield,
   AlertTriangle,
   X,
-  Printer
+  Printer,
+  FileSpreadsheet
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
@@ -774,18 +776,149 @@ const EvaluationPage: React.FC = () => {
     doc.save(`Projets_Evaluation_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  const handleExportExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    const summaryData = submittedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      const evaluationScores = project.evaluationScores || {};
+      const evaluationComments = project.evaluationComments || {};
+
+      let maxScore = 0;
+      let totalScore = 0;
+
+      if (program?.evaluationCriteria) {
+        program.evaluationCriteria.forEach(criterion => {
+          const weight = criterion.weight || 1;
+          const score = evaluationScores[criterion.id] || 0;
+          totalScore += score * weight;
+          maxScore += criterion.maxScore * weight;
+        });
+      }
+
+      const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+
+      return {
+        'Titre': project.title,
+        'Programme': program?.name || 'N/A',
+        'Statut': project.status === 'selected' ? 'Sélectionné' :
+                  project.status === 'pre_selected' ? 'Présélectionné' :
+                  project.status === 'rejected' ? 'Rejeté' :
+                  project.status === 'eligible' ? 'Éligible' : project.status,
+        'Score Total': Math.round(totalScore),
+        'Score Maximum': Math.round(maxScore),
+        'Pourcentage': `${percentage.toFixed(1)}%`,
+        'Recommandation': project.recommendedStatus || 'N/A',
+        'Évaluateur': project.evaluatedBy || 'N/A',
+        'Date Évaluation': project.evaluationDate ? new Date(project.evaluationDate).toLocaleDateString('fr-FR') : 'N/A',
+        'Notes': project.evaluationNotes || '',
+      };
+    });
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé Évaluations');
+
+    const allCriteria = new Set<string>();
+    submittedProjects.forEach(project => {
+      const program = programs.find(p => p.id === project.programId);
+      program?.evaluationCriteria?.forEach(criterion => {
+        allCriteria.add(criterion.id);
+      });
+    });
+
+    const detailedScoresData = submittedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      const row: any = {
+        'Titre': project.title,
+        'Programme': program?.name || 'N/A',
+      };
+
+      program?.evaluationCriteria?.forEach(criterion => {
+        const score = project.evaluationScores?.[criterion.id] || 0;
+        const maxScore = criterion.maxScore;
+        row[`${criterion.name} (Score)`] = score;
+        row[`${criterion.name} (Max)`] = maxScore;
+        row[`${criterion.name} (Poids)`] = criterion.weight || 1;
+      });
+
+      return row;
+    });
+
+    if (detailedScoresData.length > 0) {
+      const wsScores = XLSX.utils.json_to_sheet(detailedScoresData);
+      XLSX.utils.book_append_sheet(wb, wsScores, 'Scores Détaillés');
+    }
+
+    const commentsData = [];
+    for (const project of submittedProjects) {
+      const program = programs.find(p => p.id === project.programId);
+
+      program?.evaluationCriteria?.forEach(criterion => {
+        const comment = project.evaluationComments?.[criterion.id];
+        if (comment) {
+          commentsData.push({
+            'Projet': project.title,
+            'Critère': criterion.name,
+            'Commentaire': comment,
+          });
+        }
+      });
+    }
+
+    if (commentsData.length > 0) {
+      const wsComments = XLSX.utils.json_to_sheet(commentsData);
+      XLSX.utils.book_append_sheet(wb, wsComments, 'Commentaires');
+    }
+
+    const criteriaData = [];
+    const addedPrograms = new Set<string>();
+
+    for (const project of submittedProjects) {
+      const program = programs.find(p => p.id === project.programId);
+      if (program && !addedPrograms.has(program.id)) {
+        addedPrograms.add(program.id);
+        program.evaluationCriteria?.forEach(criterion => {
+          criteriaData.push({
+            'Programme': program.name,
+            'Critère': criterion.name,
+            'Description': criterion.description || '',
+            'Score Maximum': criterion.maxScore,
+            'Poids': criterion.weight || 1,
+          });
+        });
+      }
+    }
+
+    if (criteriaData.length > 0) {
+      const wsCriteria = XLSX.utils.json_to_sheet(criteriaData);
+      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Critères d\'Évaluation');
+    }
+
+    XLSX.writeFile(wb, `Evaluations_Detaillees_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Évaluation des Projets</h1>
-        <Button
-          variant="outline"
-          onClick={handlePrintProjects}
-          leftIcon={<Printer className="h-4 w-4" />}
-          disabled={submittedProjects.length === 0}
-        >
-          Imprimer la liste
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            disabled={submittedProjects.length === 0}
+          >
+            Export Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePrintProjects}
+            leftIcon={<Printer className="h-4 w-4" />}
+            disabled={submittedProjects.length === 0}
+          >
+            Export PDF
+          </Button>
+        </div>
       </div>
       
       {!isEvaluating ? (

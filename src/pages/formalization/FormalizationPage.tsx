@@ -20,10 +20,12 @@ import {
   Edit,
   Trash2,
   AlertCircle,
-  Printer
+  Printer,
+  FileSpreadsheet
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
@@ -338,6 +340,132 @@ const FormalizationPage: React.FC = () => {
     doc.save(`Formalisation_Projets_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  const handleExportFormalizationExcel = async () => {
+    const wb = XLSX.utils.book_new();
+
+    const allData = await Promise.all(
+      selectedProjectsData.map(async (project) => {
+        const [docs, supports, financial] = await Promise.all([
+          formalizationService.getDocumentRequestsByProject(project.id),
+          formalizationService.getTechnicalSupportByProject(project.id),
+          formalizationService.getDisbursementPlanByProject(project.id)
+        ]);
+
+        const program = programs.find(p => p.id === project.programId);
+        const docsApproved = docs.filter(d => d.status === 'approved').length;
+        const supportsCompleted = supports.filter(s => s.status === 'completed').length;
+        const tranchesDisbursed = financial.tranches.filter(t => t.status === 'disbursed').length;
+        const totalAmount = financial.plan?.total_amount || 0;
+        const amountDisbursed = financial.tranches
+          .filter(t => t.status === 'disbursed')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        return {
+          project,
+          program,
+          docs,
+          supports,
+          financial,
+          docsApproved,
+          supportsCompleted,
+          tranchesDisbursed,
+          totalAmount,
+          amountDisbursed
+        };
+      })
+    );
+
+    const summaryData = allData.map(data => ({
+      'Titre': data.project.title,
+      'Programme': data.program?.name || 'N/A',
+      'Budget': data.project.budget,
+      'Documents approuvés': `${data.docsApproved}/${data.docs.length}`,
+      'Accompagnement complété': `${data.supportsCompleted}/${data.supports.length}`,
+      'Tranches décaissées': `${data.tranchesDisbursed}/${data.financial.tranches.length}`,
+      'Montant total': data.totalAmount,
+      'Montant décaissé': data.amountDisbursed,
+      'Devise': data.financial.plan?.currency || 'XOF',
+      'Progression': data.docs.length > 0 ? `${Math.round((data.docsApproved / data.docs.length) * 100)}%` : '0%',
+    }));
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé');
+
+    const docsData: any[] = [];
+    allData.forEach(data => {
+      data.docs.forEach(doc => {
+        docsData.push({
+          'Projet': data.project.title,
+          'Type de document': doc.document_type,
+          'Titre': doc.title,
+          'Description': doc.description || '',
+          'Statut': doc.status === 'pending' ? 'En attente' :
+                    doc.status === 'submitted' ? 'Soumis' :
+                    doc.status === 'validated' ? 'Validé' :
+                    doc.status === 'approved' ? 'Approuvé' : 'Rejeté',
+          'Date limite': doc.due_date ? new Date(doc.due_date).toLocaleDateString('fr-FR') : 'N/A',
+          'Date soumission': doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString('fr-FR') : 'N/A',
+          'Fichier': doc.file_path || 'Non fourni',
+        });
+      });
+    });
+
+    if (docsData.length > 0) {
+      const wsDocs = XLSX.utils.json_to_sheet(docsData);
+      XLSX.utils.book_append_sheet(wb, wsDocs, 'Documents');
+    }
+
+    const supportsData: any[] = [];
+    allData.forEach(data => {
+      data.supports.forEach(support => {
+        supportsData.push({
+          'Projet': data.project.title,
+          'Titre': support.title,
+          'Type': support.type,
+          'Description': support.description || '',
+          'Statut': support.status === 'pending' ? 'En attente' :
+                    support.status === 'scheduled' ? 'Planifié' :
+                    support.status === 'in_progress' ? 'En cours' :
+                    support.status === 'completed' ? 'Complété' : 'Annulé',
+          'Date prévue': support.scheduled_date ? new Date(support.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
+          'Durée (heures)': support.duration_hours || 0,
+          'Prestataire': support.provider || 'N/A',
+          'Participants': support.participants || 'N/A',
+        });
+      });
+    });
+
+    if (supportsData.length > 0) {
+      const wsSupports = XLSX.utils.json_to_sheet(supportsData);
+      XLSX.utils.book_append_sheet(wb, wsSupports, 'Accompagnement');
+    }
+
+    const tranchesData: any[] = [];
+    allData.forEach(data => {
+      data.financial.tranches.forEach(tranche => {
+        tranchesData.push({
+          'Projet': data.project.title,
+          'Numéro de tranche': tranche.tranche_number,
+          'Montant': tranche.amount,
+          'Pourcentage': tranche.percentage ? `${tranche.percentage}%` : 'N/A',
+          'Devise': data.financial.plan?.currency || 'XOF',
+          'Statut': tranche.status === 'pending' ? 'En attente' :
+                    tranche.status === 'approved' ? 'Approuvé' : 'Décaissé',
+          'Date prévue': tranche.scheduled_date ? new Date(tranche.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
+          'Date effective': tranche.actual_disbursement_date ? new Date(tranche.actual_disbursement_date).toLocaleDateString('fr-FR') : 'N/A',
+          'Conditions': tranche.conditions || 'Aucune',
+        });
+      });
+    });
+
+    if (tranchesData.length > 0) {
+      const wsTranches = XLSX.utils.json_to_sheet(tranchesData);
+      XLSX.utils.book_append_sheet(wb, wsTranches, 'Tranches de paiement');
+    }
+
+    XLSX.writeFile(wb, `Formalisation_Detaillee_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-start">
@@ -347,14 +475,24 @@ const FormalizationPage: React.FC = () => {
             Gestion des documents, accompagnement et décaissement
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleExportFormalizationPDF}
-          leftIcon={<Printer className="h-4 w-4" />}
-          disabled={selectedProjectsData.length === 0}
-        >
-          Exporter en PDF
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportFormalizationExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            disabled={selectedProjectsData.length === 0}
+          >
+            Export Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportFormalizationPDF}
+            leftIcon={<Printer className="h-4 w-4" />}
+            disabled={selectedProjectsData.length === 0}
+          >
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6">
