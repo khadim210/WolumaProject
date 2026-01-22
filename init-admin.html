@@ -92,8 +92,15 @@
 
     const SUPABASE_URL = 'https://oqlrkxefgrpgufizvodi.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbHJreGVmZ3JwZ3VmaXp2b2RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNjA1NDMsImV4cCI6MjA4NDYzNjU0M30.oCTFg3oshjl-ay3SmOd8C6sFwFLfFx3KOR9aKeTqzHo';
+    const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbHJreGVmZ3JwZ3VmaXp2b2RpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTA2MDU0MywiZXhwIjoyMDg0NjM2NTQzfQ.FTQY1RG4CcUF_YKM0qYjCdX55hS9DWAKTFu4PcqBBQs';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     const form = document.getElementById('adminForm');
     const messageDiv = document.getElementById('message');
@@ -141,8 +148,8 @@
           throw new Error('Erreur lors de la création du compte');
         }
 
-        // 2. Créer le profil utilisateur dans la table users
-        const { error: profileError } = await supabase
+        // 2. Créer le profil utilisateur dans la table users (using admin client to bypass RLS)
+        const { error: profileError } = await supabaseAdmin
           .from('users')
           .insert({
             name,
