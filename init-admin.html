@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Initialisation Admin</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #2563eb;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
+    .message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    .error {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+  </style>
+</head>
+<body>
+  <h1>Initialisation Admin</h1>
+  <p>Créez votre compte administrateur pour accéder à l'application.</p>
+
+  <form id="adminForm">
+    <div class="form-group">
+      <label for="name">Nom complet</label>
+      <input type="text" id="name" required value="Administrateur">
+    </div>
+
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" required value="ahmathbamba.mbacke@gmail.com">
+    </div>
+
+    <div class="form-group">
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" required placeholder="Minimum 6 caractères">
+    </div>
+
+    <div class="form-group">
+      <label for="confirmPassword">Confirmer le mot de passe</label>
+      <input type="password" id="confirmPassword" required>
+    </div>
+
+    <button type="submit" id="submitBtn">Créer le compte admin</button>
+  </form>
+
+  <div id="message"></div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const SUPABASE_URL = 'https://oqlrkxefgrpgufizvodi.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbHJreGVmZ3JwZ3VmaXp2b2RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNjA1NDMsImV4cCI6MjA4NDYzNjU0M30.oCTFg3oshjl-ay3SmOd8C6sFwFLfFx3KOR9aKeTqzHo';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById('adminForm');
+    const messageDiv = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      messageDiv.innerHTML = '';
+
+      if (password !== confirmPassword) {
+        messageDiv.innerHTML = '<div class="message error">Les mots de passe ne correspondent pas</div>';
+        return;
+      }
+
+      if (password.length < 6) {
+        messageDiv.innerHTML = '<div class="message error">Le mot de passe doit contenir au moins 6 caractères</div>';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Création en cours...';
+
+      try {
+        // 1. Créer le compte d'authentification
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name,
+              role: 'admin'
+            }
+          }
+        });
+
+        if (authError) throw authError;
+
+        if (!authData.user) {
+          throw new Error('Erreur lors de la création du compte');
+        }
+
+        // 2. Créer le profil utilisateur dans la table users
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            name,
+            email,
+            role: 'admin',
+            is_active: true,
+            auth_user_id: authData.user.id
+          });
+
+        if (profileError) throw profileError;
+
+        messageDiv.innerHTML = `
+          <div class="message success">
+            <strong>Compte créé avec succès !</strong><br>
+            Vous pouvez maintenant vous connecter avec :<br>
+            Email: ${email}<br>
+            <a href="/" style="color: #065f46; font-weight: bold; margin-top: 10px; display: inline-block;">Aller à la page de connexion</a>
+          </div>
+        `;
+
+        form.reset();
+
+      } catch (error) {
+        console.error('Erreur:', error);
+        messageDiv.innerHTML = `<div class="message error">Erreur: ${error.message}</div>`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Créer le compte admin';
+      }
+    });
+  </script>
+</body>
+</html>
