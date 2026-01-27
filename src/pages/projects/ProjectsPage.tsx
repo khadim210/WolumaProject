@@ -363,17 +363,16 @@ const ProjectsPage: React.FC = () => {
 
         <div className="flex space-x-3">
           {/* Export Button with Dropdown */}
-          {(checkPermission('projects.read') || checkPermission('projects.manage')) && (
+          {userProjects.length > 0 && (
             <Menu as="div" className="relative inline-block text-left">
               <Menu.Button
-                as={Button}
-                variant="outline"
-                leftIcon={<Download className="h-4 w-4" />}
-                rightIcon={<ChevronDown className="h-4 w-4" />}
                 disabled={programFilter === 'all'}
                 title={programFilter === 'all' ? 'Sélectionnez un programme dans les filtres pour exporter' : 'Exporter les soumissions'}
+                className="inline-flex items-center justify-center font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:scale-105 active:scale-95 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary-500 shadow-sm hover:shadow-md text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100"
               >
+                <Download className="h-4 w-4 mr-2" />
                 Exporter
+                <ChevronDown className="h-4 w-4 ml-2" />
               </Menu.Button>
 
               <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
