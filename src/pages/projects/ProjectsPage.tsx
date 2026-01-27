@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Menu } from '@headlessui/react';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
@@ -12,7 +13,7 @@ import {
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle, Download, FileDown } from 'lucide-react';
+import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle, Download, FileDown, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { exportSubmissionsToExcel, exportSubmissionsToPDF } from '../../utils/submissionExport';
 
@@ -274,6 +275,46 @@ const ProjectsPage: React.FC = () => {
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
     exportSubmissionsToPDF({ projects: programProjects, program });
   };
+
+  const handleQuickExportExcel = () => {
+    if (programFilter === 'all') {
+      alert('Veuillez sélectionner un programme spécifique dans les filtres');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === programFilter);
+    if (!program) {
+      alert('Programme non trouvé');
+      return;
+    }
+
+    const programProjects = filteredProjects.filter(p => p.programId === programFilter);
+    if (programProjects.length === 0) {
+      alert('Aucune soumission à exporter pour ce programme avec les filtres actuels');
+      return;
+    }
+    exportSubmissionsToExcel({ projects: programProjects, program });
+  };
+
+  const handleQuickExportPDF = () => {
+    if (programFilter === 'all') {
+      alert('Veuillez sélectionner un programme spécifique dans les filtres');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === programFilter);
+    if (!program) {
+      alert('Programme non trouvé');
+      return;
+    }
+
+    const programProjects = filteredProjects.filter(p => p.programId === programFilter);
+    if (programProjects.length === 0) {
+      alert('Aucune soumission à exporter pour ce programme avec les filtres actuels');
+      return;
+    }
+    exportSubmissionsToPDF({ projects: programProjects, program });
+  };
   
   const getStatusLabel = (status: ProjectStatus): string => {
     const labels: Record<ProjectStatus, string> = {
@@ -321,6 +362,60 @@ const ProjectsPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Soumissions</h1>
 
         <div className="flex space-x-3">
+          {/* Export Button with Dropdown */}
+          {(checkPermission('projects.read') || checkPermission('projects.manage')) && (
+            <Menu as="div" className="relative inline-block text-left">
+              <Menu.Button
+                as={Button}
+                variant="outline"
+                leftIcon={<Download className="h-4 w-4" />}
+                rightIcon={<ChevronDown className="h-4 w-4" />}
+                disabled={programFilter === 'all'}
+                title={programFilter === 'all' ? 'Sélectionnez un programme dans les filtres pour exporter' : 'Exporter les soumissions'}
+              >
+                Exporter
+              </Menu.Button>
+
+              <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                <div className="px-1 py-1">
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={handleQuickExportExcel}
+                        className={`${
+                          active ? 'bg-primary-50 text-primary-900' : 'text-gray-900'
+                        } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                      >
+                        <FileSpreadsheet className="mr-2 h-5 w-5 text-green-600" />
+                        Exporter en Excel
+                      </button>
+                    )}
+                  </Menu.Item>
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={handleQuickExportPDF}
+                        className={`${
+                          active ? 'bg-primary-50 text-primary-900' : 'text-gray-900'
+                        } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                      >
+                        <FileDown className="mr-2 h-5 w-5 text-red-600" />
+                        Exporter en PDF
+                      </button>
+                    )}
+                  </Menu.Item>
+                </div>
+                {programFilter !== 'all' && (
+                  <div className="px-3 py-2 text-xs text-gray-600 bg-gray-50">
+                    Programme: {accessiblePrograms.find(p => p.id === programFilter)?.name}
+                    <br />
+                    {filteredProjects.filter(p => p.programId === programFilter).length} soumission(s)
+                  </div>
+                )}
+              </Menu.Items>
+            </Menu>
+          )}
+
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create">
               <Button
