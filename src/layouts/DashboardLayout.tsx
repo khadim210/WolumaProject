@@ -19,7 +19,8 @@ import {
   Target,
   Building,
   ClipboardCheck,
-  History
+  History,
+  BookOpen
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -133,6 +134,7 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('status_history.view') && (
                 <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" onClick={() => setSidebarOpen(false)} />
               )}
+              <NavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" onClick={() => setSidebarOpen(false)} />
             </nav>
           </div>
           
@@ -204,6 +206,7 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('status_history.view') && (
                   <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" />
                 )}
+                <NavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" />
               </nav>
             </div>
             

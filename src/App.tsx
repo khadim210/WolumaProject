@@ -32,6 +32,7 @@ import ParametersPage from './pages/admin/ParametersPage';
 import ProgramManagementPage from './pages/admin/ProgramManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 import StatusHistoryPage from './pages/admin/StatusHistoryPage';
+import UserManualPage from './pages/admin/UserManualPage';
 
 // Public Pages
 import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
@@ -132,6 +133,7 @@ function App() {
           <Route path="users" element={<UserManagementPage />} />
           <Route path="parameters" element={<ParametersPage />} />
           <Route path="status-history" element={<StatusHistoryPage />} />
+          <Route path="user-manual" element={<UserManualPage />} />
         </Route>
         
         {/* Fallback Route */}
