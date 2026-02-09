@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { FileText, Download, Loader2, Camera, AlertCircle } from 'lucide-react';
@@ -15,10 +16,23 @@ interface ManualSection {
   }[];
 }
 
+interface CaptureState {
+  isCapturing: boolean;
+  currentIndex: number;
+  pages: Array<{ key: string; path: string; name: string }>;
+  captures: { [key: string]: string };
+}
+
+const CAPTURE_STORAGE_KEY = 'manual_screenshot_capture';
+
 const UserManualPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImages, setCapturedImages] = useState<{ [key: string]: string }>({});
+  const [captureStatus, setCaptureStatus] = useState<string>('');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   const manualContent: ManualSection[] = [
     {
@@ -398,29 +412,108 @@ const UserManualPage: React.FC = () => {
     }
   ];
 
-  const captureCurrentPage = async (): Promise<string | null> => {
-    try {
-      const element = document.querySelector('main');
-      if (!element) return null;
-
-      const canvas = await html2canvas(element as HTMLElement, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
-
-      return canvas.toDataURL('image/png');
-    } catch (error) {
-      console.error('Erreur lors de la capture:', error);
-      return null;
+  useEffect(() => {
+    const savedImages = localStorage.getItem('manual_captured_images');
+    if (savedImages) {
+      try {
+        const images = JSON.parse(savedImages);
+        setCapturedImages(images);
+      } catch (error) {
+        console.error('Erreur lors du chargement des images:', error);
+      }
     }
-  };
+  }, []);
 
-  const captureScreenshots = async () => {
-    setIsCapturing(true);
-    const images: { [key: string]: string } = {};
+  useEffect(() => {
+    const captureStateStr = localStorage.getItem(CAPTURE_STORAGE_KEY);
+    if (!captureStateStr) return;
 
+    try {
+      const captureState: CaptureState = JSON.parse(captureStateStr);
+
+      if (!captureState.isCapturing) return;
+
+      const currentPage = captureState.pages.find(p => p.path === location.pathname);
+      if (!currentPage) return;
+
+      setIsCapturing(true);
+      setCaptureStatus(`Capture de: ${currentPage.name} (${captureState.currentIndex + 1}/${captureState.pages.length})`);
+
+      const performCapture = async () => {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        try {
+          const element = document.querySelector('main');
+          if (element) {
+            const canvas = await html2canvas(element as HTMLElement, {
+              scale: 2,
+              logging: false,
+              useCORS: true,
+              backgroundColor: '#ffffff'
+            });
+
+            const screenshot = canvas.toDataURL('image/png');
+            captureState.captures[currentPage.key] = screenshot;
+          }
+        } catch (error) {
+          console.error('Erreur lors de la capture:', error);
+        }
+
+        const nextIndex = captureState.currentIndex + 1;
+
+        if (nextIndex < captureState.pages.length) {
+          captureState.currentIndex = nextIndex;
+          localStorage.setItem(CAPTURE_STORAGE_KEY, JSON.stringify(captureState));
+          navigate(captureState.pages[nextIndex].path);
+        } else {
+          localStorage.setItem('manual_captured_images', JSON.stringify(captureState.captures));
+          localStorage.removeItem(CAPTURE_STORAGE_KEY);
+          navigate('/dashboard/user-manual');
+        }
+      };
+
+      performCapture();
+    } catch (error) {
+      console.error('Erreur dans le processus de capture:', error);
+      localStorage.removeItem(CAPTURE_STORAGE_KEY);
+      setIsCapturing(false);
+    }
+  }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    if (location.pathname === '/dashboard/user-manual') {
+      const captureStateStr = localStorage.getItem(CAPTURE_STORAGE_KEY);
+      if (captureStateStr) {
+        return;
+      }
+
+      const wasCapturing = isCapturing;
+      setIsCapturing(false);
+      setCaptureStatus('');
+
+      const savedImages = localStorage.getItem('manual_captured_images');
+      if (savedImages) {
+        try {
+          const images = JSON.parse(savedImages);
+          if (Object.keys(images).length > 0) {
+            const previousCount = Object.keys(capturedImages).length;
+            const newCount = Object.keys(images).length;
+
+            setCapturedImages(images);
+
+            if (wasCapturing && newCount > previousCount) {
+              setShowSuccessMessage(true);
+              setTimeout(() => setShowSuccessMessage(false), 5000);
+            }
+          }
+        } catch (error) {
+          console.error('Erreur:', error);
+        }
+      }
+    }
+  }, [location.pathname]);
+
+  const captureScreenshots = () => {
     const pagesToCapture = [
       { key: 'dashboard', path: '/dashboard', name: 'Tableau de bord' },
       { key: 'projects', path: '/dashboard/projects', name: 'Liste des projets' },
@@ -434,23 +527,18 @@ const UserManualPage: React.FC = () => {
       { key: 'parameters', path: '/dashboard/parameters', name: 'Paramètres' }
     ];
 
-    alert(`Vous allez être redirigé vers ${pagesToCapture.length} pages différentes pour capturer les interfaces.\n\nCliquez sur OK pour commencer. Attendez quelques secondes sur chaque page.`);
+    const captureState: CaptureState = {
+      isCapturing: true,
+      currentIndex: 0,
+      pages: pagesToCapture,
+      captures: {}
+    };
 
-    for (const page of pagesToCapture) {
-      window.location.href = page.path;
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    localStorage.setItem(CAPTURE_STORAGE_KEY, JSON.stringify(captureState));
+    setIsCapturing(true);
+    setCaptureStatus(`Démarrage de la capture... (1/${pagesToCapture.length})`);
 
-      const screenshot = await captureCurrentPage();
-      if (screenshot) {
-        images[page.key] = screenshot;
-      }
-    }
-
-    setCapturedImages(images);
-    window.location.href = '/dashboard/user-manual';
-    setIsCapturing(false);
-
-    alert('Captures d\'écran terminées ! Vous pouvez maintenant générer le PDF avec les images.');
+    navigate(pagesToCapture[0].path);
   };
 
   const generatePDF = async () => {
@@ -642,6 +730,32 @@ const UserManualPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {isCapturing && captureStatus && (
+        <div className="fixed top-20 right-4 z-50 bg-blue-600 text-white px-6 py-4 rounded-lg shadow-lg animate-pulse">
+          <div className="flex items-center space-x-3">
+            <Camera className="h-5 w-5 animate-bounce" />
+            <div>
+              <div className="font-semibold">Capture en cours...</div>
+              <div className="text-sm">{captureStatus}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessMessage && (
+        <div className="fixed top-20 right-4 z-50 bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg">
+          <div className="flex items-center space-x-3">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <div>
+              <div className="font-semibold">Captures terminées !</div>
+              <div className="text-sm">{Object.keys(capturedImages).length} captures enregistrées avec succès</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manuel Utilisateur</h1>
@@ -680,9 +794,21 @@ const UserManualPage: React.FC = () => {
                 )}
               </Button>
               {Object.keys(capturedImages).length > 0 && (
-                <span className="text-sm text-green-700 font-medium">
-                  {Object.keys(capturedImages).length} captures disponibles
-                </span>
+                <>
+                  <span className="text-sm text-green-700 font-medium">
+                    {Object.keys(capturedImages).length} captures disponibles
+                  </span>
+                  <Button
+                    onClick={() => {
+                      localStorage.removeItem('manual_captured_images');
+                      setCapturedImages({});
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Réinitialiser
+                  </Button>
+                </>
               )}
             </div>
           </div>

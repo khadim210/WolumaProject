@@ -6,13 +6,19 @@ Le générateur de manuel utilisateur a été amélioré pour inclure des **capt
 
 ## Processus en 3 étapes
 
-### 1. Capturer les interfaces (2 minutes)
+### 1. Capturer les interfaces (20-30 secondes)
 
 ```
 Navigation : Menu latéral > Manuel Utilisateur
 Action : Cliquer sur "Capturer les interfaces"
 Résultat : 10 captures d'écran des principales pages
 ```
+
+**Nouveau comportement :**
+- Navigation automatique fluide entre les pages (sans rechargement)
+- Badge bleu en haut à droite indiquant la progression
+- Transitions visibles pour l'utilisateur
+- Message de succès vert à la fin
 
 Le système capture automatiquement :
 - Tableau de bord
@@ -26,11 +32,23 @@ Le système capture automatiquement :
 - Gestion des programmes
 - Paramètres
 
-### 2. Vérifier les captures
+### 2. Suivre et vérifier les captures
+
+**Pendant la capture :**
+- Badge bleu flottant en haut à droite
+- Affiche "Capture de: [Nom de la page] (X/10)"
+- Animation de pulsation pour indiquer l'activité
+- Vous voyez les pages défiler automatiquement
+
+**À la fin de la capture :**
+- Badge vert avec icône de validation
+- Message "10 captures enregistrées avec succès"
+- Indicateur "10 captures disponibles" affiché en vert
+- Bouton "Réinitialiser" pour effacer si besoin
 
 ```
-Indicateur : "10 captures disponibles" affiché en vert
-Si absent : Relancer le processus de capture
+Si le processus ne démarre pas : Vérifier la console du navigateur
+Si le processus s'arrête : Relancer en cliquant à nouveau
 ```
 
 ### 3. Générer le PDF
@@ -239,6 +257,15 @@ R : Modifiez `manualContent` dans `UserManualPage.tsx`.
 R : Oui, ajoutez des entrées dans `pagesToCapture` et `imagePlaceholder`.
 
 ## Changelog
+
+### Version 2.1 (2026-02-09) - CORRECTION MAJEURE
+- 🔧 **Correction du système de navigation** : Utilisation de React Router au lieu de rechargements
+- 💾 **Persistance améliorée** : Captures sauvegardées dans localStorage
+- 👁️ **Feedback visuel complet** : Badge de progression flottant en temps réel
+- ✅ **Message de succès** : Confirmation visuelle à la fin du processus
+- 🔄 **Bouton réinitialiser** : Pour effacer et recommencer les captures
+- 🎯 **Transitions fluides** : Navigation visible entre les pages
+- ⚡ **Performance** : Processus plus rapide (20-30s au lieu de 2+ minutes)
 
 ### Version 2.0 (2026-02-09)
 - ✨ Ajout du système de capture automatique
