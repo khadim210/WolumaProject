@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { FileText, Download, Loader2, Camera, AlertCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 
@@ -10,11 +11,14 @@ interface ManualSection {
     title: string;
     content: string[];
     steps?: string[];
+    imagePlaceholder?: string;
   }[];
 }
 
 const UserManualPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [capturedImages, setCapturedImages] = useState<{ [key: string]: string }>({});
 
   const manualContent: ManualSection[] = [
     {
@@ -50,7 +54,15 @@ const UserManualPage: React.FC = () => {
       title: "2. CONNEXION ET INSCRIPTION",
       subsections: [
         {
-          title: "2.1 Création de compte",
+          title: "2.1 Page de connexion",
+          content: [
+            "La page de connexion est le point d'entrée de l'application.",
+            "Elle offre une interface claire et sécurisée pour accéder à votre compte."
+          ],
+          imagePlaceholder: "login"
+        },
+        {
+          title: "2.2 Création de compte",
           content: [
             "La création de compte se fait via la page d'inscription accessible depuis la page de connexion."
           ],
@@ -64,10 +76,11 @@ const UserManualPage: React.FC = () => {
             "Accepter les conditions d'utilisation",
             "Cliquer sur 'Créer un compte'",
             "Un administrateur validera votre compte sous 24-48h"
-          ]
+          ],
+          imagePlaceholder: "register"
         },
         {
-          title: "2.2 Connexion à l'application",
+          title: "2.3 Connexion à l'application",
           content: [
             "Une fois votre compte activé, vous pouvez vous connecter."
           ],
@@ -77,12 +90,6 @@ const UserManualPage: React.FC = () => {
             "Cliquer sur 'Se connecter'",
             "Vous êtes redirigé vers le tableau de bord"
           ]
-        },
-        {
-          title: "2.3 Mot de passe oublié",
-          content: [
-            "Si vous avez oublié votre mot de passe, contactez un administrateur pour le réinitialiser."
-          ]
         }
       ]
     },
@@ -90,14 +97,15 @@ const UserManualPage: React.FC = () => {
       title: "3. TABLEAU DE BORD",
       subsections: [
         {
-          title: "3.1 Vue d'ensemble",
+          title: "3.1 Vue d'ensemble du tableau de bord",
           content: [
             "Le tableau de bord affiche une vue synthétique de vos activités :",
             "• Nombre total de projets",
             "• Projets par statut (en cours, approuvés, rejetés)",
             "• Activité récente",
             "• Notifications importantes"
-          ]
+          ],
+          imagePlaceholder: "dashboard"
         },
         {
           title: "3.2 Navigation",
@@ -119,7 +127,15 @@ const UserManualPage: React.FC = () => {
       title: "4. SOUMISSION DE PROJETS",
       subsections: [
         {
-          title: "4.1 Créer un nouveau projet",
+          title: "4.1 Liste des projets",
+          content: [
+            "La page des projets affiche tous vos projets soumis avec leurs statuts actuels.",
+            "Vous pouvez filtrer, rechercher et gérer vos projets depuis cette interface."
+          ],
+          imagePlaceholder: "projects"
+        },
+        {
+          title: "4.2 Créer un nouveau projet",
           content: [
             "La soumission de projet se fait en plusieurs étapes."
           ],
@@ -140,10 +156,11 @@ const UserManualPage: React.FC = () => {
             "Vérifier toutes les informations",
             "Cliquer sur 'Soumettre le projet'",
             "Vous recevrez un email de confirmation"
-          ]
+          ],
+          imagePlaceholder: "create-project"
         },
         {
-          title: "4.2 Vérification d'éligibilité",
+          title: "4.3 Vérification d'éligibilité",
           content: [
             "Avant de soumettre, vérifiez l'éligibilité de votre projet."
           ],
@@ -155,10 +172,11 @@ const UserManualPage: React.FC = () => {
             "Vous obtenez un score d'éligibilité",
             "Si éligible : vous pouvez soumettre votre projet",
             "Si non éligible : le système explique pourquoi"
-          ]
+          ],
+          imagePlaceholder: "eligibility"
         },
         {
-          title: "4.3 Documents requis",
+          title: "4.4 Documents requis",
           content: [
             "Documents généralement demandés :",
             "• Document de présentation du projet (PDF/Word)",
@@ -171,20 +189,6 @@ const UserManualPage: React.FC = () => {
             "Format acceptés : PDF, Word (.doc, .docx), Excel (.xls, .xlsx)",
             "Taille maximale : 10 MB par fichier"
           ]
-        },
-        {
-          title: "4.4 Soumission publique",
-          content: [
-            "Certains programmes permettent la soumission publique sans compte."
-          ],
-          steps: [
-            "Utiliser le lien de soumission publique fourni par le programme",
-            "Remplir le formulaire en ligne",
-            "Joindre les documents requis",
-            "Fournir un email de contact",
-            "Soumettre le formulaire",
-            "Vous recevrez un numéro de suivi par email"
-          ]
         }
       ]
     },
@@ -192,36 +196,15 @@ const UserManualPage: React.FC = () => {
       title: "5. SUIVI DE PROJETS",
       subsections: [
         {
-          title: "5.1 Liste des projets",
+          title: "5.1 Détails d'un projet",
           content: [
-            "Visualisez tous vos projets dans la section 'Projets'.",
-            "",
-            "Informations affichées :",
-            "• Titre du projet",
-            "• Programme de financement",
-            "• Statut actuel",
-            "• Date de soumission",
-            "• Actions disponibles"
-          ]
-        },
-        {
-          title: "5.2 Détails d'un projet",
-          content: [
-            "Cliquer sur un projet pour voir tous les détails."
+            "La page de détails affiche toutes les informations d'un projet.",
+            "Vous y trouvez les documents, commentaires, historique et actions possibles."
           ],
-          steps: [
-            "Dans la liste des projets, cliquer sur 'Voir détails'",
-            "Vous accédez à la fiche complète du projet avec :",
-            "  - Informations générales",
-            "  - Documents joints",
-            "  - Historique des statuts",
-            "  - Commentaires des évaluateurs",
-            "  - Score d'évaluation (si disponible)",
-            "  - Actions possibles selon le statut"
-          ]
+          imagePlaceholder: "project-detail"
         },
         {
-          title: "5.3 Statuts des projets",
+          title: "5.2 Statuts des projets",
           content: [
             "Les projets passent par différents statuts :",
             "",
@@ -238,19 +221,6 @@ const UserManualPage: React.FC = () => {
             "• REJECTED : Projet rejeté",
             "• CANCELLED : Projet annulé"
           ]
-        },
-        {
-          title: "5.4 Modifier un projet",
-          content: [
-            "Vous pouvez modifier un projet tant qu'il n'a pas été soumis."
-          ],
-          steps: [
-            "Ouvrir le projet en statut 'DRAFT'",
-            "Cliquer sur 'Modifier'",
-            "Apporter les modifications nécessaires",
-            "Enregistrer les changements",
-            "Soumettre quand vous êtes prêt"
-          ]
         }
       ]
     },
@@ -258,16 +228,12 @@ const UserManualPage: React.FC = () => {
       title: "6. ÉVALUATION (MANAGERS)",
       subsections: [
         {
-          title: "6.1 Accéder aux projets à évaluer",
+          title: "6.1 Interface d'évaluation",
           content: [
-            "En tant que Manager, vous pouvez évaluer les projets soumis."
+            "En tant que Manager, vous pouvez évaluer les projets soumis.",
+            "L'interface d'évaluation présente le projet et une grille de notation complète."
           ],
-          steps: [
-            "Aller dans 'Évaluation'",
-            "Voir la liste des projets en attente d'évaluation",
-            "Filtrer par programme ou statut",
-            "Cliquer sur un projet pour l'évaluer"
-          ]
+          imagePlaceholder: "evaluation"
         },
         {
           title: "6.2 Processus d'évaluation",
@@ -289,21 +255,6 @@ const UserManualPage: React.FC = () => {
             "Recommandation finale : Approuver / Rejeter / Réviser",
             "Soumettre l'évaluation"
           ]
-        },
-        {
-          title: "6.3 Évaluation IA (si configurée)",
-          content: [
-            "Le système peut utiliser l'IA pour une pré-évaluation.",
-            "",
-            "Fonctionnement :",
-            "• L'IA analyse automatiquement le document de projet",
-            "• Elle extrait les informations clés",
-            "• Elle attribue un score préliminaire",
-            "• Elle génère des commentaires détaillés",
-            "• L'évaluateur humain révise et ajuste",
-            "",
-            "Note : L'évaluation IA est une aide, pas une décision finale."
-          ]
         }
       ]
     },
@@ -311,16 +262,12 @@ const UserManualPage: React.FC = () => {
       title: "7. FORMALISATION",
       subsections: [
         {
-          title: "7.1 Projets approuvés",
+          title: "7.1 Gestion de la formalisation",
           content: [
-            "Une fois un projet approuvé, il passe en phase de formalisation."
+            "Une fois un projet approuvé, il passe en phase de formalisation.",
+            "Cette interface permet de gérer les documents, décaissements et accompagnement."
           ],
-          steps: [
-            "Aller dans 'Formalisation'",
-            "Voir la liste des projets approuvés",
-            "Sélectionner un projet",
-            "Gérer les étapes de formalisation"
-          ]
+          imagePlaceholder: "formalization"
         },
         {
           title: "7.2 Demande de documents",
@@ -336,40 +283,6 @@ const UserManualPage: React.FC = () => {
             "Le porteur reçoit un email avec la liste",
             "Suivre la réception des documents"
           ]
-        },
-        {
-          title: "7.3 Plan de décaissement",
-          content: [
-            "Définir le calendrier de décaissement des fonds."
-          ],
-          steps: [
-            "Ouvrir le projet",
-            "Cliquer sur 'Plan de décaissement'",
-            "Créer les tranches de décaissement :",
-            "  - Montant",
-            "  - Date prévue",
-            "  - Conditions",
-            "  - Documents requis",
-            "Valider le plan",
-            "Le porteur reçoit une notification"
-          ]
-        },
-        {
-          title: "7.4 Support technique",
-          content: [
-            "Offrir un accompagnement au porteur de projet."
-          ],
-          steps: [
-            "Ouvrir le projet",
-            "Cliquer sur 'Support technique'",
-            "Planifier une session :",
-            "  - Date et heure",
-            "  - Type (en ligne / présentiel)",
-            "  - Sujet / objectifs",
-            "  - Participants",
-            "Envoyer l'invitation",
-            "Suivre les sessions réalisées"
-          ]
         }
       ]
     },
@@ -377,28 +290,12 @@ const UserManualPage: React.FC = () => {
       title: "8. SUIVI ET MONITORING",
       subsections: [
         {
-          title: "8.1 Suivi des projets actifs",
+          title: "8.1 Interface de monitoring",
           content: [
-            "Une fois les fonds décaissés, suivre l'avancement du projet."
+            "Une fois les fonds décaissés, suivre l'avancement du projet.",
+            "Le tableau de monitoring affiche tous les projets actifs et leurs indicateurs."
           ],
-          steps: [
-            "Aller dans 'Suivi'",
-            "Sélectionner un projet actif",
-            "Consulter les rapports d'avancement",
-            "Vérifier les indicateurs de performance",
-            "Planifier des visites de terrain si nécessaire"
-          ]
-        },
-        {
-          title: "8.2 Rapports périodiques",
-          content: [
-            "Les porteurs de projets doivent soumettre des rapports réguliers :",
-            "• Rapport mensuel d'activités",
-            "• Rapport trimestriel financier",
-            "• Rapport final de projet",
-            "",
-            "Ces rapports sont consultables dans la section Suivi."
-          ]
+          imagePlaceholder: "monitoring"
         }
       ]
     },
@@ -408,197 +305,47 @@ const UserManualPage: React.FC = () => {
         {
           title: "9.1 Tableaux de bord statistiques",
           content: [
-            "Visualiser les données agrégées de tous les projets."
+            "Visualiser les données agrégées de tous les projets avec des graphiques interactifs.",
+            "Les statistiques permettent d'analyser les tendances et performances."
           ],
-          steps: [
-            "Aller dans 'Statistiques'",
-            "Sélectionner la période d'analyse",
-            "Filtrer par programme, partenaire, ou statut",
-            "Consulter les graphiques :",
-            "  - Évolution des soumissions",
-            "  - Taux d'approbation",
-            "  - Montants engagés",
-            "  - Durée moyenne de traitement",
-            "  - Répartition géographique"
-          ]
-        },
-        {
-          title: "9.2 Export de données",
-          content: [
-            "Exporter les données pour analyse externe."
-          ],
-          steps: [
-            "Dans la page Statistiques",
-            "Définir les filtres souhaités",
-            "Cliquer sur 'Exporter'",
-            "Choisir le format : Excel / CSV / PDF",
-            "Le fichier est téléchargé automatiquement"
-          ]
+          imagePlaceholder: "statistics"
         }
       ]
     },
     {
-      title: "10. ADMINISTRATION (ADMIN)",
+      title: "10. ADMINISTRATION",
       subsections: [
         {
           title: "10.1 Gestion des utilisateurs",
           content: [
-            "Créer, modifier et gérer les comptes utilisateurs."
+            "Interface de gestion complète des utilisateurs de la plateforme.",
+            "Permet de créer, modifier et gérer tous les comptes utilisateurs."
           ],
-          steps: [
-            "Aller dans 'Administration' > 'Utilisateurs'",
-            "Voir la liste de tous les utilisateurs",
-            "Pour créer un utilisateur :",
-            "  - Cliquer sur 'Nouvel utilisateur'",
-            "  - Remplir les informations",
-            "  - Attribuer un rôle",
-            "  - Activer le compte",
-            "Pour modifier un utilisateur :",
-            "  - Cliquer sur l'icône de modification",
-            "  - Changer les informations",
-            "  - Enregistrer",
-            "Pour désactiver un utilisateur :",
-            "  - Basculer le statut 'Actif' sur Non",
-            "  - L'utilisateur ne peut plus se connecter"
-          ]
+          imagePlaceholder: "users"
         },
         {
-          title: "10.2 Gestion des partenaires",
+          title: "10.2 Gestion des programmes",
           content: [
-            "Gérer les organisations partenaires."
+            "Interface de création et gestion des programmes de financement.",
+            "Configurez les critères d'éligibilité, budgets et périodes."
           ],
-          steps: [
-            "Aller dans 'Administration' > 'Partenaires'",
-            "Créer un nouveau partenaire :",
-            "  - Nom de l'organisation",
-            "  - Type (ONG, Entreprise, Institution)",
-            "  - Coordonnées",
-            "  - Contact principal",
-            "Assigner des utilisateurs au partenaire",
-            "Définir les programmes accessibles"
-          ]
+          imagePlaceholder: "programs"
         },
         {
-          title: "10.3 Gestion des programmes",
+          title: "10.3 Paramètres de l'application",
           content: [
-            "Créer et gérer les programmes de financement."
+            "Configuration générale de la plateforme incluant les paramètres d'IA.",
+            "Personnalisez le comportement de l'application selon vos besoins."
           ],
-          steps: [
-            "Aller dans 'Administration' > 'Programmes'",
-            "Créer un nouveau programme :",
-            "  - Nom du programme",
-            "  - Description",
-            "  - Objectifs",
-            "  - Budget total disponible",
-            "  - Date de début / fin",
-            "  - Critères d'éligibilité",
-            "  - Montant min / max par projet",
-            "  - Devise",
-            "Activer / Désactiver un programme",
-            "Verrouiller un programme (plus de soumissions)"
-          ]
-        },
-        {
-          title: "10.4 Modèles de formulaires",
-          content: [
-            "Créer des formulaires personnalisés pour la soumission."
-          ],
-          steps: [
-            "Aller dans 'Administration' > 'Formulaires'",
-            "Créer un nouveau modèle",
-            "Utiliser le constructeur de formulaires :",
-            "  - Glisser-déposer des champs",
-            "  - Types : texte, nombre, date, fichier, choix multiples",
-            "  - Configurer les validations",
-            "  - Définir les champs obligatoires",
-            "Prévisualiser le formulaire",
-            "Assigner le formulaire à un programme",
-            "Publier le formulaire"
-          ]
-        },
-        {
-          title: "10.5 Configuration de l'IA",
-          content: [
-            "Configurer l'évaluation automatique par IA."
-          ],
-          steps: [
-            "Aller dans 'Administration' > 'Paramètres' > 'Configuration IA'",
-            "Activer/Désactiver l'évaluation IA",
-            "Configurer les paramètres :",
-            "  - Modèle d'IA à utiliser (GPT-4, GPT-5, Claude, etc.)",
-            "  - Critères d'évaluation personnalisés",
-            "  - Seuil de score minimum",
-            "  - Longueur des commentaires générés",
-            "Tester la configuration",
-            "Enregistrer les paramètres"
-          ]
-        },
-        {
-          title: "10.6 Historique des statuts",
-          content: [
-            "Voir l'historique complet des changements de statut pour tous les projets."
-          ],
-          steps: [
-            "Aller dans 'Administration' > 'Historique'",
-            "Voir tous les changements de statut",
-            "Filtrer par projet, utilisateur ou date",
-            "Exporter l'historique pour audit"
-          ]
+          imagePlaceholder: "parameters"
         }
       ]
     },
     {
-      title: "11. PROFIL UTILISATEUR",
+      title: "11. BONNES PRATIQUES",
       subsections: [
         {
-          title: "11.1 Modifier mon profil",
-          content: [
-            "Mettre à jour vos informations personnelles."
-          ],
-          steps: [
-            "Cliquer sur votre nom en haut à droite",
-            "Sélectionner 'Mon profil'",
-            "Modifier les informations :",
-            "  - Nom",
-            "  - Email (demande validation)",
-            "  - Organisation",
-            "  - Téléphone",
-            "Enregistrer les modifications"
-          ]
-        },
-        {
-          title: "11.2 Changer mon mot de passe",
-          content: [
-            "Modifier votre mot de passe pour plus de sécurité."
-          ],
-          steps: [
-            "Aller dans 'Mon profil'",
-            "Section 'Sécurité'",
-            "Saisir l'ancien mot de passe",
-            "Saisir le nouveau mot de passe",
-            "Confirmer le nouveau mot de passe",
-            "Enregistrer",
-            "Vous serez déconnecté et devrez vous reconnecter"
-          ]
-        },
-        {
-          title: "11.3 Se déconnecter",
-          content: [
-            "Toujours se déconnecter après utilisation, surtout sur un ordinateur partagé."
-          ],
-          steps: [
-            "Cliquer sur votre nom en haut à droite",
-            "Sélectionner 'Se déconnecter'",
-            "Vous êtes redirigé vers la page de connexion"
-          ]
-        }
-      ]
-    },
-    {
-      title: "12. BONNES PRATIQUES",
-      subsections: [
-        {
-          title: "12.1 Sécurité",
+          title: "11.1 Sécurité",
           content: [
             "• Utilisez un mot de passe fort et unique",
             "• Ne partagez jamais vos identifiants",
@@ -608,7 +355,7 @@ const UserManualPage: React.FC = () => {
           ]
         },
         {
-          title: "12.2 Soumission de projets",
+          title: "11.2 Soumission de projets",
           content: [
             "• Lisez attentivement les critères d'éligibilité",
             "• Préparez tous les documents avant de commencer",
@@ -617,25 +364,14 @@ const UserManualPage: React.FC = () => {
             "• Respectez les formats et tailles de fichiers",
             "• Soumettez avant la date limite"
           ]
-        },
-        {
-          title: "12.3 Qualité du dossier",
-          content: [
-            "• Rédigez clairement et précisément",
-            "• Fournissez toutes les informations demandées",
-            "• Justifiez votre budget en détail",
-            "• Incluez des lettres de recommandation",
-            "• Montrez l'impact et la durabilité du projet",
-            "• Relisez pour éviter les fautes"
-          ]
         }
       ]
     },
     {
-      title: "13. AIDE ET SUPPORT",
+      title: "12. AIDE ET SUPPORT",
       subsections: [
         {
-          title: "13.1 Obtenir de l'aide",
+          title: "12.1 Obtenir de l'aide",
           content: [
             "En cas de problème ou de question :",
             "",
@@ -647,26 +383,7 @@ const UserManualPage: React.FC = () => {
           ]
         },
         {
-          title: "13.2 Problèmes courants",
-          content: [
-            "Impossible de se connecter :",
-            "• Vérifiez votre email et mot de passe",
-            "• Votre compte est-il activé ?",
-            "• Videz le cache de votre navigateur",
-            "",
-            "Impossible de joindre un fichier :",
-            "• Vérifiez la taille (max 10 MB)",
-            "• Vérifiez le format (PDF, Word, Excel)",
-            "• Essayez avec un autre navigateur",
-            "",
-            "Le formulaire ne s'enregistre pas :",
-            "• Vérifiez votre connexion Internet",
-            "• Rechargez la page",
-            "• Essayez avec un autre navigateur"
-          ]
-        },
-        {
-          title: "13.3 Contact",
+          title: "12.2 Contact",
           content: [
             "Support technique : support@woluma.com",
             "Questions générales : info@woluma.com",
@@ -681,6 +398,61 @@ const UserManualPage: React.FC = () => {
     }
   ];
 
+  const captureCurrentPage = async (): Promise<string | null> => {
+    try {
+      const element = document.querySelector('main');
+      if (!element) return null;
+
+      const canvas = await html2canvas(element as HTMLElement, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Erreur lors de la capture:', error);
+      return null;
+    }
+  };
+
+  const captureScreenshots = async () => {
+    setIsCapturing(true);
+    const images: { [key: string]: string } = {};
+
+    const pagesToCapture = [
+      { key: 'dashboard', path: '/dashboard', name: 'Tableau de bord' },
+      { key: 'projects', path: '/dashboard/projects', name: 'Liste des projets' },
+      { key: 'eligibility', path: '/dashboard/eligibility', name: 'Éligibilité' },
+      { key: 'evaluation', path: '/dashboard/evaluation', name: 'Évaluation' },
+      { key: 'formalization', path: '/dashboard/formalization', name: 'Formalisation' },
+      { key: 'monitoring', path: '/dashboard/monitoring', name: 'Monitoring' },
+      { key: 'statistics', path: '/dashboard/statistics', name: 'Statistiques' },
+      { key: 'users', path: '/dashboard/users', name: 'Utilisateurs' },
+      { key: 'programs', path: '/dashboard/programs', name: 'Programmes' },
+      { key: 'parameters', path: '/dashboard/parameters', name: 'Paramètres' }
+    ];
+
+    alert(`Vous allez être redirigé vers ${pagesToCapture.length} pages différentes pour capturer les interfaces.\n\nCliquez sur OK pour commencer. Attendez quelques secondes sur chaque page.`);
+
+    for (const page of pagesToCapture) {
+      window.location.href = page.path;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const screenshot = await captureCurrentPage();
+      if (screenshot) {
+        images[page.key] = screenshot;
+      }
+    }
+
+    setCapturedImages(images);
+    window.location.href = '/dashboard/user-manual';
+    setIsCapturing(false);
+
+    alert('Captures d\'écran terminées ! Vous pouvez maintenant générer le PDF avec les images.');
+  };
+
   const generatePDF = async () => {
     setIsGenerating(true);
 
@@ -692,7 +464,6 @@ const UserManualPage: React.FC = () => {
       const maxWidth = pageWidth - (margin * 2);
       let yPosition = 20;
 
-      // Page de garde
       doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
       doc.text('MANUEL UTILISATEUR', pageWidth / 2, 80, { align: 'center' });
@@ -705,14 +476,12 @@ const UserManualPage: React.FC = () => {
       doc.text('Version 1.0', pageWidth / 2, 120, { align: 'center' });
       doc.text(new Date().toLocaleDateString('fr-FR'), pageWidth / 2, 130, { align: 'center' });
 
-      // Logo (texte pour l'instant)
       doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(59, 130, 246); // Bleu
+      doc.setTextColor(59, 130, 246);
       doc.text('WOLUMA', pageWidth / 2, 160, { align: 'center' });
-      doc.setTextColor(0, 0, 0); // Retour au noir
+      doc.setTextColor(0, 0, 0);
 
-      // Nouvelle page pour la table des matières
       doc.addPage();
       yPosition = 20;
 
@@ -724,7 +493,7 @@ const UserManualPage: React.FC = () => {
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
 
-      manualContent.forEach((section, index) => {
+      manualContent.forEach((section) => {
         if (yPosition > pageHeight - 20) {
           doc.addPage();
           yPosition = 20;
@@ -733,12 +502,10 @@ const UserManualPage: React.FC = () => {
         yPosition += 6;
       });
 
-      // Contenu du manuel
-      manualContent.forEach((section, sectionIndex) => {
+      manualContent.forEach((section) => {
         doc.addPage();
         yPosition = 20;
 
-        // Titre de section
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(59, 130, 246);
@@ -746,20 +513,17 @@ const UserManualPage: React.FC = () => {
         doc.setTextColor(0, 0, 0);
         yPosition += 12;
 
-        // Sous-sections
         section.subsections.forEach((subsection) => {
           if (yPosition > pageHeight - 40) {
             doc.addPage();
             yPosition = 20;
           }
 
-          // Titre de sous-section
           doc.setFontSize(12);
           doc.setFont('helvetica', 'bold');
           doc.text(subsection.title, margin, yPosition);
           yPosition += 8;
 
-          // Contenu
           doc.setFontSize(10);
           doc.setFont('helvetica', 'normal');
 
@@ -781,10 +545,47 @@ const UserManualPage: React.FC = () => {
             yPosition += 2;
           });
 
-          // Étapes
+          if (subsection.imagePlaceholder && capturedImages[subsection.imagePlaceholder]) {
+            if (yPosition > pageHeight - 120) {
+              doc.addPage();
+              yPosition = 20;
+            }
+
+            yPosition += 5;
+            try {
+              const imgWidth = maxWidth;
+              const imgHeight = 100;
+              doc.addImage(capturedImages[subsection.imagePlaceholder], 'PNG', margin, yPosition, imgWidth, imgHeight);
+              yPosition += imgHeight + 5;
+
+              doc.setFontSize(8);
+              doc.setTextColor(128, 128, 128);
+              doc.text(`Capture d'écran : ${subsection.title}`, margin, yPosition);
+              doc.setTextColor(0, 0, 0);
+              doc.setFontSize(10);
+              yPosition += 8;
+            } catch (error) {
+              console.error('Erreur lors de l\'ajout de l\'image:', error);
+            }
+          } else if (subsection.imagePlaceholder) {
+            if (yPosition > pageHeight - 40) {
+              doc.addPage();
+              yPosition = 20;
+            }
+
+            doc.setFillColor(240, 240, 240);
+            doc.rect(margin, yPosition, maxWidth, 30, 'F');
+            doc.setFontSize(9);
+            doc.setTextColor(128, 128, 128);
+            doc.text('[Image : Utilisez le bouton "Capturer les interfaces" pour inclure une capture d\'écran ici]', margin + 5, yPosition + 15);
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+            yPosition += 35;
+          }
+
           if (subsection.steps) {
             yPosition += 3;
-            subsection.steps.forEach((step, stepIndex) => {
+            subsection.steps.forEach((step) => {
               if (yPosition > pageHeight - 20) {
                 doc.addPage();
                 yPosition = 20;
@@ -792,7 +593,7 @@ const UserManualPage: React.FC = () => {
 
               const stepText = step.startsWith('  ')
                 ? `    ${step.trim()}`
-                : `${stepIndex + 1}. ${step}`;
+                : step;
 
               const lines = doc.splitTextToSize(stepText, maxWidth - 5);
               lines.forEach((line: string) => {
@@ -810,7 +611,6 @@ const UserManualPage: React.FC = () => {
         });
       });
 
-      // Pied de page sur toutes les pages
       const totalPages = doc.internal.pages.length - 1;
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
@@ -830,7 +630,6 @@ const UserManualPage: React.FC = () => {
         );
       }
 
-      // Télécharger le PDF
       doc.save(`Manuel_Utilisateur_${new Date().toISOString().split('T')[0]}.pdf`);
 
     } catch (error) {
@@ -847,10 +646,48 @@ const UserManualPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manuel Utilisateur</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Générez un manuel utilisateur complet au format PDF
+            Générez un manuel utilisateur complet au format PDF avec captures d'écran
           </p>
         </div>
       </div>
+
+      <Card className="p-6 bg-blue-50 border-blue-200">
+        <div className="flex items-start space-x-3">
+          <Camera className="h-5 w-5 text-blue-600 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-blue-900 mb-2">Captures d'écran des interfaces</h3>
+            <p className="text-sm text-blue-800 mb-4">
+              Pour un manuel complet avec des images des interfaces, utilisez d'abord la fonction de capture automatique.
+              Cela créera des captures d'écran de toutes les pages principales de l'application.
+            </p>
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={captureScreenshots}
+                disabled={isCapturing}
+                variant="accent"
+                size="sm"
+              >
+                {isCapturing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Capture en cours...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Capturer les interfaces
+                  </>
+                )}
+              </Button>
+              {Object.keys(capturedImages).length > 0 && (
+                <span className="text-sm text-green-700 font-medium">
+                  {Object.keys(capturedImages).length} captures disponibles
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-6">
         <div className="flex items-start space-x-4">
@@ -878,6 +715,11 @@ const UserManualPage: React.FC = () => {
                 <li>• Administration de la plateforme (pour les Admins)</li>
                 <li>• Bonnes pratiques et conseils</li>
                 <li>• Aide et support</li>
+                {Object.keys(capturedImages).length > 0 && (
+                  <li className="text-green-700 font-medium mt-2">
+                    • {Object.keys(capturedImages).length} captures d'écran incluses
+                  </li>
+                )}
               </ul>
             </div>
 
@@ -908,6 +750,22 @@ const UserManualPage: React.FC = () => {
         </div>
       </Card>
 
+      {Object.keys(capturedImages).length === 0 && (
+        <Card className="p-6 bg-amber-50 border-amber-200">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-amber-900 mb-2">Aucune capture d'écran disponible</h3>
+              <p className="text-sm text-amber-800">
+                Le manuel sera généré avec des emplacements pour les images. Pour obtenir un manuel complet
+                avec des captures d'écran réelles des interfaces, utilisez d'abord le bouton "Capturer les interfaces"
+                ci-dessus.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className="p-6">
         <h3 className="font-semibold text-gray-900 mb-4">Sections du manuel</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -917,20 +775,30 @@ const UserManualPage: React.FC = () => {
               <p className="text-sm text-gray-600">
                 {section.subsections.length} sous-sections
               </p>
+              {section.subsections.some(s => s.imagePlaceholder) && (
+                <span className="inline-flex items-center text-xs text-blue-600 mt-2">
+                  <Camera className="h-3 w-3 mr-1" />
+                  Inclut des captures d'écran
+                </span>
+              )}
             </div>
           ))}
         </div>
       </Card>
 
-      <Card className="p-6 bg-blue-50 border-blue-200">
+      <Card className="p-6 bg-gray-50">
         <div className="flex items-start space-x-3">
-          <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
+          <FileText className="h-5 w-5 text-gray-600 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-blue-900 mb-2">À propos de ce manuel</h3>
-            <p className="text-sm text-blue-800">
+            <h3 className="font-semibold text-gray-900 mb-2">À propos de ce manuel</h3>
+            <p className="text-sm text-gray-700">
               Ce manuel utilisateur est conçu pour accompagner tous les utilisateurs de la plateforme,
               quel que soit leur niveau technique. Il couvre l'ensemble des fonctionnalités disponibles
               et fournit des instructions étape par étape pour chaque action possible.
+            </p>
+            <p className="text-sm text-gray-700 mt-2">
+              Les captures d'écran permettent d'illustrer visuellement chaque interface et facilitent
+              la compréhension des fonctionnalités.
             </p>
           </div>
         </div>
