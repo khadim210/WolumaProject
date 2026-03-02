@@ -289,10 +289,12 @@ export class UserService {
       throw new Error(`Erreur lors de la suppression du profil: ${deleteUserError.message}`);
     }
 
-    // Note: Cannot delete from auth.users from client side
-    // The auth user will remain but without a profile
-    if (user?.auth_user_id) {
-      console.warn('Auth user will remain active. Admin must delete it manually from Supabase dashboard if needed.');
+    // Delete from auth.users using admin client
+    if (user?.auth_user_id && supabaseAdmin) {
+      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(user.auth_user_id);
+      if (authDeleteError) {
+        console.error('Error deleting auth user:', authDeleteError);
+      }
     }
   }
 }
