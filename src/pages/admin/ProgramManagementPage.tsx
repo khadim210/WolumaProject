@@ -124,7 +124,8 @@ const ProgramManagementPage: React.FC = () => {
     if (!editingProgram) return;
 
     try {
-      console.log('Updating program with values:', values);
+      console.log('🔧 Updating program with values:', values);
+      console.log('🔧 Editing program:', editingProgram);
 
       // Convert empty strings to null for optional UUID fields
       const programData = {
@@ -140,15 +141,19 @@ const ProgramManagementPage: React.FC = () => {
         evaluationCriteria: values.evaluationCriteria || []
       };
 
-      console.log('Program data to update:', programData);
+      console.log('🔧 Program data to update:', programData);
+      console.log('🔧 Field eligibility criteria:', programData.fieldEligibilityCriteria);
 
-      await updateProgram(editingProgram.id, programData);
+      const result = await updateProgram(editingProgram.id, programData);
+      console.log('🔧 Update result:', result);
+
       setEditingProgram(null);
       setShowCreateModal(false);
       setActiveTab('general');
       setLastInitializedFormId(null);
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du programme:', error);
+      console.error('❌ Erreur lors de la mise à jour du programme:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       alert('Erreur lors de la mise à jour du programme. Vérifiez les logs de la console.');
     }
   };

@@ -416,6 +416,10 @@ export class ProgramService {
       throw new Error('Supabase not available');
     }
 
+    console.log('📤 ProgramService.updateProgram called');
+    console.log('📤 Program ID:', id);
+    console.log('📤 Updates to send:', JSON.stringify(updates, null, 2));
+
     const { data, error } = await supabase
       .from('programs')
       .update(updates)
@@ -423,7 +427,13 @@ export class ProgramService {
       .select()
       .single();
 
-    if (error) throw error;
+    console.log('📥 Supabase response - data:', data);
+    console.log('📥 Supabase response - error:', error);
+
+    if (error) {
+      console.error('❌ Supabase update error:', error);
+      throw error;
+    }
     return data;
   }
 
