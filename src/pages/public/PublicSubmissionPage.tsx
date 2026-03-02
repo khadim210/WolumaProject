@@ -17,6 +17,7 @@ import {
   Building,
   FolderOpen
 } from 'lucide-react';
+import CurrencyInput from '../../components/ui/CurrencyInput';
 
 const PublicSubmissionPage: React.FC = () => {
   const { programId } = useParams<{ programId: string }>();
@@ -504,30 +505,24 @@ const PublicSubmissionPage: React.FC = () => {
                       )}
 
                       {field.type === 'currency' && (
-                        <div className="relative">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            required={field.required}
-                            value={formData[field.id] || ''}
-                            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                            placeholder={field.placeholder || "0.00"}
-                            className="block w-full pl-12 pr-3 py-2 rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                          />
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-500 sm:text-sm">
-                              {field.currencyCode === 'EUR' ? '€' :
-                               field.currencyCode === 'USD' ? '$' :
-                               field.currencyCode === 'GBP' ? '£' :
-                               field.currencyCode === 'CHF' ? 'CHF' :
-                               field.currencyCode === 'CAD' ? 'C$' :
-                               field.currencyCode === 'JPY' ? '¥' :
-                               field.currencyCode === 'CNY' ? '¥' :
-                               'FCFA'}
-                            </span>
-                          </div>
-                        </div>
+                        <CurrencyInput
+                          id={field.id}
+                          name={field.id}
+                          value={formData[field.id] || 0}
+                          onChange={(val) => handleFieldChange(field.id, val)}
+                          currencySymbol={
+                            field.currencyCode === 'EUR' ? '€' :
+                            field.currencyCode === 'USD' ? '$' :
+                            field.currencyCode === 'GBP' ? '£' :
+                            field.currencyCode === 'CHF' ? 'CHF' :
+                            field.currencyCode === 'CAD' ? 'C$' :
+                            field.currencyCode === 'JPY' ? '¥' :
+                            field.currencyCode === 'CNY' ? '¥' :
+                            'FCFA'
+                          }
+                          placeholder={field.placeholder || "0"}
+                          required={field.required}
+                        />
                       )}
 
                       {field.type === 'textarea' && (

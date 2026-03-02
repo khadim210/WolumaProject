@@ -17,6 +17,7 @@ import Button from '../../components/ui/Button';
 import { Plus, Trash2, ArrowLeft, Upload, X, FileText } from 'lucide-react';
 import { getCurrencySymbol } from '../../utils/currency';
 import { uploadFile, formatFileSize, UploadedFile } from '../../utils/fileUpload';
+import CurrencyInput from '../../components/ui/CurrencyInput';
 
 const projectSchema = Yup.object().shape({
   title: Yup.string()
@@ -284,16 +285,21 @@ const EditProjectPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
-                      Budget estimé ({currencySymbol})*
+                      Budget estimé*
                     </label>
                     <div className="mt-1">
-                      <Field
-                        id="budget"
-                        name="budget"
-                        type="number"
-                        min="0"
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      />
+                      <Field name="budget">
+                        {({ field, form }: any) => (
+                          <CurrencyInput
+                            id="budget"
+                            name="budget"
+                            value={field.value}
+                            onChange={(val) => form.setFieldValue('budget', val)}
+                            currencySymbol={currencySymbol}
+                            placeholder="0"
+                          />
+                        )}
+                      </Field>
                       <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
                     </div>
                   </div>
@@ -441,29 +447,27 @@ const EditProjectPage: React.FC = () => {
                                 />
                               )}
                               {field.type === 'currency' && (
-                                <div className="relative">
-                                  <Field
-                                    id={`formData.${field.name}`}
-                                    name={`formData.${field.name}`}
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    className="appearance-none block w-full pl-12 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                                    placeholder={field.placeholder || "0.00"}
-                                  />
-                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">
-                                      {field.currencyCode === 'EUR' ? '€' :
-                                       field.currencyCode === 'USD' ? '$' :
-                                       field.currencyCode === 'GBP' ? '£' :
-                                       field.currencyCode === 'CHF' ? 'CHF' :
-                                       field.currencyCode === 'CAD' ? 'C$' :
-                                       field.currencyCode === 'JPY' ? '¥' :
-                                       field.currencyCode === 'CNY' ? '¥' :
-                                       'FCFA'}
-                                    </span>
-                                  </div>
-                                </div>
+                                <Field name={`formData.${field.name}`}>
+                                  {({ field: formikField, form }: any) => (
+                                    <CurrencyInput
+                                      id={`formData.${field.name}`}
+                                      name={`formData.${field.name}`}
+                                      value={formikField.value || 0}
+                                      onChange={(val) => form.setFieldValue(`formData.${field.name}`, val)}
+                                      currencySymbol={
+                                        field.currencyCode === 'EUR' ? '€' :
+                                        field.currencyCode === 'USD' ? '$' :
+                                        field.currencyCode === 'GBP' ? '£' :
+                                        field.currencyCode === 'CHF' ? 'CHF' :
+                                        field.currencyCode === 'CAD' ? 'C$' :
+                                        field.currencyCode === 'JPY' ? '¥' :
+                                        field.currencyCode === 'CNY' ? '¥' :
+                                        'FCFA'
+                                      }
+                                      placeholder={field.placeholder || "0"}
+                                    />
+                                  )}
+                                </Field>
                               )}
                               {field.type === 'email' && (
                                 <Field

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
 import Button from '../ui/Button';
+import CurrencyInput from '../ui/CurrencyInput';
 import { X, DollarSign, Plus, Trash2 } from 'lucide-react';
 
 interface DisbursementPlanModalProps {
@@ -118,11 +119,18 @@ const DisbursementPlanModal: React.FC<DisbursementPlanModalProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Montant total *
                   </label>
-                  <Field
-                    type="number"
-                    name="total_amount"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
+                  <Field name="total_amount">
+                    {({ field, form }: any) => (
+                      <CurrencyInput
+                        id="total_amount"
+                        name="total_amount"
+                        value={field.value}
+                        onChange={(val) => form.setFieldValue('total_amount', val)}
+                        currencySymbol={form.values.currency || 'FCFA'}
+                        placeholder="0"
+                      />
+                    )}
+                  </Field>
                   <ErrorMessage
                     name="total_amount"
                     component="div"
@@ -137,7 +145,7 @@ const DisbursementPlanModal: React.FC<DisbursementPlanModalProps> = ({
                   <Field
                     type="text"
                     name="currency"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                   <ErrorMessage
                     name="currency"
@@ -178,16 +186,21 @@ const DisbursementPlanModal: React.FC<DisbursementPlanModalProps> = ({
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Montant *
                                 </label>
-                                <Field
-                                  type="number"
-                                  name={`tranches.${index}.amount`}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    const amount = parseFloat(e.target.value) || 0;
-                                    setFieldValue(`tranches.${index}.amount`, amount);
-                                    setFieldValue(`tranches.${index}.percentage`, calculatePercentage(amount, values.total_amount));
-                                  }}
-                                />
+                                <Field name={`tranches.${index}.amount`}>
+                                  {({ field, form }: any) => (
+                                    <CurrencyInput
+                                      id={`tranches.${index}.amount`}
+                                      name={`tranches.${index}.amount`}
+                                      value={field.value}
+                                      onChange={(val) => {
+                                        form.setFieldValue(`tranches.${index}.amount`, val);
+                                        form.setFieldValue(`tranches.${index}.percentage`, calculatePercentage(val, values.total_amount));
+                                      }}
+                                      currencySymbol={values.currency || 'FCFA'}
+                                      placeholder="0"
+                                    />
+                                  )}
+                                </Field>
                                 <ErrorMessage
                                   name={`tranches.${index}.amount`}
                                   component="div"
