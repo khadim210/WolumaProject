@@ -404,8 +404,10 @@ const ProgramManagementPage: React.FC = () => {
                   }}
                   validationSchema={programSchema}
                   onSubmit={editingProgram ? handleUpdateProgram : handleCreateProgram}
+                  enableReinitialize
                 >
                   {({ values, isSubmitting, setFieldValue }) => {
+                    console.log('📋 Current Program Formik values:', values);
                     // Utiliser useEffect pour initialiser les critères d'éligibilité
                     React.useEffect(() => {
                       const selectedTemplate = templates.find(t => t.id === values.formTemplateId);
