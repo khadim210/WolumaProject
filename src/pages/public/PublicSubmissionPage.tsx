@@ -145,9 +145,9 @@ const PublicSubmissionPage: React.FC = () => {
       if (!isAuthenticated) {
         const cleanEmail = submitterInfo.email.trim().toLowerCase();
         const registered = await register(
+          submitterInfo.name.trim(),
           cleanEmail,
           submitterInfo.password,
-          submitterInfo.name.trim(),
           'submitter',
           submitterInfo.organization.trim()
         );
