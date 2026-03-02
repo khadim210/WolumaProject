@@ -548,13 +548,56 @@ const PublicSubmissionPage: React.FC = () => {
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
                         >
-                          <option value="">Sélectionnez une option</option>
+                          <option value="">Selectionnez une option</option>
                           {field.options.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>
                           ))}
                         </select>
+                      )}
+
+                      {field.type === 'radio' && field.options && (
+                        <div className="space-y-2">
+                          {field.options.map((option) => (
+                            <label key={option} className="flex items-center cursor-pointer">
+                              <input
+                                type="radio"
+                                name={field.id}
+                                value={option}
+                                checked={formData[field.id] === option}
+                                onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                                required={field.required}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              />
+                              <span className="ml-3 text-sm text-gray-700">{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+
+                      {field.type === 'multiple_select' && field.options && (
+                        <div className="space-y-2">
+                          {field.options.map((option) => (
+                            <label key={option} className="flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                value={option}
+                                checked={(formData[field.id] || []).includes(option)}
+                                onChange={(e) => {
+                                  const currentValues = formData[field.id] || [];
+                                  if (e.target.checked) {
+                                    handleFieldChange(field.id, [...currentValues, option]);
+                                  } else {
+                                    handleFieldChange(field.id, currentValues.filter((v: string) => v !== option));
+                                  }
+                                }}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-3 text-sm text-gray-700">{option}</span>
+                            </label>
+                          ))}
+                        </div>
                       )}
 
                       {field.type === 'checkbox' && (
