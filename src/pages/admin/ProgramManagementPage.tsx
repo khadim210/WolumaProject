@@ -105,6 +105,8 @@ const ProgramManagementPage: React.FC = () => {
 
   const handleCreateProgram = async (values: any) => {
     try {
+      console.log('Creating program with values:', values);
+
       // Convert empty strings to null for optional UUID fields
       const programData = {
         ...values,
@@ -112,22 +114,31 @@ const ProgramManagementPage: React.FC = () => {
         endDate: new Date(values.endDate),
         budget: Number(values.budget),
         formTemplateId: values.formTemplateId || null,
-        managerId: values.managerId || null
+        managerId: values.managerId || null,
+        fieldEligibilityCriteria: values.fieldEligibilityCriteria || [],
+        selectionCriteria: values.selectionCriteria || [],
+        evaluationCriteria: values.evaluationCriteria || [],
+        isActive: true
       };
-      
+
+      console.log('Program data to send:', programData);
+
       await addProgram(programData);
       setShowCreateModal(false);
       setActiveTab('general');
       setLastInitializedFormId(null);
     } catch (error) {
       console.error('Erreur lors de la création du programme:', error);
+      alert('Erreur lors de la création du programme. Vérifiez les logs de la console.');
     }
   };
 
   const handleUpdateProgram = async (values: any) => {
     if (!editingProgram) return;
-    
+
     try {
+      console.log('Updating program with values:', values);
+
       // Convert empty strings to null for optional UUID fields
       const programData = {
         ...values,
@@ -135,9 +146,14 @@ const ProgramManagementPage: React.FC = () => {
         endDate: new Date(values.endDate),
         budget: Number(values.budget),
         formTemplateId: values.formTemplateId || null,
-        managerId: values.managerId || null
+        managerId: values.managerId || null,
+        fieldEligibilityCriteria: values.fieldEligibilityCriteria || [],
+        selectionCriteria: values.selectionCriteria || [],
+        evaluationCriteria: values.evaluationCriteria || []
       };
-      
+
+      console.log('Program data to update:', programData);
+
       await updateProgram(editingProgram.id, programData);
       setEditingProgram(null);
       setShowCreateModal(false);
@@ -145,6 +161,7 @@ const ProgramManagementPage: React.FC = () => {
       setLastInitializedFormId(null);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du programme:', error);
+      alert('Erreur lors de la mise à jour du programme. Vérifiez les logs de la console.');
     }
   };
 

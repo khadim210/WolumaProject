@@ -271,7 +271,9 @@ export const useProgramStore = create<ProgramState>()(
       addProgram: async (programData) => {
         set({ isLoading: true, error: null });
         try {
-          const supabaseProgram = await ProgramService.createProgram({
+          console.log('Store addProgram - programData received:', programData);
+
+          const dataToSend = {
             name: programData.name,
             description: programData.description,
             partner_id: programData.partnerId,
@@ -286,7 +288,11 @@ export const useProgramStore = create<ProgramState>()(
             field_eligibility_criteria: programData.fieldEligibilityCriteria || [],
             evaluation_criteria: programData.evaluationCriteria,
             custom_ai_prompt: programData.customAiPrompt
-          });
+          };
+
+          console.log('Store addProgram - dataToSend:', dataToSend);
+
+          const supabaseProgram = await ProgramService.createProgram(dataToSend);
           
           const newProgram = convertSupabaseProgram(supabaseProgram);
 
@@ -307,20 +313,23 @@ export const useProgramStore = create<ProgramState>()(
         set({ isLoading: true, error: null });
         try {
           const supabaseUpdates: Partial<SupabaseProgram> = {};
-          if (updates.name) supabaseUpdates.name = updates.name;
-          if (updates.description) supabaseUpdates.description = updates.description;
-          if (updates.partnerId) supabaseUpdates.partner_id = updates.partnerId;
-          if (updates.formTemplateId) supabaseUpdates.form_template_id = updates.formTemplateId;
-          if (updates.budget) supabaseUpdates.budget = updates.budget;
-          if (updates.currency) supabaseUpdates.currency = updates.currency;
-          if (updates.startDate) supabaseUpdates.start_date = updates.startDate.toISOString().split('T')[0];
-          if (updates.endDate) supabaseUpdates.end_date = updates.endDate.toISOString().split('T')[0];
+          if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+          if (updates.description !== undefined) supabaseUpdates.description = updates.description;
+          if (updates.partnerId !== undefined) supabaseUpdates.partner_id = updates.partnerId;
+          if (updates.formTemplateId !== undefined) supabaseUpdates.form_template_id = updates.formTemplateId || undefined;
+          if (updates.budget !== undefined) supabaseUpdates.budget = updates.budget;
+          if (updates.currency !== undefined) supabaseUpdates.currency = updates.currency;
+          if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate.toISOString().split('T')[0];
+          if (updates.endDate !== undefined) supabaseUpdates.end_date = updates.endDate.toISOString().split('T')[0];
           if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
-          if (updates.managerId) supabaseUpdates.manager_id = updates.managerId;
-          if (updates.selectionCriteria) supabaseUpdates.selection_criteria = updates.selectionCriteria;
+          if (updates.managerId !== undefined) supabaseUpdates.manager_id = updates.managerId || undefined;
+          if (updates.selectionCriteria !== undefined) supabaseUpdates.selection_criteria = updates.selectionCriteria;
           if (updates.fieldEligibilityCriteria !== undefined) supabaseUpdates.field_eligibility_criteria = updates.fieldEligibilityCriteria;
-          if (updates.evaluationCriteria) supabaseUpdates.evaluation_criteria = updates.evaluationCriteria;
-          if (updates.customAiPrompt) supabaseUpdates.custom_ai_prompt = updates.customAiPrompt;
+          if (updates.evaluationCriteria !== undefined) supabaseUpdates.evaluation_criteria = updates.evaluationCriteria;
+          if (updates.customAiPrompt !== undefined) supabaseUpdates.custom_ai_prompt = updates.customAiPrompt;
+
+          console.log('Store updateProgram - updates received:', updates);
+          console.log('Store updateProgram - supabaseUpdates to send:', supabaseUpdates);
           
           const supabaseProgram = await ProgramService.updateProgram(id, supabaseUpdates);
           const updatedProgram = convertSupabaseProgram(supabaseProgram);
