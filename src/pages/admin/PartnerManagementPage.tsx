@@ -81,7 +81,8 @@ const PartnerManagementPage: React.FC = () => {
 
   const handleCreatePartner = async (values: PartnerFormValues, { resetForm, setSubmitting }: any) => {
     try {
-      await addPartner({
+      console.log('🏢 Creating partner with values:', values);
+      const result = await addPartner({
         name: values.name,
         description: values.description,
         contactEmail: values.contactEmail,
@@ -90,10 +91,13 @@ const PartnerManagementPage: React.FC = () => {
         isActive: values.isActive,
         assignedManagerId: values.assignedManagerId || undefined
       });
+      console.log('🏢 Partner created successfully:', result);
       resetForm();
       setShowCreateModal(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la création du partenaire:', error);
+      const errorMessage = error?.message || 'Erreur inconnue';
+      alert(`Erreur lors de la création du partenaire: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }

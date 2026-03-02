@@ -333,14 +333,20 @@ export class PartnerService {
       throw new Error('Supabase not available');
     }
 
-    // Use regular client with RLS
+    console.log('🏢 PartnerService.createPartner called with:', partner);
+
     const { data, error } = await supabase
       .from('partners')
       .insert([partner])
       .select()
       .single();
 
-    if (error) throw error;
+    console.log('🏢 PartnerService.createPartner response:', { data, error });
+
+    if (error) {
+      console.error('🏢 PartnerService.createPartner error:', error);
+      throw error;
+    }
     return data;
   }
 
