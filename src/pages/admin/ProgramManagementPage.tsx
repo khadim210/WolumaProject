@@ -28,6 +28,7 @@ import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getPublicSubmissionUrl } from '../../utils/url';
+import { formatCurrency } from '../../utils/currency';
 
 const programSchema = Yup.object().shape({
   name: Yup.string().required('Le nom du programme est requis'),
