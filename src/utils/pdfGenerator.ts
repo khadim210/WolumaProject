@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { Project } from '../stores/projectStore';
 import { Program, Partner } from '../stores/programStore';
 import type { AIEvaluationResponse } from '../services/aiEvaluationService';
+import { formatCurrency } from './currency';
 
 export const generateEvaluationReport = async (
   project: Project,
@@ -68,7 +69,7 @@ export const generateEvaluationReport = async (
     head: [],
     body: [
       ['Titre', project.title],
-      ['Budget', `${project.budget.toLocaleString('fr-FR')} FCFA`],
+      ['Budget', formatCurrency(project.budget, program.currency || 'XOF')],
       ['Durée', project.timeline],
       ['Programme', program.name],
       ...(partner ? [['Partenaire', partner.name]] : [])
@@ -329,7 +330,7 @@ export const generateWolumaEvaluationReport = async (
     head: [],
     body: [
       ['Titre du projet', project.title],
-      ['Chiffre d\'Affaires', `${project.budget.toLocaleString('fr-FR')} FCFA`],
+      ['Chiffre d\'Affaires', formatCurrency(project.budget, program.currency || 'XOF')],
       ['Durée d\'existence', project.timeline],
       ['Programme de rattachement', program.name],
       ['Partenaire d\'exécution', partner?.name || 'N/A'],

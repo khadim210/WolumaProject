@@ -17,14 +17,18 @@ export const getCurrencySymbol = (currencyCode: string): string => {
 export const formatCurrency = (amount: number, currencyCode: string = 'XOF'): string => {
   const symbol = getCurrencySymbol(currencyCode);
 
-  const formattedAmount = amount.toLocaleString('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  const formattedAmount = formatNumberWithSpaces(amount);
 
   if (currencyCode === 'XOF' || currencyCode === 'CHF') {
     return `${formattedAmount} ${symbol}`;
   }
 
   return `${symbol}${formattedAmount}`;
+};
+
+export const formatNumberWithSpaces = (value: number): string => {
+  const parts = Math.abs(value).toFixed(0).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const formatted = parts.join(',');
+  return value < 0 ? `-${formatted}` : formatted;
 };

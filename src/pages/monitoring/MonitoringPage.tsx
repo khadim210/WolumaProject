@@ -23,7 +23,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getStatusLabel } from '../../utils/statusTransitions';
-import { formatCurrency } from '../../utils/currency';
+import { formatCurrency, formatNumberWithSpaces } from '../../utils/currency';
 
 const MonitoringPage = () => {
   const { projects, fetchProjects, isLoading } = useProjectStore();
@@ -559,10 +559,7 @@ const MonitoringPage = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Budget total actif</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">
-                  {new Intl.NumberFormat('fr-FR', {
-                    notation: 'compact',
-                    compactDisplay: 'short'
-                  }).format(statistics.totalBudget)}
+                  {formatNumberWithSpaces(statistics.totalBudget)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Projets en cours
