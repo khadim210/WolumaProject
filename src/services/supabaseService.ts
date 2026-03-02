@@ -654,9 +654,32 @@ export class AuthService {
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (data) return data;
+
+    const metadata = user.user_metadata || {};
+    const newProfile = {
+      name: metadata.name || user.email?.split('@')[0] || 'Utilisateur',
+      email: user.email || '',
+      role: (metadata.role as 'admin' | 'partner' | 'manager' | 'submitter') || 'submitter',
+      organization: metadata.organization || '',
+      is_active: true,
+      auth_user_id: user.id
+    };
+
+    const { data: createdProfile, error } = await supabase
+      .from('users')
+      .insert([newProfile])
+      .select()
       .single();
 
-    return data || null;
+    if (error) {
+      console.error('Error creating user profile:', error);
+      return null;
+    }
+
+    return createdProfile;
   }
 
   static async updatePassword(newPassword: string): Promise<void> {
