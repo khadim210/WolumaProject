@@ -127,18 +127,19 @@ const ProgramManagementPage: React.FC = () => {
       console.log('🔧 Updating program with values:', values);
       console.log('🔧 Editing program:', editingProgram);
 
-      // Convert empty strings to null for optional UUID fields
+      // Only send the fields that need to be updated, with proper conversion
       const programData = {
-        ...values,
+        name: values.name,
+        description: values.description,
+        partnerId: values.partnerId,
+        formTemplateId: values.formTemplateId || null,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
-        budget: editingProgram.budget || 0,
-        currency: editingProgram.currency || 'XOF',
-        formTemplateId: values.formTemplateId || null,
         managerId: values.managerId || null,
         fieldEligibilityCriteria: values.fieldEligibilityCriteria || [],
         selectionCriteria: values.selectionCriteria || [],
-        evaluationCriteria: values.evaluationCriteria || []
+        evaluationCriteria: values.evaluationCriteria || [],
+        customAiPrompt: values.customAiPrompt || null
       };
 
       console.log('🔧 Program data to update:', programData);
