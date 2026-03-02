@@ -26,7 +26,7 @@ const PublicSubmissionPage: React.FC = () => {
   const { programs, fetchPrograms } = useProgramStore();
   const { templates, fetchTemplates } = useFormTemplateStore();
   const { addProject } = useProjectStore();
-  const { register, isAuthenticated, user } = useAuthStore();
+  const { register, login, isAuthenticated, user } = useAuthStore();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,9 +141,9 @@ const PublicSubmissionPage: React.FC = () => {
     try {
       let submitterId = user?.id;
 
-      // Si l'utilisateur n'est pas connecté, créer le compte
       if (!isAuthenticated) {
         const cleanEmail = submitterInfo.email.trim().toLowerCase();
+
         const registered = await register(
           submitterInfo.name.trim(),
           cleanEmail,
@@ -153,10 +153,13 @@ const PublicSubmissionPage: React.FC = () => {
         );
 
         if (!registered) {
-          throw new Error('Échec de la création du compte');
+          const loggedIn = await login(cleanEmail, submitterInfo.password);
+
+          if (!loggedIn) {
+            throw new Error('Impossible de creer ou connecter le compte. Verifiez votre mot de passe.');
+          }
         }
 
-        // Récupérer l'ID de l'utilisateur nouvellement créé
         const { user: authUser } = useAuthStore.getState();
         submitterId = authUser?.id;
       }
@@ -165,7 +168,6 @@ const PublicSubmissionPage: React.FC = () => {
         throw new Error('Impossible d\'identifier l\'utilisateur');
       }
 
-      // Créer le projet
       await addProject({
         title: submitterInfo.projectName,
         description: formData.description || formData.probleme || 'Description du projet',
@@ -184,8 +186,8 @@ const PublicSubmissionPage: React.FC = () => {
     } catch (error) {
       console.error('Error submitting project:', error);
       if (error instanceof Error) {
-        if (error.message.includes('already registered') || error.message.includes('already been registered')) {
-          alert('Cet email est deja utilise. Veuillez utiliser un autre email ou vous connecter.');
+        if (error.message.includes('Invalid login credentials')) {
+          alert('Ce compte existe deja mais le mot de passe est incorrect. Veuillez reessayer avec le bon mot de passe.');
         } else if (error.message.includes('invalid format') || error.message.includes('validate email')) {
           alert('Le format de l\'email est invalide. Veuillez verifier l\'adresse email saisie.');
         } else {
