@@ -143,12 +143,13 @@ const PublicSubmissionPage: React.FC = () => {
 
       // Si l'utilisateur n'est pas connecté, créer le compte
       if (!isAuthenticated) {
+        const cleanEmail = submitterInfo.email.trim().toLowerCase();
         const registered = await register(
-          submitterInfo.email,
+          cleanEmail,
           submitterInfo.password,
-          submitterInfo.name,
+          submitterInfo.name.trim(),
           'submitter',
-          submitterInfo.organization
+          submitterInfo.organization.trim()
         );
 
         if (!registered) {
@@ -184,12 +185,14 @@ const PublicSubmissionPage: React.FC = () => {
       console.error('Error submitting project:', error);
       if (error instanceof Error) {
         if (error.message.includes('already registered') || error.message.includes('already been registered')) {
-          alert('Cet email est déjà utilisé. Veuillez utiliser un autre email ou vous connecter.');
+          alert('Cet email est deja utilise. Veuillez utiliser un autre email ou vous connecter.');
+        } else if (error.message.includes('invalid format') || error.message.includes('validate email')) {
+          alert('Le format de l\'email est invalide. Veuillez verifier l\'adresse email saisie.');
         } else {
           alert(`Erreur lors de la soumission: ${error.message}`);
         }
       } else {
-        alert('Erreur lors de la soumission du projet. Veuillez réessayer.');
+        alert('Erreur lors de la soumission du projet. Veuillez reessayer.');
       }
     } finally {
       setIsSubmitting(false);
