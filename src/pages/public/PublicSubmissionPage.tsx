@@ -48,13 +48,12 @@ const PublicSubmissionPage: React.FC = () => {
         console.log('🔍 Loading data for programId:', programId);
         await fetchPrograms();
         await fetchTemplates();
-        console.log('✅ Data loaded. Programs count:', programs.length);
       } catch (error) {
         console.error('❌ Error loading data:', error);
       }
     };
     loadData();
-  }, [fetchPrograms, fetchTemplates, programId]);
+  }, []);
 
   const program = programs.find(p => p.id === programId);
   const template = program?.formTemplateId
