@@ -101,8 +101,10 @@ const PartnerManagementPage: React.FC = () => {
 
   const handleUpdatePartner = async (values: PartnerFormValues, { setSubmitting }: any) => {
     if (!editingPartner) return;
-    
+
     try {
+      console.log('📝 PartnerManagementPage - handleUpdatePartner called with values:', values);
+
       await updatePartner(editingPartner.id, {
         name: values.name,
         description: values.description,
@@ -112,6 +114,8 @@ const PartnerManagementPage: React.FC = () => {
         isActive: values.isActive,
         assignedManagerId: values.assignedManagerId || undefined
       });
+
+      console.log('✅ PartnerManagementPage - Partner updated successfully');
       setEditingPartner(null);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du partenaire:', error);

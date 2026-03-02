@@ -349,6 +349,8 @@ export class PartnerService {
       throw new Error('Supabase not available');
     }
 
+    console.log('🏢 PartnerService.updatePartner called with:', { id, updates });
+
     // Use regular client with RLS
     const { data, error } = await supabase
       .from('partners')
@@ -356,6 +358,8 @@ export class PartnerService {
       .eq('id', id)
       .select()
       .single();
+
+    console.log('🏢 PartnerService.updatePartner response:', { data, error });
 
     if (error) throw error;
     return data;

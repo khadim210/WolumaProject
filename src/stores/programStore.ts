@@ -202,6 +202,8 @@ export const useProgramStore = create<ProgramState>()(
       updatePartner: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
+          console.log('🔄 Store updatePartner - updates received:', updates);
+
           const supabaseUpdates: Partial<SupabasePartner> = {};
           if (updates.name !== undefined) supabaseUpdates.name = updates.name;
           if (updates.description !== undefined) supabaseUpdates.description = updates.description;
@@ -211,8 +213,13 @@ export const useProgramStore = create<ProgramState>()(
           if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
           if (updates.assignedManagerId !== undefined) supabaseUpdates.assigned_manager_id = updates.assignedManagerId || null;
 
+          console.log('🔄 Store updatePartner - supabaseUpdates to send:', supabaseUpdates);
+
           const supabasePartner = await PartnerService.updatePartner(id, supabaseUpdates);
+          console.log('🔄 Store updatePartner - response from Supabase:', supabasePartner);
+
           const updatedPartner = convertSupabasePartner(supabasePartner);
+          console.log('🔄 Store updatePartner - converted partner:', updatedPartner);
 
           set(state => ({
             partners: state.partners.map(p => p.id === id ? updatedPartner : p),
