@@ -317,8 +317,11 @@ const PartnerManagementPage: React.FC = () => {
                 }}
                 validationSchema={partnerSchema}
                 onSubmit={editingPartner ? handleUpdatePartner : handleCreatePartner}
+                enableReinitialize
               >
-                {({ isSubmitting }) => (
+                {({ isSubmitting, values }) => {
+                  console.log('📋 Current Formik values:', values);
+                  return (
                   <Form className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -440,7 +443,8 @@ const PartnerManagementPage: React.FC = () => {
                       </Button>
                     </div>
                   </Form>
-                )}
+                  );
+                }}
               </Formik>
             </div>
           </div>
