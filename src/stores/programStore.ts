@@ -203,17 +203,17 @@ export const useProgramStore = create<ProgramState>()(
         set({ isLoading: true, error: null });
         try {
           const supabaseUpdates: Partial<SupabasePartner> = {};
-          if (updates.name) supabaseUpdates.name = updates.name;
-          if (updates.description) supabaseUpdates.description = updates.description;
-          if (updates.contactEmail) supabaseUpdates.contact_email = updates.contactEmail;
-          if (updates.contactPhone) supabaseUpdates.contact_phone = updates.contactPhone;
-          if (updates.address) supabaseUpdates.address = updates.address;
+          if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+          if (updates.description !== undefined) supabaseUpdates.description = updates.description;
+          if (updates.contactEmail !== undefined) supabaseUpdates.contact_email = updates.contactEmail;
+          if (updates.contactPhone !== undefined) supabaseUpdates.contact_phone = updates.contactPhone;
+          if (updates.address !== undefined) supabaseUpdates.address = updates.address;
           if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
-          if (updates.assignedManagerId) supabaseUpdates.assigned_manager_id = updates.assignedManagerId;
-          
+          if (updates.assignedManagerId !== undefined) supabaseUpdates.assigned_manager_id = updates.assignedManagerId || null;
+
           const supabasePartner = await PartnerService.updatePartner(id, supabaseUpdates);
           const updatedPartner = convertSupabasePartner(supabasePartner);
-          
+
           set(state => ({
             partners: state.partners.map(p => p.id === id ? updatedPartner : p),
             isLoading: false
