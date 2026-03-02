@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { FormTemplateService, getSupabaseEnabled } from '../services/supabaseService';
 import type { SupabaseFormTemplate } from '../services/supabaseService';
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'multiple_select';
+export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'file' | 'multiple_select' | 'currency';
 
 export interface FormField {
   id: string;
@@ -17,6 +17,7 @@ export interface FormField {
   acceptedFileTypes?: string; // Pour les champs file
   maxFileSize?: number; // Pour les champs file (en MB)
   allowMultipleFiles?: boolean; // Pour les champs file
+  currencyCode?: string; // Pour les champs currency
 }
 
 export interface FormTemplate {

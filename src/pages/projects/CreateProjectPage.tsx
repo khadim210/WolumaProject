@@ -443,6 +443,31 @@ const CreateProjectPage: React.FC = () => {
                                   placeholder={field.placeholder}
                                 />
                               )}
+                              {field.type === 'currency' && (
+                                <div className="relative">
+                                  <Field
+                                    id={`formData.${field.name}`}
+                                    name={`formData.${field.name}`}
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    className="appearance-none block w-full pl-12 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                    placeholder={field.placeholder || "0.00"}
+                                  />
+                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span className="text-gray-500 sm:text-sm">
+                                      {field.currencyCode === 'EUR' ? '€' :
+                                       field.currencyCode === 'USD' ? '$' :
+                                       field.currencyCode === 'GBP' ? '£' :
+                                       field.currencyCode === 'CHF' ? 'CHF' :
+                                       field.currencyCode === 'CAD' ? 'C$' :
+                                       field.currencyCode === 'JPY' ? '¥' :
+                                       field.currencyCode === 'CNY' ? '¥' :
+                                       'FCFA'}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
                               {field.type === 'email' && (
                                 <Field
                                   id={`formData.${field.name}`}
