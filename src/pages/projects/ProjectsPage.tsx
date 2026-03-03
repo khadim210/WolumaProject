@@ -1,26 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { Menu } from '@headlessui/react';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent 
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import { FolderPlus, Search, Filter, FileSpreadsheet, Printer } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle, Download, FileDown, ChevronDown } from 'lucide-react';
+import { exportSubmissionsToExcel, exportSubmissionsToPDF } from '../../utils/submissionExport';
+import { useFilteredProjects, getAccessiblePrograms, getAccessiblePartners } from '../../hooks/useFilteredProjects';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
-  const { projects, fetchProjects, filterProjectsByUser } = useProjectStore();
+  const { addProject, fetchProjects, filterProjectsByUser, deleteProject } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
   const [partnerFilter, setPartnerFilter] = useState<string>('all');
@@ -29,6 +31,9 @@ const ProjectsPage: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string>('');
   const [importSuccess, setImportSuccess] = useState<string>('');
+  const [selectedProgramForExport, setSelectedProgramForExport] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   
   useEffect(() => {
     console.log('📁 ProjectsPage: Fetching all data...');
@@ -38,62 +43,36 @@ const ProjectsPage: React.FC = () => {
   }, [fetchProjects, fetchPrograms, fetchPartners]);
   
   const userProjects = user ? filterProjectsByUser(user) : [];
-  
-  // Filter projects based on user role and program access
-  const getAccessiblePrograms = () => {
-    if (!user) return [];
-    
-    if (user.role === 'admin') {
-      return programs;
-    } else if (user.role === 'manager') {
-      // Manager can see programs from their assigned partners
-      const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
-      const partnerIds = managerPartners.map(p => p.id);
-      return programs.filter(p => partnerIds.includes(p.partnerId));
-    } else if (user.role === 'partner') {
-      // Partner can see their own programs
-      const userPartner = partners.find(p => 
-        p.contactEmail === user.email || 
-        p.name === user.organization
-      );
-      if (userPartner) {
-        return programs.filter(p => p.partnerId === userPartner.id);
-      }
-      // Fallback: show all programs if partner not found by email/organization
-      return programs;
+
+  const accessiblePrograms = useMemo(
+    () => getAccessiblePrograms(user, programs, partners),
+    [user, programs, partners]
+  );
+
+  const accessiblePartners = useMemo(
+    () => getAccessiblePartners(accessiblePrograms, partners),
+    [accessiblePrograms, partners]
+  );
+
+  const { filteredProjects, statusCounts } = useFilteredProjects(
+    userProjects,
+    programs,
+    partners,
+    user,
+    {
+      searchTerm,
+      statusFilter,
+      programFilter,
+      partnerFilter
     }
-    
-    return programs; // For submitters, show all programs
-  };
-  
-  const accessiblePrograms = getAccessiblePrograms();
-  
-  const filteredProjects = userProjects.filter(project => {
-    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          project.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
-    const matchesPartner = partnerFilter === 'all' || 
-                          accessiblePrograms.some(p => p.id === project.programId && p.partnerId === partnerFilter);
-    const matchesProgram = programFilter === 'all' || project.programId === programFilter;
-    
-    // Also check if user has access to this program
-    const hasAccessToProgram = accessiblePrograms.some(p => p.id === project.programId);
-    
-    return matchesSearch && matchesStatus && matchesPartner && matchesProgram && hasAccessToProgram;
-  });
-  
-  // Get programs filtered by selected partner
-  const getFilteredPrograms = () => {
-    if (partnerFilter === 'all') {
-      return accessiblePrograms;
-    }
+  );
+
+  const filteredPrograms = useMemo(() => {
+    if (partnerFilter === 'all') return accessiblePrograms;
     return accessiblePrograms.filter(p => p.partnerId === partnerFilter);
-  };
-  
-  const filteredPrograms = getFilteredPrograms();
-  
-  // Reset program filter when partner changes
-  React.useEffect(() => {
+  }, [accessiblePrograms, partnerFilter]);
+
+  useEffect(() => {
     if (partnerFilter !== 'all' && programFilter !== 'all') {
       const programExists = filteredPrograms.some(p => p.id === programFilter);
       if (!programExists) {
@@ -102,55 +81,16 @@ const ProjectsPage: React.FC = () => {
     }
   }, [partnerFilter, programFilter, filteredPrograms]);
   
-  // Get unique partners from accessible programs
-  const getAccessiblePartners = () => {
-    const partnerIds = [...new Set(accessiblePrograms.map(p => p.partnerId))];
-    return partners.filter(partner => partnerIds.includes(partner.id));
-  };
-  
-  const accessiblePartners = getAccessiblePartners();
-  
   const sortedProjects = [...filteredProjects].sort((a, b) => 
     b.updatedAt.getTime() - a.updatedAt.getTime()
   );
   
-  const handleExportExcel = () => {
-    const exportData = sortedProjects.map(project => {
-      const program = programs.find(p => p.id === project.programId);
-      const partner = program ? partners.find(p => p.id === program.partnerId) : null;
-      
-      return {
-        'Titre': project.title,
-        'Description': project.description,
-        'Statut': getStatusLabel(project.status),
-        'Budget (FCFA)': project.budget,
-        'Durée': project.timeline,
-        'Programme': program?.name || 'N/A',
-        'Partenaire': partner?.name || 'N/A',
-        'Tags': project.tags.join(', '),
-        'Date de création': project.createdAt.toLocaleDateString('fr-FR'),
-        'Date de soumission': project.submissionDate?.toLocaleDateString('fr-FR') || 'Non soumis',
-        'Score d\'évaluation': project.totalEvaluationScore ? `${project.totalEvaluationScore}%` : 'Non évalué'
-      };
-    });
-    
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Projets');
-    
-    // Auto-size columns
-    const colWidths = Object.keys(exportData[0] || {}).map(key => ({
-      wch: Math.max(key.length, 15)
-    }));
-    worksheet['!cols'] = colWidths;
-    
-    XLSX.writeFile(workbook, `Projets_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
+
   
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !selectedProgramForImport || !user) {
-      setImportError('Veuillez sélectionner un programme et un fichier');
+      setImportError('Veuillez selectionner un programme et un fichier');
       return;
     }
 
@@ -159,6 +99,7 @@ const ProjectsPage: React.FC = () => {
     setImportSuccess('');
 
     try {
+      const XLSX = await import('xlsx');
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -223,157 +164,201 @@ const ProjectsPage: React.FC = () => {
       setImportError(`Erreur lors de l'importation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsImporting(false);
-      // Reset file input
       event.target.value = '';
+    }
+  }, [selectedProgramForImport, user, accessiblePrograms, addProject]);
+
+  const handleDeleteProject = async (projectId: string) => {
+    setDeletingProjectId(projectId);
+    try {
+      const success = await deleteProject(projectId);
+      if (success) {
+        setShowDeleteConfirm(null);
+        alert('Projet supprimé avec succès');
+      } else {
+        alert('Erreur lors de la suppression du projet');
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'Impossible de supprimer le projet'}`);
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = useCallback(async () => {
+    const XLSX = await import('xlsx');
     const templateData = [
       {
         'Titre': 'Exemple de projet',
-        'Description': 'Description détaillée du projet avec ses objectifs et son impact potentiel',
+        'Description': 'Description detaillee du projet avec ses objectifs et son impact potentiel',
         'Budget': 150000,
-        'Durée': '18 mois',
+        'Duree': '18 mois',
         'Tags': 'innovation, technologie, impact'
       }
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modèle');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modele');
 
-    // Auto-size columns
     const colWidths = Object.keys(templateData[0]).map(key => ({
       wch: Math.max(key.length, 20)
     }));
     worksheet['!cols'] = colWidths;
 
     XLSX.writeFile(workbook, 'Modele_Import_Projets.xlsx');
-  };
+  }, []);
 
-  const handlePrintPDF = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Liste des Projets - ${new Date().toLocaleDateString('fr-FR')}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #003366; padding-bottom: 20px; }
-            .logo { color: #003366; font-size: 24px; font-weight: bold; }
-            .subtitle { color: #666; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-            th { background-color: #f8f9fa; font-weight: bold; }
-            .status { padding: 2px 6px; border-radius: 12px; font-size: 10px; font-weight: bold; }
-            .status-draft { background-color: #f3f4f6; color: #374151; }
-            .status-submitted { background-color: #dbeafe; color: #1e40af; }
-            .status-under_review { background-color: #cffafe; color: #0891b2; }
-            .status-selected { background-color: #dcfce7; color: #166534; }
-            .status-rejected { background-color: #fee2e2; color: #dc2626; }
-            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; }
-            @media print { body { margin: 0; } }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">Woluma-Flow</div>
-            <div class="subtitle">Liste des Projets - ${new Date().toLocaleDateString('fr-FR')}</div>
-            <div style="margin-top: 10px; font-size: 14px;">Total: ${sortedProjects.length} projet(s)</div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Titre</th>
-                <th>Statut</th>
-                <th>Budget (FCFA)</th>
-                <th>Durée</th>
-                <th>Programme</th>
-                <th>Partenaire</th>
-                <th>Date création</th>
-                <th>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sortedProjects.map(project => {
-                const program = programs.find(p => p.id === project.programId);
-                const partner = program ? partners.find(p => p.id === program.partnerId) : null;
-                const statusClass = `status status-${project.status}`;
-                
-                return `
-                  <tr>
-                    <td>${project.title}</td>
-                    <td><span class="${statusClass}">${getStatusLabel(project.status)}</span></td>
-                    <td>${project.budget.toLocaleString()}</td>
-                    <td>${project.timeline}</td>
-                    <td>${program?.name || 'N/A'}</td>
-                    <td>${partner?.name || 'N/A'}</td>
-                    <td>${project.createdAt.toLocaleDateString('fr-FR')}</td>
-                    <td>${project.totalEvaluationScore ? `${project.totalEvaluationScore}%` : 'Non évalué'}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-          
-          <div class="footer">
-            Généré le ${new Date().toLocaleString('fr-FR')} - Woluma-Flow - Plateforme d'Évaluation et de Financement de Projets
-          </div>
-        </body>
-      </html>
-    `;
-    
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
+  const handleExportExcel = useCallback(async () => {
+    if (!selectedProgramForExport) {
+      alert('Veuillez selectionner un programme');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === selectedProgramForExport);
+    if (!program) {
+      alert('Programme non trouve');
+      return;
+    }
+
+    const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
+    await exportSubmissionsToExcel({ projects: programProjects, program });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
+
+  const handleExportPDF = useCallback(async () => {
+    if (!selectedProgramForExport) {
+      alert('Veuillez selectionner un programme');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === selectedProgramForExport);
+    if (!program) {
+      alert('Programme non trouve');
+      return;
+    }
+
+    const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
+    await exportSubmissionsToPDF({ projects: programProjects, program });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
+
+  const handleQuickExportExcel = useCallback(async () => {
+    if (programFilter === 'all') {
+      alert('Veuillez selectionner un programme specifique dans les filtres');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === programFilter);
+    if (!program) {
+      alert('Programme non trouve');
+      return;
+    }
+
+    const programProjects = filteredProjects.filter(p => p.programId === programFilter);
+    if (programProjects.length === 0) {
+      alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
+      return;
+    }
+    await exportSubmissionsToExcel({ projects: programProjects, program });
+  }, [programFilter, accessiblePrograms, filteredProjects]);
+
+  const handleQuickExportPDF = useCallback(async () => {
+    if (programFilter === 'all') {
+      alert('Veuillez selectionner un programme specifique dans les filtres');
+      return;
+    }
+
+    const program = accessiblePrograms.find(p => p.id === programFilter);
+    if (!program) {
+      alert('Programme non trouve');
+      return;
+    }
+
+    const programProjects = filteredProjects.filter(p => p.programId === programFilter);
+    if (programProjects.length === 0) {
+      alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
+      return;
+    }
+    await exportSubmissionsToPDF({ projects: programProjects, program });
+  }, [programFilter, accessiblePrograms, filteredProjects]);
   
   const getStatusLabel = (status: ProjectStatus): string => {
     const labels: Record<ProjectStatus, string> = {
       draft: 'Brouillon',
       submitted: 'Soumis',
       under_review: 'En revue',
-      pre_selected: 'Présélectionné',
-      selected: 'Sélectionné',
+      eligible: 'Eligible',
+      ineligible: 'Non eligible',
+      pre_selected: 'Preselectionne',
+      selected: 'Selectionne',
       formalization: 'Formalisation',
-      financed: 'Financé',
+      financed: 'Finance',
       monitoring: 'Suivi',
-      closed: 'Clôturé',
-      rejected: 'Rejeté'
+      closed: 'Cloture',
+      rejected: 'Rejete'
     };
-    return labels[status];
+    return labels[status] || status;
   };
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Projets</h1>
-        
+        <h1 className="text-2xl font-bold text-gray-900">Soumissions</h1>
+
         <div className="flex space-x-3">
-          <Button
-            variant="outline"
-            onClick={handleExportExcel}
-            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
-            disabled={sortedProjects.length === 0}
-          >
-            Exporter Excel
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={handlePrintPDF}
-            leftIcon={<Printer className="h-4 w-4" />}
-            disabled={sortedProjects.length === 0}
-          >
-            Imprimer PDF
-          </Button>
-          
+          {/* Export Button with Dropdown */}
+          {userProjects.length > 0 && (
+            <Menu as="div" className="relative inline-block text-left">
+              <Menu.Button
+                disabled={programFilter === 'all'}
+                title={programFilter === 'all' ? 'Sélectionnez un programme dans les filtres pour exporter' : 'Exporter les soumissions'}
+                className="inline-flex items-center justify-center font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:scale-105 active:scale-95 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary-500 shadow-sm hover:shadow-md text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exporter
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Menu.Button>
+
+              <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                <div className="px-1 py-1">
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={handleQuickExportExcel}
+                        className={`${
+                          active ? 'bg-primary-50 text-primary-900' : 'text-gray-900'
+                        } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                      >
+                        <FileSpreadsheet className="mr-2 h-5 w-5 text-green-600" />
+                        Exporter en Excel
+                      </button>
+                    )}
+                  </Menu.Item>
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={handleQuickExportPDF}
+                        className={`${
+                          active ? 'bg-primary-50 text-primary-900' : 'text-gray-900'
+                        } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                      >
+                        <FileDown className="mr-2 h-5 w-5 text-red-600" />
+                        Exporter en PDF
+                      </button>
+                    )}
+                  </Menu.Item>
+                </div>
+                {programFilter !== 'all' && (
+                  <div className="px-3 py-2 text-xs text-gray-600 bg-gray-50">
+                    Programme: {accessiblePrograms.find(p => p.id === programFilter)?.name}
+                    <br />
+                    {filteredProjects.filter(p => p.programId === programFilter).length} soumission(s)
+                  </div>
+                )}
+              </Menu.Items>
+            </Menu>
+          )}
+
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create">
               <Button
@@ -386,87 +371,118 @@ const ProjectsPage: React.FC = () => {
           )}
         </div>
       </div>
-      
-      <Card className="mb-6">
-        <CardContent className="py-4">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-grow">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
+
+      {/* Filtres */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="h-5 w-5 mr-2" />
+            Filtres
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Recherche */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Search className="inline h-4 w-4 mr-1" />
+                Recherche
+              </label>
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="Rechercher un projet..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Titre ou description..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
-            <div className="flex gap-4">
-              <div className="relative w-48">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Filter className="h-5 w-5 text-gray-400" />
-                </div>
-                <select
-                  className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'all')}
-                >
-                  <option value="all">Tous les statuts</option>
-                  <option value="draft">Brouillon</option>
-                  <option value="submitted">Soumis</option>
-                  <option value="under_review">En cours d'évaluation</option>
-                  <option value="pre_selected">Présélectionné</option>
-                  <option value="selected">Sélectionné</option>
-                  <option value="formalization">Formalisation</option>
-                  <option value="financed">Financé</option>
-                  <option value="monitoring">Suivi</option>
-                  <option value="closed">Clôturé</option>
-                  <option value="rejected">Rejeté</option>
-                </select>
-              </div>
-              
-              <div className="relative w-64">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Filter className="h-5 w-5 text-gray-400" />
-                </div>
-                <select
-                  className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
-                  value={partnerFilter}
-                  onChange={(e) => setPartnerFilter(e.target.value)}
-                >
-                  <option value="all">Tous les partenaires</option>
-                  {accessiblePartners.map(partner => (
-                    <option key={partner.id} value={partner.id}>
-                      {partner.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="relative w-64">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Filter className="h-5 w-5 text-gray-400" />
-                </div>
-                <select
-                  className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
-                  value={programFilter}
-                  onChange={(e) => setProgramFilter(e.target.value)}
-                >
-                  <option value="all">Tous les programmes</option>
-                  {filteredPrograms.map(program => (
-                    <option key={program.id} value={program.id}>
-                      {program.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+
+            {/* Filtre par statut */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Statut
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'all')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous ({statusCounts.all})</option>
+                <option value="draft">Brouillon ({statusCounts.draft})</option>
+                <option value="submitted">Soumis ({statusCounts.submitted})</option>
+                <option value="under_review">En revue ({statusCounts.under_review})</option>
+                <option value="eligible">Éligible ({statusCounts.eligible})</option>
+                <option value="ineligible">Non éligible ({statusCounts.ineligible})</option>
+                <option value="pre_selected">Présélectionné ({statusCounts.pre_selected})</option>
+                <option value="selected">Sélectionné ({statusCounts.selected})</option>
+                <option value="formalization">Formalisation ({statusCounts.formalization})</option>
+                <option value="financed">Financé ({statusCounts.financed})</option>
+                <option value="monitoring">Suivi ({statusCounts.monitoring})</option>
+                <option value="closed">Clôturé ({statusCounts.closed})</option>
+                <option value="rejected">Rejeté ({statusCounts.rejected})</option>
+              </select>
             </div>
+
+            {/* Filtre par partenaire */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Partenaire
+              </label>
+              <select
+                value={partnerFilter}
+                onChange={(e) => setPartnerFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les partenaires</option>
+                {accessiblePartners.map(partner => (
+                  <option key={partner.id} value={partner.id}>
+                    {partner.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtre par programme */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Programme
+              </label>
+              <select
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les programmes</option>
+                {filteredPrograms.map(program => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Bouton de réinitialisation */}
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setPartnerFilter('all');
+                setProgramFilter('all');
+              }}
+            >
+              Réinitialiser les filtres
+            </Button>
+            <span className="ml-4 text-sm text-gray-600">
+              {filteredProjects.length} projet(s) trouvé(s)
+            </span>
           </div>
         </CardContent>
       </Card>
-      
+     
       {/* Import Section */}
       {checkPermission('projects.create') && (
         <Card className="border-l-4 border-l-secondary-500">
@@ -546,7 +562,74 @@ const ProjectsPage: React.FC = () => {
           </CardContent>
         </Card>
       )}
-      
+
+      {/* Export Section */}
+      {(checkPermission('projects.read') || checkPermission('projects.manage')) && (
+        <Card className="border-l-4 border-l-primary-500">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Download className="h-5 w-5 text-primary-600 mr-2" />
+              Exportation des soumissions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sélectionner un programme*
+                </label>
+                <select
+                  value={selectedProgramForExport}
+                  onChange={(e) => setSelectedProgramForExport(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                >
+                  <option value="">Choisir un programme...</option>
+                  {accessiblePrograms.map(program => {
+                    const partner = partners.find(p => p.id === program.partnerId);
+                    const projectCount = userProjects.filter(p => p.programId === program.id).length;
+                    return (
+                      <option key={program.id} value={program.id}>
+                        {program.name} {partner && `(${partner.name})`} - {projectCount} soumission(s)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="md:col-span-2 flex items-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  disabled={!selectedProgramForExport}
+                  leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+                  className="flex-1"
+                >
+                  Exporter en Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={!selectedProgramForExport}
+                  leftIcon={<FileDown className="h-4 w-4" />}
+                  className="flex-1"
+                >
+                  Exporter en PDF
+                </Button>
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+              <p className="font-medium text-blue-900 mb-1">À propos de l'exportation :</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-800">
+                <li>Les fichiers incluront toutes les informations des formulaires de soumission</li>
+                <li>Le format Excel permet une manipulation facile des données</li>
+                <li>Le format PDF est adapté pour l'archivage et l'impression (format auto-ajusté selon le nombre de colonnes)</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {sortedProjects.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
           {sortedProjects.map(project => {
@@ -591,23 +674,58 @@ const ProjectsPage: React.FC = () => {
                           </span>
                         ))}
                       </div>
+
+                      {project.evaluationScores && project.evaluatedBy && (
+                        <div className="mt-3 p-2 bg-success-50 border border-success-200 rounded-md">
+                          <div className="text-xs font-medium text-success-900 flex items-center">
+                            <span className="mr-2">✅</span>
+                            Évalué {project.evaluationDate && `le ${new Date(project.evaluationDate).toLocaleDateString()}`}
+                          </div>
+                          {project.totalEvaluationScore !== undefined && (
+                            <div className="text-xs text-success-700 mt-1">
+                              Score total: {project.totalEvaluationScore}%
+                              {project.recommendedStatus && (
+                                <span className="ml-2">
+                                  • Recommandation: {
+                                    project.recommendedStatus === 'selected' ? 'Sélectionné' :
+                                    project.recommendedStatus === 'pre_selected' ? 'Présélectionné' :
+                                    'Rejeté'
+                                  }
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex flex-col justify-between items-end">
                       <div className="text-sm text-gray-500">
                         <div>Budget: {project.budget.toLocaleString()} FCFA</div>
                         <div>Durée: {project.timeline}</div>
-                        <div>{project.submissionDate 
+                        <div>{project.submissionDate
                           ? `Soumis le ${project.submissionDate.toLocaleDateString()}`
                           : 'Non soumis'}
                         </div>
                       </div>
-                      
-                      <Link to={`/dashboard/projects/${project.id}`} className="mt-4">
-                        <Button variant="outline" size="sm">
-                          Voir le détail
-                        </Button>
-                      </Link>
+
+                      <div className="mt-4 flex gap-2">
+                        <Link to={`/dashboard/projects/${project.id}`}>
+                          <Button variant="outline" size="sm">
+                            Voir le détail
+                          </Button>
+                        </Link>
+                        {checkPermission('projects.delete') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDeleteConfirm(project.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -633,6 +751,45 @@ const ProjectsPage: React.FC = () => {
               </Button>
             </Link>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start mb-4">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Confirmer la suppression
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Êtes-vous sûr de vouloir supprimer ce projet ? Cette action est irréversible et toutes les données associées seront perdues.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(null)}
+                disabled={deletingProjectId === showDeleteConfirm}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => handleDeleteProject(showDeleteConfirm)}
+                isLoading={deletingProjectId === showDeleteConfirm}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Supprimer
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

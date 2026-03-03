@@ -129,6 +129,7 @@ export interface SupabaseProgram {
   created_at: string;
   manager_id?: string;
   selection_criteria: any[];
+  eligibility_criteria?: string;
   field_eligibility_criteria?: any[];
   evaluation_criteria: any[];
   custom_ai_prompt?: string;
@@ -158,6 +159,10 @@ export interface SupabaseProject {
   form_data?: any;
   recommended_status?: string;
   manually_submitted: boolean;
+  eligibility_notes?: string;
+  eligibility_checked_by?: string;
+  eligibility_checked_at?: string;
+  submitted_at?: string;
 }
 
 export interface SupabaseFormTemplate {
@@ -174,69 +179,130 @@ export interface SupabaseFormTemplate {
 export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
     console.log('UserService.getUsers called');
-    
-    if (supabaseAdmin === null) {
-      console.error('❌ Supabase admin client not available. Check SERVICE_ROLE_KEY.');
-      throw new Error('Admin operations not available');
+
+    if (!supabase) {
+      console.error('❌ Supabase client not available.');
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS - admins will see all users via RLS policy
+    const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     console.log('Supabase response - data:', data, 'error:', error);
-    
+
     if (error) throw error;
     return data || [];
   }
 
   static async createUser(user: Omit<SupabaseUser, 'id' | 'created_at'>): Promise<SupabaseUser> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    // Use regular client with RLS - admins can insert via RLS policy
+    const { data, error } = await supabase
       .from('users')
       .insert([user])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updateUser(id: string, updates: Partial<SupabaseUser>): Promise<SupabaseUser> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', id)
       .select()
-      .single();
-    
-    if (error) throw error;
+      .maybeSingle();
+
+    if (error) {
+      console.error('Update user error:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Update failed - no data returned. Check RLS policies.');
+    }
+
     return data;
   }
 
   static async deleteUser(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { error } = await supabaseAdmin
+
+    // First, get the user to retrieve the auth_user_id
+    const { data: user, error: getUserError } = await supabase
+      .from('users')
+      .select('auth_user_id, name')
+      .eq('id', id)
+      .single();
+
+    if (getUserError) {
+      throw new Error(`Erreur lors de la récupération de l'utilisateur: ${getUserError.message}`);
+    }
+
+    // Check if user has submitted projects (cannot delete if they have projects)
+    const { data: projects, error: projectsError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('submitter_id', id)
+      .limit(1);
+
+    if (projectsError) {
+      throw new Error(`Erreur lors de la vérification des projets: ${projectsError.message}`);
+    }
+
+    if (projects && projects.length > 0) {
+      throw new Error(`Impossible de supprimer cet utilisateur car il a soumis des projets. Veuillez d'abord réassigner ou supprimer ses projets.`);
+    }
+
+    // Set assigned_manager_id to NULL in partners table
+    await supabase
+      .from('partners')
+      .update({ assigned_manager_id: null })
+      .eq('assigned_manager_id', id);
+
+    // Set manager_id to NULL in programs table
+    await supabase
+      .from('programs')
+      .update({ manager_id: null })
+      .eq('manager_id', id);
+
+    // Set evaluated_by to NULL in projects table
+    await supabase
+      .from('projects')
+      .update({ evaluated_by: null })
+      .eq('evaluated_by', id);
+
+    // Delete from users table (profile)
+    const { error: deleteUserError } = await supabase
       .from('users')
       .delete()
       .eq('id', id);
-    
-    if (error) throw error;
+
+    if (deleteUserError) {
+      throw new Error(`Erreur lors de la suppression du profil: ${deleteUserError.message}`);
+    }
+
+    // Delete from auth.users using admin client
+    if (user?.auth_user_id && supabaseAdmin) {
+      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(user.auth_user_id);
+      if (authDeleteError) {
+        console.error('Error deleting auth user:', authDeleteError);
+      }
+    }
   }
 }
 
@@ -272,49 +338,59 @@ export class PartnerService {
   }
 
   static async createPartner(partner: Omit<SupabasePartner, 'id' | 'created_at'>): Promise<SupabasePartner> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    console.log('🏢 PartnerService.createPartner called with:', partner);
+
+    const { data, error } = await supabase
       .from('partners')
       .insert([partner])
       .select()
       .single();
-    
-    if (error) throw error;
+
+    console.log('🏢 PartnerService.createPartner response:', { data, error });
+
+    if (error) {
+      console.error('🏢 PartnerService.createPartner error:', error);
+      throw error;
+    }
     return data;
   }
 
   static async updatePartner(id: string, updates: Partial<SupabasePartner>): Promise<SupabasePartner> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
+
+    console.log('🏢 PartnerService.updatePartner called with:', { id, updates });
+
+    // Use regular client with RLS
+    const { data, error } = await supabase
       .from('partners')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
+
+    console.log('🏢 PartnerService.updatePartner response:', { data, error });
+
     if (error) throw error;
     return data;
   }
 
   static async deletePartner(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    // Use admin client to bypass RLS
-    const { error } = await supabaseAdmin
+
+    // Use regular client with RLS
+    const { error } = await supabase
       .from('partners')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 }
@@ -336,46 +412,56 @@ export class ProgramService {
   }
 
   static async createProgram(program: Omit<SupabaseProgram, 'id' | 'created_at'>): Promise<SupabaseProgram> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('programs')
       .insert([program])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updateProgram(id: string, updates: Partial<SupabaseProgram>): Promise<SupabaseProgram> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    console.log('📤 ProgramService.updateProgram called');
+    console.log('📤 Program ID:', id);
+    console.log('📤 Updates to send:', JSON.stringify(updates, null, 2));
+
+    const { data, error } = await supabase
       .from('programs')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
-    if (error) throw error;
+
+    console.log('📥 Supabase response - data:', data);
+    console.log('📥 Supabase response - error:', error);
+
+    if (error) {
+      console.error('❌ Supabase update error:', error);
+      throw error;
+    }
     return data;
   }
 
   static async deleteProgram(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { error } = await supabaseAdmin
+
+    const { error } = await supabase
       .from('programs')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 }
@@ -465,46 +551,46 @@ export class FormTemplateService {
   }
 
   static async createFormTemplate(template: Omit<SupabaseFormTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<SupabaseFormTemplate> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('form_templates')
       .insert([template])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async updateFormTemplate(id: string, updates: Partial<SupabaseFormTemplate>): Promise<SupabaseFormTemplate> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { data, error } = await supabaseAdmin
+
+    const { data, error } = await supabase
       .from('form_templates')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async deleteFormTemplate(id: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
+    if (!supabase) {
+      throw new Error('Supabase not available');
     }
-    
-    const { error } = await supabaseAdmin
+
+    const { error } = await supabase
       .from('form_templates')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 }
@@ -525,16 +611,24 @@ export class AuthService {
     return data;
   }
 
-  static async signUp(email: string, password: string, userData: { name: string; organization?: string }): Promise<{ user: any; session: any }> {
+  static async signUp(email: string, password: string, userData: { name: string; role?: string; organization?: string }): Promise<{ user: any; session: any }> {
     if (supabase === null) {
       throw new Error('Supabase not available');
     }
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: {
+          name: userData.name,
+          role: userData.role || 'submitter',
+          organization: userData.organization
+        },
+        emailRedirectTo: `${window.location.origin}/login`
+      }
     });
-    
+
     if (error) throw error;
     return data;
   }
@@ -569,9 +663,32 @@ export class AuthService {
       .from('users')
       .select('*')
       .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (data) return data;
+
+    const metadata = user.user_metadata || {};
+    const newProfile = {
+      name: metadata.name || user.email?.split('@')[0] || 'Utilisateur',
+      email: user.email || '',
+      role: (metadata.role as 'admin' | 'partner' | 'manager' | 'submitter') || 'submitter',
+      organization: metadata.organization || '',
+      is_active: true,
+      auth_user_id: user.id
+    };
+
+    const { data: createdProfile, error } = await supabase
+      .from('users')
+      .insert([newProfile])
+      .select()
       .single();
 
-    return data || null;
+    if (error) {
+      console.error('Error creating user profile:', error);
+      return null;
+    }
+
+    return createdProfile;
   }
 
   static async updatePassword(newPassword: string): Promise<void> {
@@ -603,16 +720,9 @@ export class AuthService {
   }
 
   static async updateUserPassword(authUserId: string, newPassword: string): Promise<void> {
-    if (supabaseAdmin === null) {
-      throw new Error('Admin operations not available');
-    }
-
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(
-      authUserId,
-      { password: newPassword }
-    );
-
-    if (error) throw error;
+    // NOTE: Password updates from client side are not supported for security reasons
+    // This functionality requires an edge function with admin privileges
+    throw new Error('Password updates must be performed through secure admin endpoints. This feature requires an edge function.');
   }
 }
 
@@ -904,15 +1014,15 @@ export class MigrationService {
       ];
       
       for (const program of defaultPrograms) {
-        // Check if program already exists
+        // Check if program already exists (case-insensitive and trim)
         const { data: existingProgram } = await supabaseAdmin
           .from('programs')
-          .select('id')
-          .eq('name', program.name)
+          .select('id, name')
+          .ilike('name', program.name.trim())
           .maybeSingle();
-        
+
         if (existingProgram) {
-          console.log(`✅ Program already exists: ${program.name}`);
+          console.log(`✅ Program already exists: ${existingProgram.name} (ID: ${existingProgram.id})`);
           continue;
         }
         

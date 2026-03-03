@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
+import {
+  Card,
+  CardHeader,
+  CardTitle,
   CardContent,
   CardFooter,
   CardDescription
@@ -18,22 +18,30 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
   Send,
   Shield,
   AlertTriangle,
-  X
+  X,
+  Printer,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
-import { generateEvaluationReport } from '../../utils/pdfGenerator';
+import { generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
+import { useParametersStore } from '../../stores/parametersStore';
+import { ProjectStatusService } from '../../services/projectStatusService';
+import { getAccessiblePrograms } from '../../hooks/useFilteredProjects';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { parameters, loadParameters } = useParametersStore();
   const navigate = useNavigate();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [programFilter, setProgramFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAIEvaluating, setIsAIEvaluating] = useState(false);
@@ -45,7 +53,9 @@ const EvaluationPage: React.FC = () => {
     currentProject: string;
   } | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  
+  const [aiAnalysisCache, setAiAnalysisCache] = useState<Record<string, any>>({});
+  const [includeFileContents, setIncludeFileContents] = useState(true);
+
   if (!user || !checkPermission('evaluation.evaluate')) {
     return (
       <div className="text-center py-12">
@@ -59,48 +69,102 @@ const EvaluationPage: React.FC = () => {
   useEffect(() => {
     fetchPrograms();
     fetchPartners();
-  }, [fetchPrograms, fetchPartners]);
+    loadParameters();
+  }, [fetchPrograms, fetchPartners, loadParameters]);
+
+  useEffect(() => {
+    if (parameters.enableAiEvaluation) {
+      const provider = parameters.aiProvider === 'openai' ? 'chatgpt' :
+                      parameters.aiProvider === 'google' ? 'gemini' : 'mock';
+
+      let apiKey = '';
+      let model = 'gpt-4o-mini';
+
+      if (provider === 'chatgpt') {
+        apiKey = parameters.openaiApiKey;
+
+        const validModels: Record<string, string> = {
+          'gpt-5': 'gpt-4o',
+          'gpt-4o': 'gpt-4o',
+          'gpt-4': 'gpt-4',
+          'gpt-4-turbo': 'gpt-4-turbo-preview',
+          'gpt-4-turbo-preview': 'gpt-4-turbo-preview',
+          'gpt-3.5-turbo': 'gpt-3.5-turbo',
+          'gpt-4o-mini': 'gpt-4o-mini'
+        };
+
+        const configuredModel = parameters.openaiModel || 'gpt-4';
+        model = validModels[configuredModel] || validModels[configuredModel.toLowerCase()] || 'gpt-4o-mini';
+
+        console.log(`[AI Config] Configured model: "${parameters.openaiModel}" → Using: "${model}"`);
+      } else if (provider === 'gemini') {
+        apiKey = parameters.googleApiKey;
+      }
+
+      aiEvaluationService.configure({
+        provider: provider as any,
+        apiKey: apiKey,
+        model: model
+      });
+    }
+  }, [parameters]);
   
-  // Ensure user is a manager
   useEffect(() => {
     if (!checkPermission('evaluation.evaluate')) {
       navigate('/dashboard');
     }
   }, [checkPermission, navigate]);
+
+  const accessiblePrograms = useMemo(
+    () => getAccessiblePrograms(user, programs, partners),
+    [user, programs, partners]
+  );
   
-  // Get accessible programs based on user role
-  const getAccessiblePrograms = () => {
-    if (!user) return [];
-    
-    if (user.role === 'admin') {
-      return programs;
-    } else if (user.role === 'manager') {
-      // Manager can see programs from their assigned partners
-      const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
-      const partnerIds = managerPartners.map(p => p.id);
-      return programs.filter(p => partnerIds.includes(p.partnerId));
-    }
-    
-    return programs;
-  };
-  
-  const accessiblePrograms = getAccessiblePrograms();
-  
-  // Get projects in submitted status or evaluated but not yet submitted to next stage
+  // Get projects with specific statuses for evaluation
   const submittedProjects = projects.filter(project => {
+    // Filter by relevant statuses only
+    const hasRelevantStatus = project.status === 'eligible' ||
+                              project.status === 'selected' ||
+                              project.status === 'pre_selected' ||
+                              project.status === 'rejected';
+
+    if (!hasRelevantStatus) return false;
+
     const isAccessible = accessiblePrograms.some(p => p.id === project.programId);
-    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesProgram = programFilter === 'all' || project.programId === programFilter;
-    
-    // Include projects that are submitted OR evaluated but waiting for manual submission
-    const isEvaluationPending = project.status === 'submitted' || 
-                               (project.evaluationScores && !project.manuallySubmitted);
-    
-    return isEvaluationPending && 
-           isAccessible && 
-           matchesSearch && 
-           matchesProgram;
+    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+
+    // Date filter
+    let matchesDate = true;
+    if (dateFilter !== 'all' && project.evaluatedAt) {
+      const evaluationDate = new Date(project.evaluatedAt);
+      const now = new Date();
+      const diffDays = Math.floor((now.getTime() - evaluationDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      switch (dateFilter) {
+        case 'today':
+          matchesDate = diffDays === 0;
+          break;
+        case 'week':
+          matchesDate = diffDays <= 7;
+          break;
+        case 'month':
+          matchesDate = diffDays <= 30;
+          break;
+        default:
+          matchesDate = true;
+      }
+    } else if (dateFilter !== 'all' && !project.evaluatedAt) {
+      matchesDate = false;
+    }
+
+    return isAccessible &&
+           matchesSearch &&
+           matchesProgram &&
+           matchesStatus &&
+           matchesDate;
   });
   
   const handleSelectProjectForEvaluation = (project: Project) => {
@@ -163,40 +227,55 @@ const EvaluationPage: React.FC = () => {
               description: criterion.description,
               maxScore: criterion.maxScore,
               weight: criterion.weight
-            }))
+            })),
+            includeFileContents
           };
 
           const response = await aiEvaluationService.evaluateProject(request);
-          
+
+          // Stocker l'analyse IA pour la génération du rapport
+          setAiAnalysisCache(prev => ({
+            ...prev,
+            [project.id]: response
+          }));
+
           // Préparer les scores et commentaires
           const evaluationScores: Record<string, number> = {};
           const evaluationComments: Record<string, string> = {};
           let totalScore = 0;
-          
+
           program.evaluationCriteria.forEach((criterion: any) => {
             const score = response.scores[criterion.name] || 0;
             evaluationScores[criterion.id] = score;
-            
-            const percentage = (score / criterion.maxScore) * 100;
-            let comment = '';
-            if (percentage >= 75) {
-              comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
-            } else if (percentage >= 50) {
-              comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+
+            // Utiliser l'observation de l'IA si disponible
+            const observation = response.detailedAnalysis?.observations?.[criterion.name];
+            if (observation) {
+              evaluationComments[criterion.id] = `[IA] ${observation}`;
             } else {
-              comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+              // Fallback sur un commentaire généré
+              const percentage = (score / criterion.maxScore) * 100;
+              let comment = '';
+              if (percentage >= 75) {
+                comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+              } else if (percentage >= 50) {
+                comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+              } else {
+                comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+              }
+              evaluationComments[criterion.id] = `[IA] ${comment}`;
             }
-            
-            evaluationComments[criterion.id] = `[IA] ${comment}`;
+
             totalScore += (score / criterion.maxScore) * criterion.weight;
           });
-          
+
           // Mettre à jour le projet
           await updateProject(project.id, {
             evaluationScores,
             evaluationComments,
             totalEvaluationScore: Math.round(totalScore),
-            evaluationNotes: `[Évaluation IA en lot] ${response.notes}`,
+            evaluationNotes: `[Évaluation IA en lot]\n\n${response.notes}`,
+            recommendedStatus: response.recommendation as ProjectStatus,
             evaluatedBy: user.id,
             evaluationDate: new Date(),
             // Don't change status automatically - wait for manual submission
@@ -294,9 +373,14 @@ const EvaluationPage: React.FC = () => {
   
   const handleAIEvaluation = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
     setIsAIEvaluating(true);
-    
+
     try {
       const partner = partners.find(p => p.id === program?.partnerId);
+
+      console.log('[AI Evaluation] Starting evaluation for project:', project.title);
+      console.log('[AI Evaluation] Program:', program.name);
+      console.log('[AI Evaluation] Criteria count:', program.evaluationCriteria.length);
+
       const request = {
         projectData: {
           title: project.title,
@@ -314,44 +398,75 @@ const EvaluationPage: React.FC = () => {
           description: program.description || '',
           partnerName: partner?.name || 'Non spécifié',
           budgetRange: `${program.budget.toLocaleString()} FCFA`
-        }
+        },
+        includeFileContents: includeFileContents
       };
 
+      console.log('[AI Evaluation] Sending request to AI service...');
       const response = await aiEvaluationService.evaluateProject(request);
-      
+      console.log('[AI Evaluation] Received response:', response);
+
+      // Stocker l'analyse IA pour la génération du rapport
+      setAiAnalysisCache(prev => ({
+        ...prev,
+        [project.id]: response
+      }));
+
+      // Vérifier que la réponse contient des données
+      if (!response || !response.scores) {
+        console.error('[AI Evaluation] Invalid response - no scores found');
+        throw new Error('La réponse de l\'IA ne contient pas de scores');
+      }
+
+      console.log('[AI Evaluation] Processing scores...');
+
       // Préparer les nouvelles valeurs pour Formik
       const newValues: any = {};
-      
-      // Mettre à jour les scores et commentaires
+      let processedCount = 0;
+
+      // Mettre à jour les scores et commentaires avec les observations de l'IA
       program.evaluationCriteria.forEach((criterion: any) => {
         const score = response.scores[criterion.name];
         if (score !== undefined) {
+          processedCount++;
           newValues[`score_${criterion.id}`] = score;
-          
-          // Générer un commentaire basé sur le score
-          const percentage = (score / criterion.maxScore) * 100;
-          let comment = '';
-          if (percentage >= 75) {
-            comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
-          } else if (percentage >= 50) {
-            comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+
+          // Utiliser l'observation de l'IA si disponible
+          const observation = response.detailedAnalysis?.observations?.[criterion.name];
+          if (observation) {
+            newValues[`comment_${criterion.id}`] = `[IA] ${observation}`;
           } else {
-            comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+            // Fallback sur un commentaire généré
+            const percentage = (score / criterion.maxScore) * 100;
+            let comment = '';
+            if (percentage >= 75) {
+              comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+            } else if (percentage >= 50) {
+              comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+            } else {
+              comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+            }
+            newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
           }
-          
-          newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
+        } else {
+          console.warn(`[AI Evaluation] No score found for criterion: ${criterion.name}`);
         }
       });
-      
+
+      console.log(`[AI Evaluation] Processed ${processedCount}/${program.evaluationCriteria.length} criteria`);
+
       // Mettre à jour les notes globales et la décision
-      newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
+      newValues.evaluationNotes = `[Évaluation IA]\n\n${response.notes}`;
       newValues.decision = response.recommendation;
-      
+
+      console.log('[AI Evaluation] Updating form values...');
       // Appliquer toutes les mises à jour
       setValues((prevValues: any) => ({
         ...prevValues,
         ...newValues
       }));
+
+      console.log('[AI Evaluation] Form updated successfully!');
       
     } catch (error) {
       console.error('Erreur lors de l\'évaluation IA:', error);
@@ -362,31 +477,54 @@ const EvaluationPage: React.FC = () => {
   };
   
   const handleSubmitEvaluatedProject = async (project: Project) => {
-    if (!project.recommendedStatus) return;
-    
+    if (!project.recommendedStatus || !user) return;
+
     try {
-      await updateProject(project.id, {
-        status: project.recommendedStatus,
-        manuallySubmitted: true,
-      });
+      const result = await ProjectStatusService.changeProjectStatus(
+        project.id,
+        project.recommendedStatus,
+        project.status,
+        user.role,
+        'Application de la recommandation d\'évaluation'
+      );
+
+      if (result.success) {
+        await updateProject(project.id, {
+          manuallySubmitted: true,
+        });
+        await fetchProjects();
+      } else if (result.error) {
+        alert(result.error);
+      }
     } catch (error) {
       console.error('Error submitting evaluated project:', error);
+      alert('Erreur lors de la soumission du projet évalué');
     }
   };
   
   const handleGenerateReport = async (project: Project) => {
     const program = programs.find(p => p.id === project.programId);
     const partner = program ? partners.find(p => p.id === program.partnerId) : null;
-    
+
     if (!program) {
       alert('Programme non trouvé pour ce projet');
       return;
     }
-    
+
     setIsGeneratingReport(true);
-    
+
     try {
-      await generateEvaluationReport(project, program, partner);
+      // Récupérer l'analyse IA stockée si disponible
+      const aiAnalysis = aiAnalysisCache[project.id];
+
+      // Utiliser le nouveau générateur de rapport Woluma
+      await generateWolumaEvaluationReport(
+        project,
+        program,
+        partner,
+        user?.email || 'Système',
+        aiAnalysis
+      );
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Erreur lors de la génération du rapport');
@@ -395,122 +533,6 @@ const EvaluationPage: React.FC = () => {
     }
   };
 
-  // Fonction de simulation conservée comme fallback
-  const simulateAIEvaluation = async (projectData: any, criteria: any[]) => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const scores: Record<string, number> = {};
-    
-    criteria.forEach(criterion => {
-      let score = Math.floor(Math.random() * (criterion.maxScore * 0.4)) + Math.floor(criterion.maxScore * 0.6);
-      
-      const description = projectData.description?.toLowerCase() || '';
-      const title = projectData.title?.toLowerCase() || '';
-      
-      if (criterion.name.toLowerCase().includes('innovation')) {
-        if (description.includes('nouveau') || description.includes('innovant') || title.includes('ia')) {
-          score = Math.min(criterion.maxScore, score + 2);
-        }
-      }
-      
-      if (criterion.name.toLowerCase().includes('faisabilité')) {
-        if (projectData.budget > 100000000) {
-          score = Math.max(1, score - 1);
-        }
-      }
-      
-      if (criterion.name.toLowerCase().includes('impact')) {
-        if (projectData.tags?.some((tag: string) => 
-          ['environnement', 'santé', 'education'].includes(tag.toLowerCase())
-        )) {
-          score = Math.min(criterion.maxScore, score + 1);
-        }
-      }
-      
-      scores[criterion.name] = Math.max(0, Math.min(criterion.maxScore, score));
-    });
-    
-    const totalScore = criteria.reduce((total, criterion) => {
-      return total + (scores[criterion.name] / criterion.maxScore) * criterion.weight;
-    }, 0);
-    
-    let recommendation = 'rejected';
-    if (totalScore >= 80) recommendation = 'selected';
-    else if (totalScore >= 60) recommendation = 'pre_selected';
-    
-    return {
-      scores,
-      notes: `Évaluation automatique basée sur l'analyse du contenu du projet. Score total calculé: ${Math.round(totalScore)}%. ${
-        totalScore >= 80 ? 'Projet très prometteur avec des critères solides.' :
-        totalScore >= 60 ? 'Projet intéressant nécessitant quelques améliorations.' :
-        'Projet nécessitant des améliorations significatives avant acceptation.'
-      }`,
-      recommendation
-    };
-  };
-
-  // Version simplifiée pour la compatibilité
-  const handleAIEvaluationLegacy = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
-    setIsAIEvaluating(true);
-    
-    try {
-      const projectData = {
-        title: project.title,
-        description: project.description,
-        budget: project.budget,
-        timeline: project.timeline,
-        tags: project.tags,
-        submissionDate: project.submissionDate?.toLocaleDateString()
-      };
-      
-      const response = await simulateAIEvaluation(projectData, program.evaluationCriteria);
-      
-      if (response.scores) {
-        const newValues: any = {};
-        
-        program.evaluationCriteria.forEach((criterion: any) => {
-          if (response.scores[criterion.name] !== undefined) {
-            const score = response.scores[criterion.name];
-            const maxScore = criterion.maxScore;
-            const percentage = (score / maxScore) * 100;
-            
-            newValues[`score_${criterion.id}`] = score;
-            
-            let aiComment = '';
-            if (percentage >= 75) {
-              aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
-            } else if (percentage >= 50) {
-              aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
-            } else {
-              aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
-            }
-            
-            newValues[`comment_${criterion.id}`] = `[IA] ${aiComment}`;
-          }
-        });
-        
-        if (response.notes) {
-          newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
-        }
-        
-        if (response.recommendation) {
-          newValues.decision = response.recommendation;
-        }
-        
-        setValues((prevValues: any) => ({
-          ...prevValues,
-          ...newValues
-        }));
-      }
-      
-    } catch (error) {
-      console.error('Erreur lors de l\'évaluation IA:', error);
-      alert('Erreur lors de l\'évaluation par IA. Veuillez réessayer.');
-    } finally {
-      setIsAIEvaluating(false);
-    }
-  };
-  
   const renderScoreIndicator = (score: number, maxScore: number) => {
     const percentage = (score / maxScore) * 100;
     let bgColor = 'bg-error-500';
@@ -532,37 +554,282 @@ const EvaluationPage: React.FC = () => {
       </div>
     );
   };
-  
+
+  const getEvaluationState = (project: Project) => {
+    if (!project.evaluationScores || Object.keys(project.evaluationScores).length === 0) {
+      return 'Non évalué';
+    }
+
+    const program = programs.find(p => p.id === project.programId);
+    if (!program || !program.evaluationCriteria) return 'Non évalué';
+
+    const criteria = program.evaluationCriteria;
+    const scores = project.evaluationScores;
+
+    let totalScore = 0;
+    let maxScore = 0;
+
+    criteria.forEach(criterion => {
+      const score = scores[criterion.id] || 0;
+      totalScore += score;
+      maxScore += criterion.maxScore;
+    });
+
+    const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+    const statusLabel = project.status === 'selected' ? 'Sélectionné' :
+                       project.status === 'pre_selected' ? 'Présélectionné' :
+                       project.status === 'rejected' ? 'Rejeté' :
+                       project.status === 'eligible' ? 'Éligible' : 'En attente';
+
+    return `${statusLabel} - Score: ${totalScore}/${maxScore} (${percentage.toFixed(1)}%)`;
+  };
+
+  const handlePrintProjects = useCallback(async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text('Liste des Projets - Etat Evaluation', 14, 15);
+
+    doc.setFontSize(10);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Total: ${submittedProjects.length} projet(s)`, 14, 28);
+
+    const tableData = submittedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      return [
+        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        program?.name || 'N/A',
+        project.status === 'selected' ? 'Selectionne' :
+        project.status === 'pre_selected' ? 'Preselectionne' :
+        project.status === 'rejected' ? 'Rejete' :
+        project.status === 'eligible' ? 'Eligible' : project.status,
+        getEvaluationState(project),
+        project.evaluatedAt ? new Date(project.evaluatedAt).toLocaleDateString('fr-FR') : 'N/A'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Titre', 'Programme', 'Statut', 'Etat Evaluation', 'Date Evaluation']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 80 },
+        4: { cellWidth: 30 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (data) => {
+        const pageCount = doc.getNumberOfPages();
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${data.pageNumber} sur ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+    });
+
+    doc.save(`Projets_Evaluation_${new Date().toISOString().split('T')[0]}.pdf`);
+  }, [submittedProjects, programs, getEvaluationState]);
+
+  const handleExportExcel = useCallback(async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+
+    const summaryData = submittedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      const evaluationScores = project.evaluationScores || {};
+      const evaluationComments = project.evaluationComments || {};
+
+      let maxScore = 0;
+      let totalScore = 0;
+
+      if (program?.evaluationCriteria) {
+        program.evaluationCriteria.forEach(criterion => {
+          const weight = criterion.weight || 1;
+          const score = evaluationScores[criterion.id] || 0;
+          totalScore += score * weight;
+          maxScore += criterion.maxScore * weight;
+        });
+      }
+
+      const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+
+      return {
+        'Titre': project.title,
+        'Programme': program?.name || 'N/A',
+        'Statut': project.status === 'selected' ? 'Sélectionné' :
+                  project.status === 'pre_selected' ? 'Présélectionné' :
+                  project.status === 'rejected' ? 'Rejeté' :
+                  project.status === 'eligible' ? 'Éligible' : project.status,
+        'Score Total': Math.round(totalScore),
+        'Score Maximum': Math.round(maxScore),
+        'Pourcentage': `${percentage.toFixed(1)}%`,
+        'Recommandation': project.recommendedStatus || 'N/A',
+        'Évaluateur': project.evaluatedBy || 'N/A',
+        'Date Évaluation': project.evaluationDate ? new Date(project.evaluationDate).toLocaleDateString('fr-FR') : 'N/A',
+        'Notes': project.evaluationNotes || '',
+      };
+    });
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé Évaluations');
+
+    const allCriteria = new Set<string>();
+    submittedProjects.forEach(project => {
+      const program = programs.find(p => p.id === project.programId);
+      program?.evaluationCriteria?.forEach(criterion => {
+        allCriteria.add(criterion.id);
+      });
+    });
+
+    const detailedScoresData = submittedProjects.map(project => {
+      const program = programs.find(p => p.id === project.programId);
+      const row: any = {
+        'Titre': project.title,
+        'Programme': program?.name || 'N/A',
+      };
+
+      program?.evaluationCriteria?.forEach(criterion => {
+        const score = project.evaluationScores?.[criterion.id] || 0;
+        const maxScore = criterion.maxScore;
+        row[`${criterion.name} (Score)`] = score;
+        row[`${criterion.name} (Max)`] = maxScore;
+        row[`${criterion.name} (Poids)`] = criterion.weight || 1;
+      });
+
+      return row;
+    });
+
+    if (detailedScoresData.length > 0) {
+      const wsScores = XLSX.utils.json_to_sheet(detailedScoresData);
+      XLSX.utils.book_append_sheet(wb, wsScores, 'Scores Détaillés');
+    }
+
+    const commentsData = [];
+    for (const project of submittedProjects) {
+      const program = programs.find(p => p.id === project.programId);
+
+      program?.evaluationCriteria?.forEach(criterion => {
+        const comment = project.evaluationComments?.[criterion.id];
+        if (comment) {
+          commentsData.push({
+            'Projet': project.title,
+            'Critère': criterion.name,
+            'Commentaire': comment,
+          });
+        }
+      });
+    }
+
+    if (commentsData.length > 0) {
+      const wsComments = XLSX.utils.json_to_sheet(commentsData);
+      XLSX.utils.book_append_sheet(wb, wsComments, 'Commentaires');
+    }
+
+    const criteriaData = [];
+    const addedPrograms = new Set<string>();
+
+    for (const project of submittedProjects) {
+      const program = programs.find(p => p.id === project.programId);
+      if (program && !addedPrograms.has(program.id)) {
+        addedPrograms.add(program.id);
+        program.evaluationCriteria?.forEach(criterion => {
+          criteriaData.push({
+            'Programme': program.name,
+            'Critère': criterion.name,
+            'Description': criterion.description || '',
+            'Score Maximum': criterion.maxScore,
+            'Poids': criterion.weight || 1,
+          });
+        });
+      }
+    }
+
+    if (criteriaData.length > 0) {
+      const wsCriteria = XLSX.utils.json_to_sheet(criteriaData);
+      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Critères d\'Évaluation');
+    }
+
+    XLSX.writeFile(wb, `Evaluations_Detaillees_${new Date().toISOString().split('T')[0]}.xlsx`);
+  }, [submittedProjects, programs]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Évaluation des Projets</h1>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            disabled={submittedProjects.length === 0}
+          >
+            Export Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePrintProjects}
+            leftIcon={<Printer className="h-4 w-4" />}
+            disabled={submittedProjects.length === 0}
+          >
+            Export PDF
+          </Button>
+        </div>
       </div>
       
       {!isEvaluating ? (
         <>
           <Card className="mb-6">
-            <CardContent className="py-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-grow">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
+            <CardHeader>
+              <div className="flex items-center">
+                <Filter className="h-5 w-5 text-gray-500 mr-2" />
+                <CardTitle>Filtres</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Recherche
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <Search className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                      placeholder="Titre ou description..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                  <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                    placeholder="Rechercher un projet..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
                 </div>
-                
-                <div className="relative w-64">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Filter className="h-5 w-5 text-gray-400" />
-                  </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Programme
+                  </label>
                   <select
-                    className="block w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     value={programFilter}
                     onChange={(e) => setProgramFilter(e.target.value)}
                   >
@@ -577,6 +844,54 @@ const EvaluationPage: React.FC = () => {
                     })}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Statut
+                  </label>
+                  <select
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">Tous les statuts</option>
+                    <option value="eligible">Éligible</option>
+                    <option value="selected">Sélectionné</option>
+                    <option value="pre_selected">Présélectionné</option>
+                    <option value="rejected">Rejeté</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Période d'évaluation
+                  </label>
+                  <select
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                  >
+                    <option value="all">Toutes les dates</option>
+                    <option value="today">Aujourd'hui</option>
+                    <option value="week">Cette semaine</option>
+                    <option value="month">Ce mois</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setProgramFilter('all');
+                    setStatusFilter('all');
+                    setDateFilter('all');
+                  }}
+                >
+                  Réinitialiser les filtres
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -617,15 +932,27 @@ const EvaluationPage: React.FC = () => {
                     </span>
                   </div>
                   
-                  <Button
-                    variant="secondary"
-                    onClick={handleBulkAIEvaluation}
-                    disabled={selectedProjects.length === 0 || isBulkEvaluating}
-                    isLoading={isBulkEvaluating}
-                    leftIcon={<Sparkles className="h-4 w-4" />}
-                  >
-                    {isBulkEvaluating ? 'Évaluation en cours...' : 'Évaluer par IA'}
-                  </Button>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeFileContents}
+                        onChange={(e) => setIncludeFileContents(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={isBulkEvaluating}
+                      />
+                      <span>Inclure le contenu des fichiers joints</span>
+                    </label>
+                    <Button
+                      variant="secondary"
+                      onClick={handleBulkAIEvaluation}
+                      disabled={selectedProjects.length === 0 || isBulkEvaluating}
+                      isLoading={isBulkEvaluating}
+                      leftIcon={<Sparkles className="h-4 w-4" />}
+                    >
+                      {isBulkEvaluating ? 'Évaluation en cours...' : 'Évaluer par IA'}
+                    </Button>
+                  </div>
                 </div>
                 
                 {bulkEvaluationProgress && (
@@ -825,14 +1152,14 @@ const EvaluationPage: React.FC = () => {
                 }
                 
                 const initialValues: any = {
-                  evaluationNotes: '',
-                  decision: 'pre_selected', // This will be stored as recommendedStatus
+                  evaluationNotes: selectedProject.evaluationNotes || '',
+                  decision: selectedProject.recommendedStatus || 'pre_selected',
                 };
-                
-                // Initialize scores for each criterion
+
+                // Initialize scores for each criterion with existing values if available
                 program.evaluationCriteria.forEach(criterion => {
-                  initialValues[`score_${criterion.id}`] = 0;
-                  initialValues[`comment_${criterion.id}`] = '';
+                  initialValues[`score_${criterion.id}`] = selectedProject.evaluationScores?.[criterion.id] || 0;
+                  initialValues[`comment_${criterion.id}`] = selectedProject.evaluationComments?.[criterion.id] || '';
                 });
                 
                 return (
@@ -895,6 +1222,26 @@ const EvaluationPage: React.FC = () => {
                               {selectedProject.submissionDate?.toLocaleDateString()}
                             </p>
                           </div>
+
+                          {selectedProject.evaluationScores && selectedProject.evaluatedBy && (
+                            <div className="border-t pt-4">
+                              <div className="bg-success-50 border border-success-200 rounded-lg p-3">
+                                <div className="flex items-center mb-2">
+                                  <CheckCircle className="h-5 w-5 text-success-600 mr-2" />
+                                  <h4 className="text-sm font-medium text-success-900">Déjà évalué</h4>
+                                </div>
+                                <div className="text-xs text-success-700 space-y-1">
+                                  {selectedProject.evaluationDate && (
+                                    <p>Date: {new Date(selectedProject.evaluationDate).toLocaleDateString()}</p>
+                                  )}
+                                  {selectedProject.totalEvaluationScore !== undefined && (
+                                    <p>Score total: {selectedProject.totalEvaluationScore}%</p>
+                                  )}
+                                  <p className="italic mt-2">Les champs ci-contre sont pré-remplis avec les valeurs existantes. Vous pouvez les modifier si nécessaire.</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </div>
@@ -912,6 +1259,7 @@ const EvaluationPage: React.FC = () => {
                         </CardHeader>
                         <Formik
                           initialValues={initialValues}
+                          enableReinitialize={true}
                           validationSchema={createEvaluationSchema(program)}
                           onSubmit={handleSubmitEvaluation}
                         >
@@ -950,14 +1298,15 @@ const EvaluationPage: React.FC = () => {
                                                 name={fieldName}
                                                 min="0"
                                                 max={criterion.maxScore}
-                                                className="block w-20 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                                value={currentScore}
+                                                className="block w-20 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm px-3 py-2"
                                               />
                                               <span className="mx-2 text-gray-500">/{criterion.maxScore}</span>
                                             </div>
                                             <div className="flex-grow">
                                               {renderScoreIndicator(currentScore, criterion.maxScore)}
                                             </div>
-                                            <div className="text-sm text-gray-600">
+                                            <div className="text-sm text-gray-600 font-medium">
                                               {Math.round((currentScore / criterion.maxScore) * criterion.weight)}% du total
                                             </div>
                                           </div>
@@ -971,7 +1320,8 @@ const EvaluationPage: React.FC = () => {
                                               as="textarea"
                                               name={`comment_${criterion.id}`}
                                               rows={2}
-                                              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                              value={values[`comment_${criterion.id}`] || ''}
+                                              className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm px-3 py-2"
                                               placeholder="Expliquez pourquoi vous attribuez cette note..."
                                             />
                                           </div>
@@ -1014,7 +1364,8 @@ const EvaluationPage: React.FC = () => {
                                     as="textarea"
                                     name="evaluationNotes"
                                     rows={5}
-                                    className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                    value={values.evaluationNotes || ''}
+                                    className="block w-full border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm px-3 py-2"
                                     placeholder="Détaillez votre évaluation et vos recommandations..."
                                   />
                                   <ErrorMessage name="evaluationNotes" component="div" className="mt-1 text-sm text-error-600" />

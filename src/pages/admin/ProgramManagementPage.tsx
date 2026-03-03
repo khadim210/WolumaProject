@@ -13,12 +13,12 @@ import {
   GripVertical,
   Users,
   Calendar,
-  DollarSign,
   Target,
+  FileText,
   Lock,
   Unlock,
-  Link as LinkIcon,
-  Copy
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -26,25 +26,14 @@ import Badge from '../../components/ui/Badge';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
-import { getCurrencySymbol, formatCurrency } from '../../utils/currency';
-
-const AVAILABLE_CURRENCIES = [
-  { code: 'XOF', name: 'Franc CFA (XOF)', symbol: 'FCFA' },
-  { code: 'EUR', name: 'Euro (EUR)', symbol: '€' },
-  { code: 'USD', name: 'Dollar américain (USD)', symbol: '$' },
-  { code: 'GBP', name: 'Livre sterling (GBP)', symbol: '£' },
-  { code: 'CHF', name: 'Franc suisse (CHF)', symbol: 'CHF' },
-  { code: 'CAD', name: 'Dollar canadien (CAD)', symbol: 'C$' },
-  { code: 'JPY', name: 'Yen japonais (JPY)', symbol: '¥' },
-  { code: 'CNY', name: 'Yuan chinois (CNY)', symbol: '¥' },
-];
+import { useAuthStore } from '../../stores/authStore';
+import { getPublicSubmissionUrl } from '../../utils/url';
+import { formatCurrency } from '../../utils/currency';
 
 const programSchema = Yup.object().shape({
   name: Yup.string().required('Le nom du programme est requis'),
   description: Yup.string().required('La description est requise'),
   partnerId: Yup.string().required('Un partenaire doit être sélectionné'),
-  budget: Yup.number().min(0, 'Le budget doit être positif').required('Le budget est requis'),
-  currency: Yup.string().required('La devise est requise'),
   startDate: Yup.date().required('La date de début est requise'),
   endDate: Yup.date()
     .min(Yup.ref('startDate'), 'La date de fin doit être après la date de début')
@@ -74,19 +63,22 @@ const ProgramManagementPage: React.FC = () => {
   const [editingProgram, setEditingProgram] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('general');
   const [lastInitializedFormId, setLastInitializedFormId] = useState<string | null>(null);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
 
-  const { 
-    programs, 
-    isLoading, 
+  const {
+    programs,
+    isLoading,
     partners,
-    fetchPrograms, 
-    addProgram, 
-    updateProgram, 
-    deleteProgram 
+    fetchPrograms,
+    addProgram,
+    updateProgram,
+    deleteProgram,
+    toggleProgramLock
   } = useProgramStore();
 
   const { templates, fetchTemplates } = useFormTemplateStore();
   const { users, fetchUsers } = useUserManagementStore();
+  const { user: currentUser } = useAuthStore();
 
   // Filtrer les managers
   const managers = users.filter(user => user.role === 'manager');
@@ -99,46 +91,71 @@ const ProgramManagementPage: React.FC = () => {
 
   const handleCreateProgram = async (values: any) => {
     try {
+      console.log('Creating program with values:', values);
+
       // Convert empty strings to null for optional UUID fields
       const programData = {
         ...values,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
-        budget: Number(values.budget),
+        budget: 0,
+        currency: 'XOF',
         formTemplateId: values.formTemplateId || null,
-        managerId: values.managerId || null
+        managerId: values.managerId || null,
+        fieldEligibilityCriteria: values.fieldEligibilityCriteria || [],
+        selectionCriteria: values.selectionCriteria || [],
+        evaluationCriteria: values.evaluationCriteria || [],
+        isActive: true
       };
-      
+
+      console.log('Program data to send:', programData);
+
       await addProgram(programData);
       setShowCreateModal(false);
       setActiveTab('general');
       setLastInitializedFormId(null);
     } catch (error) {
       console.error('Erreur lors de la création du programme:', error);
+      alert('Erreur lors de la création du programme. Vérifiez les logs de la console.');
     }
   };
 
   const handleUpdateProgram = async (values: any) => {
     if (!editingProgram) return;
-    
+
     try {
-      // Convert empty strings to null for optional UUID fields
+      console.log('🔧 Updating program with values:', values);
+      console.log('🔧 Editing program:', editingProgram);
+
+      // Only send the fields that need to be updated, with proper conversion
       const programData = {
-        ...values,
+        name: values.name,
+        description: values.description,
+        partnerId: values.partnerId,
+        formTemplateId: values.formTemplateId || null,
         startDate: new Date(values.startDate),
         endDate: new Date(values.endDate),
-        budget: Number(values.budget),
-        formTemplateId: values.formTemplateId || null,
-        managerId: values.managerId || null
+        managerId: values.managerId || null,
+        fieldEligibilityCriteria: values.fieldEligibilityCriteria || [],
+        selectionCriteria: values.selectionCriteria || [],
+        evaluationCriteria: values.evaluationCriteria || [],
+        customAiPrompt: values.customAiPrompt || null
       };
-      
-      await updateProgram(editingProgram.id, programData);
+
+      console.log('🔧 Program data to update:', programData);
+      console.log('🔧 Field eligibility criteria:', programData.fieldEligibilityCriteria);
+
+      const result = await updateProgram(editingProgram.id, programData);
+      console.log('🔧 Update result:', result);
+
       setEditingProgram(null);
       setShowCreateModal(false);
       setActiveTab('general');
       setLastInitializedFormId(null);
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du programme:', error);
+      console.error('❌ Erreur lors de la mise à jour du programme:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      alert('Erreur lors de la mise à jour du programme. Vérifiez les logs de la console.');
     }
   };
 
@@ -159,26 +176,35 @@ const ProgramManagementPage: React.FC = () => {
     }
   };
 
-  const handleToggleLockProgram = async (programId: string, currentLockState: boolean) => {
-    const action = currentLockState ? 'déverrouiller' : 'verrouiller';
+  const handleToggleLock = async (programId: string) => {
+    const program = programs.find(p => p.id === programId);
+    if (!program || !currentUser) return;
+
+    const action = program.isLocked ? 'déverrouiller' : 'verrouiller';
     if (window.confirm(`Êtes-vous sûr de vouloir ${action} ce programme ?`)) {
       try {
-        await updateProgram(programId, { isLocked: !currentLockState });
+        await toggleProgramLock(programId, currentUser.id);
       } catch (error) {
-        console.error('Erreur lors du verrouillage du programme:', error);
+        console.error('Erreur lors du verrouillage/déverrouillage:', error);
       }
     }
   };
 
-  const getSubmissionUrl = (programId: string) => {
-    return `${window.location.origin}/submit/${programId}`;
+  const findDuplicatePrograms = () => {
+    const duplicates: { [key: string]: any[] } = {};
+
+    programs.forEach(program => {
+      const key = program.name.toLowerCase().trim();
+      if (!duplicates[key]) {
+        duplicates[key] = [];
+      }
+      duplicates[key].push(program);
+    });
+
+    return Object.values(duplicates).filter(group => group.length > 1);
   };
 
-  const copySubmissionUrl = (programId: string) => {
-    const url = getSubmissionUrl(programId);
-    navigator.clipboard.writeText(url);
-    alert('Lien copié dans le presse-papier !');
-  };
+  const duplicateGroups = findDuplicatePrograms();
 
   if (isLoading) {
     return (
@@ -195,17 +221,28 @@ const ProgramManagementPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestion des programmes</h1>
           <p className="text-gray-600">Créez et gérez les programmes de financement</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingProgram(null);
-            setShowCreateModal(true);
-            setActiveTab('general');
-            setLastInitializedFormId(null);
-          }}
-          leftIcon={<Plus className="h-4 w-4" />}
-        >
-          Nouveau programme
-        </Button>
+        <div className="flex gap-3">
+          {duplicateGroups.length > 0 && (
+            <Button
+              variant="warning"
+              onClick={() => setShowDuplicatesModal(true)}
+              leftIcon={<AlertTriangle className="h-4 w-4" />}
+            >
+              {duplicateGroups.length} doublons détectés
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setEditingProgram(null);
+              setShowCreateModal(true);
+              setActiveTab('general');
+              setLastInitializedFormId(null);
+            }}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            Nouveau programme
+          </Button>
+        </div>
       </div>
 
       {/* Liste des programmes */}
@@ -213,38 +250,45 @@ const ProgramManagementPage: React.FC = () => {
         {programs.map((program) => (
           <Card key={program.id} className="p-6">
             <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
+                  {program.isLocked && (
+                    <Badge variant="warning" className="flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Verrouillé
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600 mt-1">{program.description}</p>
               </div>
-              <div className="flex flex-col space-y-2">
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditProgram(program)}
-                    leftIcon={<Edit className="h-4 w-4" />}
-                  >
-                    Modifier
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteProgram(program.id)}
-                    leftIcon={<Trash2 className="h-4 w-4" />}
-                  >
-                    Supprimer
-                  </Button>
-                </div>
-                <Button
-                  variant={program.isLocked ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => handleToggleLockProgram(program.id, program.isLocked)}
-                  leftIcon={program.isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                >
-                  {program.isLocked ? 'Déverrouiller' : 'Verrouiller'}
-                </Button>
-              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button
+                variant={program.isLocked ? "warning" : "outline"}
+                size="sm"
+                onClick={() => handleToggleLock(program.id)}
+                leftIcon={program.isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              >
+                {program.isLocked ? 'Déverrouiller' : 'Verrouiller'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEditProgram(program)}
+                leftIcon={<Edit className="h-4 w-4" />}
+              >
+                Modifier
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDeleteProgram(program.id)}
+                leftIcon={<Trash2 className="h-4 w-4" />}
+              >
+                Supprimer
+              </Button>
             </div>
 
             <div className="space-y-3">
@@ -252,12 +296,7 @@ const ProgramManagementPage: React.FC = () => {
                 <Users className="h-4 w-4 mr-2" />
                 <span>{partners.find(p => p.id === program.partnerId)?.name || 'Aucun partenaire'}</span>
               </div>
-              
-              <div className="flex items-center text-sm text-gray-600">
-                <DollarSign className="h-4 w-4 mr-2" />
-                <span>{formatCurrency(program.budget || 0, program.currency || 'XOF')}</span>
-              </div>
-              
+
               <div className="flex items-center text-sm text-gray-600">
                 <Calendar className="h-4 w-4 mr-2" />
                 <span>
@@ -268,7 +307,14 @@ const ProgramManagementPage: React.FC = () => {
 
               <div className="flex items-center text-sm text-gray-600">
                 <Target className="h-4 w-4 mr-2" />
-                <span>{program.selectionCriteria?.length || 0} critères d'éligibilité</span>
+                <span>
+                  {(() => {
+                    const textCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()).length || 0;
+                    const fieldCriteria = program.fieldEligibilityCriteria?.filter(f => f.isEligibilityCriteria).length || 0;
+                    const total = textCriteria + fieldCriteria;
+                    return `${total} critère${total > 1 ? 's' : ''} d'éligibilité`;
+                  })()}
+                </span>
               </div>
             </div>
 
@@ -358,8 +404,6 @@ const ProgramManagementPage: React.FC = () => {
                     description: editingProgram?.description || '',
                     partnerId: editingProgram?.partnerId || '',
                     formTemplateId: editingProgram?.formTemplateId || '',
-                    budget: editingProgram?.budget || 0,
-                    currency: editingProgram?.currency || 'XOF',
                     startDate: editingProgram?.startDate ? editingProgram.startDate.toISOString().split('T')[0] : '',
                     endDate: editingProgram?.endDate ? editingProgram.endDate.toISOString().split('T')[0] : '',
                     managerId: editingProgram?.managerId || '',
@@ -370,8 +414,10 @@ const ProgramManagementPage: React.FC = () => {
                   }}
                   validationSchema={programSchema}
                   onSubmit={editingProgram ? handleUpdateProgram : handleCreateProgram}
+                  enableReinitialize
                 >
                   {({ values, isSubmitting, setFieldValue }) => {
+                    console.log('📋 Current Program Formik values:', values);
                     // Utiliser useEffect pour initialiser les critères d'éligibilité
                     React.useEffect(() => {
                       const selectedTemplate = templates.find(t => t.id === values.formTemplateId);
@@ -464,34 +510,6 @@ const ProgramManagementPage: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">Budget</label>
-                              <Field
-                                name="budget"
-                                type="number"
-                                min="0"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                              />
-                              <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">Devise</label>
-                              <Field
-                                as="select"
-                                name="currency"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                              >
-                                {AVAILABLE_CURRENCIES.map(currency => (
-                                  <option key={currency.code} value={currency.code}>
-                                    {currency.name}
-                                  </option>
-                                ))}
-                              </Field>
-                              <ErrorMessage name="currency" component="div" className="mt-1 text-sm text-error-600" />
-                            </div>
-                          </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -532,32 +550,52 @@ const ProgramManagementPage: React.FC = () => {
                             <ErrorMessage name="managerId" component="div" className="mt-1 text-sm text-error-600" />
                           </div>
 
+                          {/* Lien de soumission publique */}
                           {editingProgram && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                              <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center">
-                                <LinkIcon className="h-4 w-4 mr-2" />
-                                Lien de soumission au programme
-                              </label>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="text"
-                                  readOnly
-                                  value={getSubmissionUrl(editingProgram.id)}
-                                  className="flex-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => copySubmissionUrl(editingProgram.id)}
-                                  leftIcon={<Copy className="h-4 w-4" />}
-                                >
-                                  Copier
-                                </Button>
-                              </div>
-                              <p className="mt-2 text-xs text-gray-600">
-                                Partagez ce lien pour permettre aux utilisateurs de soumettre directement leur projet à ce programme.
+                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                                <FileText className="h-4 w-4 mr-2" />
+                                Lien de Soumission Publique
+                              </h4>
+                              <p className="text-sm text-blue-700 mb-3">
+                                Partagez ce lien pour permettre aux candidats de soumettre directement leur projet à ce programme. Ils pourront remplir le formulaire et créer un compte après la soumission.
                               </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    value={getPublicSubmissionUrl(editingProgram.id)}
+                                    className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-md text-sm font-mono text-blue-900 select-all"
+                                    onClick={(e) => e.currentTarget.select()}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const link = getPublicSubmissionUrl(editingProgram.id);
+                                      navigator.clipboard.writeText(link);
+                                      alert('Lien copié dans le presse-papier!');
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    Copier
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      const link = getPublicSubmissionUrl(editingProgram.id);
+                                      window.open(link, '_blank');
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    Tester
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-blue-600">
+                                  💡 Cliquez sur "Tester" pour ouvrir le formulaire dans un nouvel onglet
+                                </p>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -689,7 +727,7 @@ const ProgramManagementPage: React.FC = () => {
                                                 }}
                                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
                                               >
-                                                {['number', 'date'].includes(field.type) && (
+                                                {['number', 'date', 'currency'].includes(field.type) && (
                                                   <>
                                                     <option value="==">Égal à (==)</option>
                                                     <option value="!=">Différent de (!=)</option>
@@ -728,9 +766,49 @@ const ProgramManagementPage: React.FC = () => {
 
                                             <div>
                                               <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                Valeur attendue
+                                                {['in', 'not_in'].includes(criteria.conditions?.operator || '')
+                                                  ? 'Valeurs éligibles (plusieurs possibles)'
+                                                  : 'Valeur attendue'}
                                               </label>
-                                              {field.type === 'select' || field.type === 'radio' ? (
+                                              {(field.type === 'select' || field.type === 'radio' || field.type === 'multiple_select') && ['in', 'not_in'].includes(criteria.conditions?.operator || '') ? (
+                                                <div className="space-y-2">
+                                                  {field.options?.map(opt => {
+                                                    const selectedValues = criteria.conditions?.value
+                                                      ? (typeof criteria.conditions.value === 'string'
+                                                          ? criteria.conditions.value.split(',')
+                                                          : [criteria.conditions.value])
+                                                      : [];
+                                                    const isSelected = selectedValues.includes(opt);
+
+                                                    return (
+                                                      <label key={opt} className="flex items-center">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={isSelected}
+                                                          onChange={(e) => {
+                                                            const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                            if (criteriaIndex >= 0) {
+                                                              let updatedValues = [...selectedValues];
+                                                              if (e.target.checked) {
+                                                                updatedValues.push(opt);
+                                                              } else {
+                                                                updatedValues = updatedValues.filter(v => v !== opt);
+                                                              }
+                                                              newCriteria[criteriaIndex].conditions.value = updatedValues.join(',');
+                                                              setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                            }
+                                                          }}
+                                                          className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                                        />
+                                                        <span className="ml-2 text-sm text-gray-700">{opt}</span>
+                                                      </label>
+                                                    );
+                                                  })}
+                                                  {(!field.options || field.options.length === 0) && (
+                                                    <p className="text-xs text-gray-500 italic">Aucune option définie pour ce champ</p>
+                                                  )}
+                                                </div>
+                                              ) : field.type === 'select' || field.type === 'radio' ? (
                                                 <select
                                                   value={criteria.conditions?.value || ''}
                                                   onChange={(e) => {
@@ -762,6 +840,36 @@ const ProgramManagementPage: React.FC = () => {
                                                   <option value="true">Oui (coché)</option>
                                                   <option value="false">Non (décoché)</option>
                                                 </select>
+                                              ) : field.type === 'currency' ? (
+                                                <div className="relative">
+                                                  <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={criteria.conditions?.value || ''}
+                                                    onChange={(e) => {
+                                                      const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                      if (criteriaIndex >= 0) {
+                                                        newCriteria[criteriaIndex].conditions.value = e.target.value;
+                                                        setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                      }
+                                                    }}
+                                                    className="block w-full pl-12 pr-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                    placeholder="0.00"
+                                                  />
+                                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <span className="text-gray-500 text-xs">
+                                                      {field.currencyCode === 'EUR' ? '€' :
+                                                       field.currencyCode === 'USD' ? '$' :
+                                                       field.currencyCode === 'GBP' ? '£' :
+                                                       field.currencyCode === 'CHF' ? 'CHF' :
+                                                       field.currencyCode === 'CAD' ? 'C$' :
+                                                       field.currencyCode === 'JPY' ? '¥' :
+                                                       field.currencyCode === 'CNY' ? '¥' :
+                                                       'FCFA'}
+                                                    </span>
+                                                  </div>
+                                                </div>
                                               ) : (
                                                 <input
                                                   type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
@@ -785,19 +893,51 @@ const ProgramManagementPage: React.FC = () => {
                                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                                 Valeur maximum (pour "entre")
                                               </label>
-                                              <input
-                                                type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
-                                                value={criteria.conditions?.value2 || ''}
-                                                onChange={(e) => {
-                                                  const newCriteria = [...(values.fieldEligibilityCriteria || [])];
-                                                  if (criteriaIndex >= 0) {
-                                                    newCriteria[criteriaIndex].conditions.value2 = e.target.value;
-                                                    setFieldValue('fieldEligibilityCriteria', newCriteria);
-                                                  }
-                                                }}
-                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
-                                                placeholder="Valeur maximum"
-                                              />
+                                              {field.type === 'currency' ? (
+                                                <div className="relative">
+                                                  <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={criteria.conditions?.value2 || ''}
+                                                    onChange={(e) => {
+                                                      const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                      if (criteriaIndex >= 0) {
+                                                        newCriteria[criteriaIndex].conditions.value2 = e.target.value;
+                                                        setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                      }
+                                                    }}
+                                                    className="block w-full pl-12 pr-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                    placeholder="0.00"
+                                                  />
+                                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <span className="text-gray-500 text-xs">
+                                                      {field.currencyCode === 'EUR' ? '€' :
+                                                       field.currencyCode === 'USD' ? '$' :
+                                                       field.currencyCode === 'GBP' ? '£' :
+                                                       field.currencyCode === 'CHF' ? 'CHF' :
+                                                       field.currencyCode === 'CAD' ? 'C$' :
+                                                       field.currencyCode === 'JPY' ? '¥' :
+                                                       field.currencyCode === 'CNY' ? '¥' :
+                                                       'FCFA'}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <input
+                                                  type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                                  value={criteria.conditions?.value2 || ''}
+                                                  onChange={(e) => {
+                                                    const newCriteria = [...(values.fieldEligibilityCriteria || [])];
+                                                    if (criteriaIndex >= 0) {
+                                                      newCriteria[criteriaIndex].conditions.value2 = e.target.value;
+                                                      setFieldValue('fieldEligibilityCriteria', newCriteria);
+                                                    }
+                                                  }}
+                                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                                  placeholder="Valeur maximum"
+                                                />
+                                              )}
                                             </div>
                                           )}
 
@@ -960,17 +1100,6 @@ const ProgramManagementPage: React.FC = () => {
                               Soyez spécifique sur les aspects à privilégier selon les objectifs du programme.
                             </p>
                           </div>
-                          
-                          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <h5 className="text-sm font-medium text-yellow-900 mb-2">💡 Conseils pour un bon prompt :</h5>
-                            <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside">
-                              <li>Mentionnez les secteurs d'activité prioritaires</li>
-                              <li>Précisez les critères de faisabilité importants</li>
-                              <li>Indiquez le niveau d'innovation attendu</li>
-                              <li>Spécifiez les impacts recherchés (social, environnemental, économique)</li>
-                              <li>Mentionnez les contraintes budgétaires ou temporelles</li>
-                            </ul>
-                          </div>
                         </div>
                       )}
 
@@ -1000,6 +1129,149 @@ const ProgramManagementPage: React.FC = () => {
                     );
                   }}
                 </Formik>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal des doublons */}
+      {showDuplicatesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Programmes en double détectés</h2>
+                  <p className="text-gray-600 mt-1">
+                    {duplicateGroups.length} groupe(s) de programmes avec des noms similaires ont été trouvés
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDuplicatesModal(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <span className="sr-only">Fermer</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {duplicateGroups.map((group, groupIndex) => (
+                <div key={groupIndex} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Copy className="h-5 w-5 text-amber-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Groupe {groupIndex + 1}: "{group[0].name}" ({group.length} occurrences)
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {group.map((program) => {
+                      const partner = partners.find(p => p.id === program.partnerId);
+                      const manager = managers.find(m => m.id === program.managerId);
+
+                      return (
+                        <div key={program.id} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-semibold text-gray-900">{program.name}</h4>
+                                {program.isLocked && (
+                                  <Badge variant="warning" className="flex items-center gap-1">
+                                    <Lock className="h-3 w-3" />
+                                    Verrouillé
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">{program.description}</p>
+
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <span className="text-gray-500">Partenaire:</span>{' '}
+                                  <span className="font-medium">{partner?.name || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Budget:</span>{' '}
+                                  <span className="font-medium">
+                                    {formatCurrency(program.budget, program.currency || 'XOF')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Gestionnaire:</span>{' '}
+                                  <span className="font-medium">{manager?.name || 'Non assigné'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Période:</span>{' '}
+                                  <span className="font-medium">
+                                    {new Date(program.startDate).toLocaleDateString()} - {new Date(program.endDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Créé le:</span>{' '}
+                                  <span className="font-medium">
+                                    {new Date(program.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">ID:</span>{' '}
+                                  <span className="font-mono text-xs">{program.id.substring(0, 8)}...</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setShowDuplicatesModal(false);
+                                  handleEditProgram(program);
+                                }}
+                                leftIcon={<Edit className="h-3 w-3" />}
+                              >
+                                Modifier
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${program.name}" ?`)) {
+                                    handleDeleteProgram(program.id);
+                                  }
+                                }}
+                                leftIcon={<Trash2 className="h-3 w-3" />}
+                              >
+                                Supprimer
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>Conseil:</strong> Comparez les dates de création, les budgets et les partenaires pour identifier
+                      les vrais doublons. Conservez le plus récent ou celui avec le plus d'informations.
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  Total: {duplicateGroups.reduce((sum, group) => sum + group.length, 0)} programmes dans {duplicateGroups.length} groupe(s)
+                </p>
+                <Button variant="outline" onClick={() => setShowDuplicatesModal(false)}>
+                  Fermer
+                </Button>
               </div>
             </div>
           </div>

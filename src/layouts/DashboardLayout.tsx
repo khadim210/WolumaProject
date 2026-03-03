@@ -18,7 +18,9 @@ import {
   Settings,
   Target,
   Building,
-  CheckCircle
+  ClipboardCheck,
+  History,
+  BookOpen
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -96,8 +98,8 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('projects.view') && (
                 <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" onClick={() => setSidebarOpen(false)} />
               )}
-              {checkPermission('evaluation.view') && (
-                <NavItem to="/dashboard/eligibility" icon={<CheckCircle />} label="Éligibilité" onClick={() => setSidebarOpen(false)} />
+              {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
+                <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('evaluation.view') && (
                 <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" onClick={() => setSidebarOpen(false)} />
@@ -129,6 +131,10 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('parameters.view') && (
                 <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
               )}
+              {checkPermission('status_history.view') && (
+                <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" onClick={() => setSidebarOpen(false)} />
+              )}
+              <NavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" onClick={() => setSidebarOpen(false)} />
             </nav>
           </div>
           
@@ -179,8 +185,8 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" />
                 )}
-                {checkPermission('evaluation.view') && (
-                  <NavItem to="/dashboard/eligibility" icon={<CheckCircle />} label="Éligibilité" />
+                {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
+                  <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" />
                 )}
                 {checkPermission('evaluation.view') && (
                   <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" />
@@ -197,6 +203,10 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('parameters.view') && (
                   <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" />
                 )}
+                {checkPermission('status_history.view') && (
+                  <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" />
+                )}
+                <NavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" />
               </nav>
             </div>
             

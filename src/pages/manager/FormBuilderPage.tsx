@@ -15,6 +15,7 @@ const fieldTypes: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Texte court' },
   { value: 'textarea', label: 'Texte long' },
   { value: 'number', label: 'Nombre' },
+  { value: 'currency', label: 'Montant monétaire' },
   { value: 'select', label: 'Liste déroulante' },
   { value: 'radio', label: 'Choix unique' },
   { value: 'checkbox', label: 'Case à cocher' },
@@ -360,6 +361,31 @@ const FormBuilderPage: React.FC = () => {
                     </div>
                   )}
                   
+                  {field.type === 'currency' && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Devise
+                      </label>
+                      <select
+                        value={field.currencyCode || 'XOF'}
+                        onChange={(e) => handleFieldChange(index, { currencyCode: e.target.value })}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      >
+                        <option value="XOF">Franc CFA (XOF)</option>
+                        <option value="EUR">Euro (EUR)</option>
+                        <option value="USD">Dollar américain (USD)</option>
+                        <option value="GBP">Livre sterling (GBP)</option>
+                        <option value="CHF">Franc suisse (CHF)</option>
+                        <option value="CAD">Dollar canadien (CAD)</option>
+                        <option value="JPY">Yen japonais (JPY)</option>
+                        <option value="CNY">Yuan chinois (CNY)</option>
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Sélectionnez la devise pour ce champ monétaire
+                      </p>
+                    </div>
+                  )}
+
                   {field.type === 'file' && (
                     <div className="mt-4 space-y-4">
                       <div>
@@ -377,7 +403,7 @@ const FormBuilderPage: React.FC = () => {
                           Laissez vide pour accepter tous les types de fichiers
                         </p>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Taille maximale (MB)
@@ -391,7 +417,7 @@ const FormBuilderPage: React.FC = () => {
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="flex items-center">
                           <input

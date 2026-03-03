@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DatabaseManager } from '../utils/database';
+import { ParametersService } from '../services/parametersService';
 
 export interface SystemParameters {
   // General
@@ -35,7 +36,6 @@ export interface SystemParameters {
   // System
   maxProjectsPerUser: number;
   evaluationDeadlineDays: number;
-  autoApprovalThreshold: number;
   maxFileSize: number;
   enableMaintenanceMode: boolean;
   enableRegistration: boolean;
@@ -56,12 +56,51 @@ export interface SystemParameters {
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
   enableSupabase: boolean;
+
+  // AI Configuration
+  aiProvider: 'openai' | 'anthropic' | 'google' | 'mistral' | 'cohere' | 'huggingface' | 'custom';
+
+  // OpenAI
+  openaiApiKey: string;
+  openaiModel: string;
+  openaiOrgId: string;
+
+  // Anthropic
+  anthropicApiKey: string;
+  anthropicModel: string;
+
+  // Google
+  googleApiKey: string;
+  googleModel: string;
+
+  // Mistral
+  mistralApiKey: string;
+  mistralModel: string;
+
+  // Cohere
+  cohereApiKey: string;
+  cohereModel: string;
+
+  // Hugging Face
+  huggingfaceApiKey: string;
+  huggingfaceModel: string;
+
+  // Custom API
+  customApiUrl: string;
+  customApiKey: string;
+  customApiHeaders: string;
+
+  // AI General Settings
+  aiTemperature: number;
+  aiMaxTokens: number;
+  enableAiEvaluation: boolean;
 }
 
 interface ParametersState {
   parameters: SystemParameters;
   isLoading: boolean;
   error: string | null;
+  loadParameters: () => Promise<void>;
   updateParameters: (updates: Partial<SystemParameters>) => Promise<void>;
   resetToDefaults: () => Promise<void>;
   testDatabaseConnection: () => Promise<{ success: boolean; message: string }>;
@@ -102,7 +141,6 @@ const defaultParameters: SystemParameters = {
   // System
   maxProjectsPerUser: 10,
   evaluationDeadlineDays: 30,
-  autoApprovalThreshold: 85,
   maxFileSize: 10,
   enableMaintenanceMode: false,
   enableRegistration: true,
@@ -123,6 +161,44 @@ const defaultParameters: SystemParameters = {
   supabaseAnonKey: '',
   supabaseServiceRoleKey: '',
   enableSupabase: true,
+
+  // AI Configuration
+  aiProvider: 'openai',
+
+  // OpenAI
+  openaiApiKey: '',
+  openaiModel: 'gpt-4',
+  openaiOrgId: '',
+
+  // Anthropic
+  anthropicApiKey: '',
+  anthropicModel: 'claude-3-opus-20240229',
+
+  // Google
+  googleApiKey: '',
+  googleModel: 'gemini-pro',
+
+  // Mistral
+  mistralApiKey: '',
+  mistralModel: 'mistral-large-latest',
+
+  // Cohere
+  cohereApiKey: '',
+  cohereModel: 'command',
+
+  // Hugging Face
+  huggingfaceApiKey: '',
+  huggingfaceModel: '',
+
+  // Custom API
+  customApiUrl: '',
+  customApiKey: '',
+  customApiHeaders: '',
+
+  // AI General Settings
+  aiTemperature: 0.7,
+  aiMaxTokens: 2000,
+  enableAiEvaluation: false,
 };
 
 export const useParametersStore = create<ParametersState>()(
@@ -132,16 +208,36 @@ export const useParametersStore = create<ParametersState>()(
       isLoading: false,
       error: null,
 
+      loadParameters: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const loadedParams = await ParametersService.loadParameters();
+
+          if (loadedParams) {
+            set({
+              parameters: loadedParams,
+              isLoading: false
+            });
+          } else {
+            set({ isLoading: false });
+          }
+        } catch (error) {
+          console.error('Error loading parameters:', error);
+          set({ error: 'Failed to load parameters', isLoading: false });
+        }
+      },
+
       updateParameters: async (updates) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          set(state => ({
-            parameters: { ...state.parameters, ...updates },
+          const updatedParams = { ...get().parameters, ...updates };
+
+          await ParametersService.saveParameters(updates);
+
+          set({
+            parameters: updatedParams,
             isLoading: false
-          }));
+          });
         } catch (error) {
           console.error('Error updating parameters:', error);
           set({ error: 'Failed to update parameters', isLoading: false });

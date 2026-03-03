@@ -45,6 +45,10 @@ export interface Project {
   formData?: Record<string, any>; // Données du formulaire soumis
   recommendedStatus?: ProjectStatus; // Status recommandé après évaluation
   manuallySubmitted?: boolean; // Indique si le projet a été soumis manuellement après évaluation
+  eligibilityNotes?: string; // Notes sur la vérification d'éligibilité
+  eligibilityCheckedBy?: string; // ID de l'utilisateur qui a vérifié l'éligibilité
+  eligibilityCheckedAt?: Date; // Date de vérification d'éligibilité
+  submittedAt?: Date; // Date de soumission du projet
 }
 
 // Fonction utilitaire pour convertir SupabaseProject vers Project
@@ -75,7 +79,11 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   tags: supabaseProject.tags,
   formData: supabaseProject.form_data,
   recommendedStatus: supabaseProject.recommended_status as ProjectStatus,
-  manuallySubmitted: supabaseProject.manually_submitted
+  manuallySubmitted: supabaseProject.manually_submitted,
+  eligibilityNotes: supabaseProject.eligibility_notes,
+  eligibilityCheckedBy: supabaseProject.eligibility_checked_by,
+  eligibilityCheckedAt: supabaseProject.eligibility_checked_at ? new Date(supabaseProject.eligibility_checked_at) : undefined,
+  submittedAt: supabaseProject.submitted_at ? new Date(supabaseProject.submitted_at) : undefined
 });
 
 interface ProjectState {

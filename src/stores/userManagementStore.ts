@@ -130,8 +130,13 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   deleteUser: async (id) => {
     set({ isLoading: true, error: null });
     try {
+      const user = get().users.find(u => u.id === id);
+      if (!user) {
+        throw new Error('Utilisateur non trouvé');
+      }
+
       await UserService.deleteUser(id);
-      
+
       set(state => ({
         users: state.users.filter(u => u.id !== id),
         isLoading: false
@@ -140,8 +145,9 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
       return true;
     } catch (error) {
       console.error('Error deleting user:', error);
-      set({ error: 'Failed to delete user', isLoading: false });
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete user';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
     }
   },
 

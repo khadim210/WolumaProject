@@ -31,6 +31,11 @@ import UserManagementPage from './pages/admin/UserManagementPage';
 import ParametersPage from './pages/admin/ParametersPage';
 import ProgramManagementPage from './pages/admin/ProgramManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
+import StatusHistoryPage from './pages/admin/StatusHistoryPage';
+import UserManualPage from './pages/admin/UserManualPage';
+
+// Public Pages
+import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
 
 // Public Pages
 import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
@@ -65,9 +70,20 @@ function App() {
         if (hasSupabaseConfig) {
           console.log('✅ Supabase configuration found');
           console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
-          // Créer les données de démonstration
-          console.log('🌱 Starting seed data creation...');
-          await MigrationService.seedData();
+
+          // Seed data only once per browser using localStorage
+          const hasSeeded = localStorage.getItem('app_data_seeded');
+          if (!hasSeeded && import.meta.env.MODE === 'development') {
+            console.log('🌱 First run in development - seeding data...');
+            await MigrationService.seedData();
+            localStorage.setItem('app_data_seeded', 'true');
+            console.log('✅ Data seeded successfully');
+          } else if (hasSeeded) {
+            console.log('✅ Data already seeded, skipping...');
+          } else {
+            console.log('📦 Production mode - skipping automatic seed');
+          }
+
           console.log('✅ Supabase initialized successfully');
         } else {
           console.log('⚠️ Supabase not configured, running in demo mode');
@@ -94,7 +110,7 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
         </Route>
-        
+
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
@@ -119,6 +135,8 @@ function App() {
           <Route path="partners" element={<PartnerManagementPage />} />
           <Route path="users" element={<UserManagementPage />} />
           <Route path="parameters" element={<ParametersPage />} />
+          <Route path="status-history" element={<StatusHistoryPage />} />
+          <Route path="user-manual" element={<UserManualPage />} />
         </Route>
         
         {/* Fallback Route */}

@@ -81,7 +81,8 @@ const PartnerManagementPage: React.FC = () => {
 
   const handleCreatePartner = async (values: PartnerFormValues, { resetForm, setSubmitting }: any) => {
     try {
-      await addPartner({
+      console.log('🏢 Creating partner with values:', values);
+      const result = await addPartner({
         name: values.name,
         description: values.description,
         contactEmail: values.contactEmail,
@@ -90,10 +91,13 @@ const PartnerManagementPage: React.FC = () => {
         isActive: values.isActive,
         assignedManagerId: values.assignedManagerId || undefined
       });
+      console.log('🏢 Partner created successfully:', result);
       resetForm();
       setShowCreateModal(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la création du partenaire:', error);
+      const errorMessage = error?.message || 'Erreur inconnue';
+      alert(`Erreur lors de la création du partenaire: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
@@ -101,8 +105,10 @@ const PartnerManagementPage: React.FC = () => {
 
   const handleUpdatePartner = async (values: PartnerFormValues, { setSubmitting }: any) => {
     if (!editingPartner) return;
-    
+
     try {
+      console.log('📝 PartnerManagementPage - handleUpdatePartner called with values:', values);
+
       await updatePartner(editingPartner.id, {
         name: values.name,
         description: values.description,
@@ -112,6 +118,8 @@ const PartnerManagementPage: React.FC = () => {
         isActive: values.isActive,
         assignedManagerId: values.assignedManagerId || undefined
       });
+
+      console.log('✅ PartnerManagementPage - Partner updated successfully');
       setEditingPartner(null);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du partenaire:', error);
@@ -283,9 +291,23 @@ const PartnerManagementPage: React.FC = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {editingPartner ? 'Modifier le partenaire' : 'Créer un nouveau partenaire'}
-              </h3>
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {editingPartner ? 'Modifier le partenaire' : 'Créer un nouveau partenaire'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingPartner(null);
+                    setShowCreateModal(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
               
               <Formik
                 initialValues={{
@@ -299,8 +321,11 @@ const PartnerManagementPage: React.FC = () => {
                 }}
                 validationSchema={partnerSchema}
                 onSubmit={editingPartner ? handleUpdatePartner : handleCreatePartner}
+                enableReinitialize
               >
-                {({ isSubmitting }) => (
+                {({ isSubmitting, values }) => {
+                  console.log('📋 Current Formik values:', values);
+                  return (
                   <Form className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -422,7 +447,8 @@ const PartnerManagementPage: React.FC = () => {
                       </Button>
                     </div>
                   </Form>
-                )}
+                  );
+                }}
               </Formik>
             </div>
           </div>

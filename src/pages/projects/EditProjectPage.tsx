@@ -17,6 +17,7 @@ import Button from '../../components/ui/Button';
 import { Plus, Trash2, ArrowLeft, Upload, X, FileText } from 'lucide-react';
 import { getCurrencySymbol } from '../../utils/currency';
 import { uploadFile, formatFileSize, UploadedFile } from '../../utils/fileUpload';
+import CurrencyInput from '../../components/ui/CurrencyInput';
 
 const projectSchema = Yup.object().shape({
   title: Yup.string()
@@ -287,17 +288,26 @@ const EditProjectPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex items-center mb-3">
-                    <Field
-                      id="hasBudget"
-                      name="hasBudget"
-                      type="checkbox"
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="hasBudget" className="ml-2 block text-sm font-medium text-gray-700">
-                      J'ai un budget estimé pour ce projet
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
+                      Budget estimé*
                     </label>
+                    <div className="mt-1">
+                      <Field name="budget">
+                        {({ field, form }: any) => (
+                          <CurrencyInput
+                            id="budget"
+                            name="budget"
+                            value={field.value}
+                            onChange={(val) => form.setFieldValue('budget', val)}
+                            currencySymbol={currencySymbol}
+                            placeholder="0"
+                          />
+                        )}
+                      </Field>
+                      <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
+                    </div>
                   </div>
                 </div>
 
@@ -461,6 +471,29 @@ const EditProjectPage: React.FC = () => {
                                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                                   placeholder={field.placeholder}
                                 />
+                              )}
+                              {field.type === 'currency' && (
+                                <Field name={`formData.${field.name}`}>
+                                  {({ field: formikField, form }: any) => (
+                                    <CurrencyInput
+                                      id={`formData.${field.name}`}
+                                      name={`formData.${field.name}`}
+                                      value={formikField.value || 0}
+                                      onChange={(val) => form.setFieldValue(`formData.${field.name}`, val)}
+                                      currencySymbol={
+                                        field.currencyCode === 'EUR' ? '€' :
+                                        field.currencyCode === 'USD' ? '$' :
+                                        field.currencyCode === 'GBP' ? '£' :
+                                        field.currencyCode === 'CHF' ? 'CHF' :
+                                        field.currencyCode === 'CAD' ? 'C$' :
+                                        field.currencyCode === 'JPY' ? '¥' :
+                                        field.currencyCode === 'CNY' ? '¥' :
+                                        'FCFA'
+                                      }
+                                      placeholder={field.placeholder || "0"}
+                                    />
+                                  )}
+                                </Field>
                               )}
                               {field.type === 'email' && (
                                 <Field

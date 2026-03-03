@@ -17,6 +17,7 @@ import Button from '../../components/ui/Button';
 import { Plus, Trash2, Upload, X, FileText } from 'lucide-react';
 import { getCurrencySymbol } from '../../utils/currency';
 import { uploadFile, formatFileSize, UploadedFile } from '../../utils/fileUpload';
+import CurrencyInput from '../../components/ui/CurrencyInput';
 
 const projectSchema = Yup.object().shape({
   title: Yup.string()
@@ -71,26 +72,29 @@ const CreateProjectPage: React.FC = () => {
   const getAccessiblePrograms = () => {
     if (!user) return [];
 
+    // Filter out locked programs for all roles
+    let availablePrograms = programs.filter(p => !p.isLocked);
+
     if (user.role === 'admin') {
-      return programs;
+      return availablePrograms;
     } else if (user.role === 'manager') {
       // Manager can see programs from their assigned partners
       const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
       const partnerIds = managerPartners.map(p => p.id);
-      return programs.filter(p => partnerIds.includes(p.partnerId));
+      return availablePrograms.filter(p => partnerIds.includes(p.partnerId));
     } else if (user.role === 'partner') {
       // Partner can see their own programs
       const userPartner = partners.find(p => p.contactEmail === user.email);
-      return userPartner ? programs.filter(p => p.partnerId === userPartner.id) : [];
+      return userPartner ? availablePrograms.filter(p => p.partnerId === userPartner.id) : [];
     } else if (user.role === 'submitter') {
       // Submitters can only see programs where they haven't submitted yet
       const submittedProgramIds = projects
         .filter(p => p.submitterId === user.id)
         .map(p => p.programId);
-      return programs.filter(p => !submittedProgramIds.includes(p.id));
+      return availablePrograms.filter(p => !submittedProgramIds.includes(p.id));
     }
 
-    return programs;
+    return availablePrograms;
   };
 
   const accessiblePrograms = getAccessiblePrograms();
@@ -279,16 +283,21 @@ const CreateProjectPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
-                      Budget estimé ({currencySymbol})*
+                      Budget estimé*
                     </label>
                     <div className="mt-1">
-                      <Field
-                        id="budget"
-                        name="budget"
-                        type="number"
-                        min="0"
-                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      />
+                      <Field name="budget">
+                        {({ field, form }: any) => (
+                          <CurrencyInput
+                            id="budget"
+                            name="budget"
+                            value={field.value}
+                            onChange={(val) => form.setFieldValue('budget', val)}
+                            currencySymbol={currencySymbol}
+                            placeholder="0"
+                          />
+                        )}
+                      </Field>
                       <ErrorMessage name="budget" component="div" className="mt-1 text-sm text-error-600" />
                     </div>
                   </div>
@@ -439,6 +448,29 @@ const CreateProjectPage: React.FC = () => {
                                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                                   placeholder={field.placeholder}
                                 />
+                              )}
+                              {field.type === 'currency' && (
+                                <Field name={`formData.${field.name}`}>
+                                  {({ field: formikField, form }: any) => (
+                                    <CurrencyInput
+                                      id={`formData.${field.name}`}
+                                      name={`formData.${field.name}`}
+                                      value={formikField.value || 0}
+                                      onChange={(val) => form.setFieldValue(`formData.${field.name}`, val)}
+                                      currencySymbol={
+                                        field.currencyCode === 'EUR' ? '€' :
+                                        field.currencyCode === 'USD' ? '$' :
+                                        field.currencyCode === 'GBP' ? '£' :
+                                        field.currencyCode === 'CHF' ? 'CHF' :
+                                        field.currencyCode === 'CAD' ? 'C$' :
+                                        field.currencyCode === 'JPY' ? '¥' :
+                                        field.currencyCode === 'CNY' ? '¥' :
+                                        'FCFA'
+                                      }
+                                      placeholder={field.placeholder || "0"}
+                                    />
+                                  )}
+                                </Field>
                               )}
                               {field.type === 'email' && (
                                 <Field

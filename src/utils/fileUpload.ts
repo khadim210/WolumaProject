@@ -12,6 +12,10 @@ export const uploadFile = async (
   projectId: string,
   file: File
 ): Promise<UploadedFile> => {
+  if (!supabase) {
+    throw new Error('Supabase client not available');
+  }
+
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
   const filePath = `${projectId}/${fileName}`;
@@ -27,16 +31,21 @@ export const uploadFile = async (
     throw new Error(`File upload failed: ${error.message}`);
   }
 
-  const { data: urlData } = supabase.storage
+  // For private buckets, we store the path and generate signed URLs when needed
+  const { data: signedUrlData, error: urlError } = await supabase.storage
     .from('submission-files')
-    .getPublicUrl(filePath);
+    .createSignedUrl(filePath, 3600); // URL valid for 1 hour
+
+  if (urlError) {
+    console.error('Error creating signed URL:', urlError);
+  }
 
   return {
     name: file.name,
     path: data.path,
     size: file.size,
     type: file.type,
-    url: urlData.publicUrl
+    url: signedUrlData?.signedUrl || '' // Store signed URL or empty string
   };
 };
 
@@ -50,12 +59,21 @@ export const deleteFile = async (filePath: string): Promise<void> => {
   }
 };
 
-export const getFileUrl = (filePath: string): string => {
-  const { data } = supabase.storage
-    .from('submission-files')
-    .getPublicUrl(filePath);
+export const getFileUrl = async (filePath: string): Promise<string> => {
+  if (!supabase) {
+    throw new Error('Supabase client not available');
+  }
 
-  return data.publicUrl;
+  // For private buckets, create a signed URL valid for 1 hour
+  const { data, error } = await supabase.storage
+    .from('submission-files')
+    .createSignedUrl(filePath, 3600);
+
+  if (error) {
+    throw new Error(`Failed to get file URL: ${error.message}`);
+  }
+
+  return data.signedUrl;
 };
 
 export const downloadFile = async (filePath: string): Promise<Blob> => {
@@ -71,6 +89,10 @@ export const downloadFile = async (filePath: string): Promise<Blob> => {
 };
 
 export const listProjectFiles = async (projectId: string): Promise<UploadedFile[]> => {
+  if (!supabase) {
+    throw new Error('Supabase client not available');
+  }
+
   const { data, error } = await supabase.storage
     .from('submission-files')
     .list(projectId);
@@ -79,13 +101,29 @@ export const listProjectFiles = async (projectId: string): Promise<UploadedFile[
     throw new Error(`Failed to list files: ${error.message}`);
   }
 
-  return data.map(file => ({
-    name: file.name,
-    path: `${projectId}/${file.name}`,
-    size: file.metadata?.size || 0,
-    type: file.metadata?.mimetype || '',
-    url: getFileUrl(`${projectId}/${file.name}`)
-  }));
+  // Generate signed URLs for all files
+  const filesWithUrls = await Promise.all(
+    data.map(async (file) => {
+      const filePath = `${projectId}/${file.name}`;
+      let url = '';
+
+      try {
+        url = await getFileUrl(filePath);
+      } catch (error) {
+        console.error(`Failed to get URL for ${filePath}:`, error);
+      }
+
+      return {
+        name: file.name,
+        path: filePath,
+        size: file.metadata?.size || 0,
+        type: file.metadata?.mimetype || '',
+        url
+      };
+    })
+  );
+
+  return filesWithUrls;
 };
 
 export const formatFileSize = (bytes: number): string => {

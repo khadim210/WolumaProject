@@ -1,518 +1,1348 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
-import { useAuthStore } from '../../stores/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
-import { CheckCircle, XCircle, AlertCircle, Eye, Play, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
+import {
+  CheckCircle,
+  XCircle,
+  FileText,
+  Calendar,
+  User,
+  AlertTriangle,
+  Filter,
+  CheckSquare,
+  Square,
+  Sparkles,
+  RotateCcw,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  FileSpreadsheet
+} from 'lucide-react';
+import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EligibilityPage: React.FC = () => {
+  const { user } = useAuthStore();
   const { projects, fetchProjects, updateProject } = useProjectStore();
   const { programs, fetchPrograms } = useProgramStore();
-  const { user } = useAuthStore();
-  const navigate = useNavigate();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [checkingProjectId, setCheckingProjectId] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'submitted' | 'eligible' | 'ineligible'>('submitted');
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [criteriaChecks, setCriteriaChecks] = useState<Record<string, Record<number, boolean>>>({});
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [eligibilityNotes, setEligibilityNotes] = useState('');
+  const [batchNotes, setBatchNotes] = useState('');
+  const [checkedCriteria, setCheckedCriteria] = useState<Record<string, boolean>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetSearchTerm, setResetSearchTerm] = useState('');
+  const [isFormDataExpanded, setIsFormDataExpanded] = useState(false);
+  const [resetStatusFilter, setResetStatusFilter] = useState<string>('eligible');
+
+  // Filtres
+  const [programFilter, setProgramFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchProjects();
     fetchPrograms();
   }, [fetchProjects, fetchPrograms]);
 
-  const submittedProjects = projects.filter(p =>
-    p.status === 'submitted' || p.status === 'eligible' || p.status === 'ineligible'
-  );
-
-  const filteredProjects = selectedStatus === 'all'
-    ? submittedProjects
-    : submittedProjects.filter(p => p.status === selectedStatus);
-
-  const getProgram = (programId: string) => programs.find(p => p.id === programId);
-
-  const toggleProjectExpansion = (projectId: string) => {
-    setExpandedProjects(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(projectId)) {
-        newSet.delete(projectId);
-      } else {
-        newSet.add(projectId);
-      }
-      return newSet;
-    });
+  const getProgram = (programId: string) => {
+    return programs.find(p => p.id === programId);
   };
 
-  const getEligibilityCriteria = (programId: string): { label: string; description: string }[] => {
-    const program = getProgram(programId);
-    if (!program) return [];
+  // Filtrage des projets
+  const filteredProjects = useMemo(() => {
+    let filtered = projects.filter(p =>
+      p.status === 'submitted' ||
+      p.status === 'eligible' ||
+      p.status === 'ineligible'
+    );
 
-    if (!program.fieldEligibilityCriteria || program.fieldEligibilityCriteria.length === 0) {
-      return [];
+    // Filtre par statut
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(p => p.status === statusFilter);
     }
 
-    return program.fieldEligibilityCriteria
-      .filter(field => field.isEligibilityCriteria === true)
-      .map(field => {
-        let description = field.fieldLabel || field.fieldName;
+    // Filtre par programme
+    if (programFilter !== 'all') {
+      filtered = filtered.filter(p => p.programId === programFilter);
+    }
 
-        if (field.conditions) {
-          const { operator, value, value2 } = field.conditions;
+    // Filtre par date
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      filtered = filtered.filter(p => {
+        if (!p.submittedAt) return false;
+        const submittedDate = new Date(p.submittedAt);
+        const diffDays = Math.floor((now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
 
-          switch (operator) {
-            case '>':
-              description += ` (doit être supérieur à ${value})`;
-              break;
-            case '<':
-              description += ` (doit être inférieur à ${value})`;
-              break;
-            case '>=':
-              description += ` (doit être supérieur ou égal à ${value})`;
-              break;
-            case '<=':
-              description += ` (doit être inférieur ou égal à ${value})`;
-              break;
-            case '==':
-              if (value) description += ` (doit être égal à ${value})`;
-              break;
-            case '!=':
-              description += ` (ne doit pas être égal à ${value})`;
-              break;
-            case 'between':
-              description += ` (doit être entre ${value} et ${value2})`;
-              break;
-            case 'contains':
-              description += ` (doit contenir "${value}")`;
-              break;
-            case 'required':
-              description += ' (requis)';
-              break;
-          }
+        switch (dateFilter) {
+          case 'today':
+            return diffDays === 0;
+          case 'week':
+            return diffDays <= 7;
+          case 'month':
+            return diffDays <= 30;
+          default:
+            return true;
         }
-
-        return {
-          label: field.fieldLabel || field.fieldName,
-          description
-        };
       });
+    }
+
+    // Filtre par recherche
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.title.toLowerCase().includes(term) ||
+        p.description.toLowerCase().includes(term)
+      );
+    }
+
+    return filtered;
+  }, [projects, statusFilter, programFilter, dateFilter, searchTerm]);
+
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProject(projectId);
+    setEligibilityNotes('');
+    setCheckedCriteria({});
+    setIsFormDataExpanded(false);
   };
 
-  const toggleCriteriaCheck = (projectId: string, criteriaIndex: number) => {
-    setCriteriaChecks(prev => ({
+  const handleToggleProject = (projectId: string) => {
+    const newSelected = new Set(selectedProjects);
+    if (newSelected.has(projectId)) {
+      newSelected.delete(projectId);
+    } else {
+      newSelected.add(projectId);
+    }
+    setSelectedProjects(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProjects.size === filteredProjects.length) {
+      setSelectedProjects(new Set());
+    } else {
+      setSelectedProjects(new Set(filteredProjects.map(p => p.id)));
+    }
+  };
+
+  const handleCriteriaCheck = (criteriaIndex: number, checked: boolean) => {
+    setCheckedCriteria(prev => ({
       ...prev,
-      [projectId]: {
-        ...(prev[projectId] || {}),
-        [criteriaIndex]: !(prev[projectId]?.[criteriaIndex] || false)
-      }
+      [criteriaIndex]: checked
     }));
   };
 
-  const areAllCriteriaChecked = (projectId: string, totalCriteria: number): boolean => {
-    const checks = criteriaChecks[projectId] || {};
-    for (let i = 0; i < totalCriteria; i++) {
-      if (!checks[i]) return false;
-    }
-    return totalCriteria > 0;
+  const handleFieldCriteriaCheck = (criteriaKey: string, checked: boolean) => {
+    setCheckedCriteria(prev => ({
+      ...prev,
+      [criteriaKey]: checked
+    }));
   };
 
-  const checkEligibilityAutomatic = async (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+  const generateEligibilityNotes = (
+    isApproved: boolean,
+    textualCriteria: string[],
+    fieldCriteria: any[],
+    checkedCriteria: Record<string, boolean>
+  ): string => {
+    const timestamp = new Date().toLocaleString('fr-FR', {
+      dateStyle: 'long',
+      timeStyle: 'short'
+    });
+
+    let notes = `=== ÉVALUATION D'ÉLIGIBILITÉ ===\n`;
+    notes += `Date: ${timestamp}\n`;
+    notes += `Décision: ${isApproved ? 'ÉLIGIBLE ✓' : 'NON ÉLIGIBLE ✗'}\n\n`;
+
+    if (textualCriteria.length > 0) {
+      notes += `--- CRITÈRES TEXTUELS (${textualCriteria.length}) ---\n`;
+      const checkedCount = textualCriteria.filter((_, idx) => checkedCriteria[idx]).length;
+      const uncheckedCount = textualCriteria.length - checkedCount;
+
+      notes += `Validés: ${checkedCount}/${textualCriteria.length}\n`;
+      if (uncheckedCount > 0) {
+        notes += `Non validés: ${uncheckedCount}\n`;
+      }
+      notes += `\n`;
+
+      textualCriteria.forEach((criteria, index) => {
+        const isChecked = checkedCriteria[index];
+        const status = isChecked ? '✓' : '✗';
+        notes += `${status} ${criteria}\n`;
+      });
+      notes += `\n`;
+    }
+
+    if (fieldCriteria.length > 0) {
+      notes += `--- CRITÈRES BASÉS SUR FORMULAIRE (${fieldCriteria.length}) ---\n`;
+      const fieldCheckedCount = fieldCriteria.filter((_, idx) => checkedCriteria[`field-${idx}`]).length;
+      const fieldUncheckedCount = fieldCriteria.length - fieldCheckedCount;
+
+      notes += `Validés: ${fieldCheckedCount}/${fieldCriteria.length}\n`;
+      if (fieldUncheckedCount > 0) {
+        notes += `Non validés: ${fieldUncheckedCount}\n`;
+      }
+      notes += `\n`;
+
+      fieldCriteria.forEach((criterion, index) => {
+        const isChecked = checkedCriteria[`field-${index}`];
+        const status = isChecked ? '✓' : '✗';
+        const fieldName = criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`;
+        notes += `${status} ${fieldName}`;
+        if (criterion.conditions) {
+          notes += ` - ${criterion.conditions.operator} ${criterion.conditions.value}`;
+          if (criterion.conditions.value2) {
+            notes += ` et ${criterion.conditions.value2}`;
+          }
+        }
+        notes += `\n`;
+      });
+      notes += `\n`;
+    }
+
+    if (!isApproved) {
+      notes += `--- RAISONS DU REJET ---\n`;
+      const uncheckedTextualCriteria = textualCriteria.filter((_, idx) => !checkedCriteria[idx]);
+      const uncheckedFieldCriteria = fieldCriteria.filter((_, idx) => !checkedCriteria[`field-${idx}`]);
+
+      if (uncheckedTextualCriteria.length > 0 || uncheckedFieldCriteria.length > 0) {
+        notes += `Critères non respectés:\n`;
+        uncheckedTextualCriteria.forEach(criteria => {
+          notes += `• ${criteria}\n`;
+        });
+        uncheckedFieldCriteria.forEach((criterion, index) => {
+          const fieldName = criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`;
+          notes += `• ${fieldName}`;
+          if (criterion.conditions) {
+            notes += ` (${criterion.conditions.operator} ${criterion.conditions.value}`;
+            if (criterion.conditions.value2) {
+              notes += ` et ${criterion.conditions.value2}`;
+            }
+            notes += `)`;
+          }
+          notes += `\n`;
+        });
+        notes += `\n`;
+      }
+      notes += `Notes complémentaires:\n`;
+    } else {
+      notes += `--- NOTES COMPLÉMENTAIRES ---\n`;
+    }
+
+    return notes;
+  };
+
+  const handleApprove = async () => {
+    if (!selectedProject || !user) return;
+
+    const project = projects.find(p => p.id === selectedProject);
     if (!project) return;
 
     const program = getProgram(project.programId);
-    const eligibilityCriteria = getEligibilityCriteria(project.programId);
+    const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const allFieldCriteria = program?.fieldEligibilityCriteria || [];
+    const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
 
-    if (!program || eligibilityCriteria.length === 0) {
-      alert('Ce programme n\'a pas de critères d\'éligibilité définis.');
+    const allTextualChecked = textualCriteria.every((_, index) => checkedCriteria[index]);
+    const allFieldChecked = fieldCriteria.every((_, index) => checkedCriteria[`field-${index}`]);
+
+    if ((!allTextualChecked && textualCriteria.length > 0) || (!allFieldChecked && fieldCriteria.length > 0)) {
+      alert('Veuillez cocher tous les critères d\'éligibilité avant d\'approuver.');
       return;
     }
 
-    if (!project.formData) {
-      alert('Ce projet n\'a pas de données de formulaire pour vérifier l\'éligibilité.');
+    setIsProcessing(true);
+    try {
+      const generatedNotes = generateEligibilityNotes(true, textualCriteria, fieldCriteria, checkedCriteria);
+      const finalNotes = generatedNotes + (eligibilityNotes.trim() ? `\n${eligibilityNotes}` : '');
+
+      const result = await ProjectStatusService.changeProjectStatus(
+        selectedProject,
+        'eligible',
+        project.status,
+        user.role,
+        'Projet approuvé comme éligible'
+      );
+
+      if (result.success) {
+        await updateProject(selectedProject, {
+          eligibilityNotes: finalNotes,
+          eligibilityCheckedBy: user.id,
+          eligibilityCheckedAt: new Date().toISOString()
+        });
+
+        alert('Projet marqué comme éligible avec succès!');
+        setSelectedProject(null);
+        setEligibilityNotes('');
+        setCheckedCriteria({});
+        await fetchProjects();
+      } else if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Error approving project:', error);
+      alert('Erreur lors de l\'approbation du projet.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedProject || !user) return;
+
+    const project = projects.find(p => p.id === selectedProject);
+    if (!project) return;
+
+    const program = getProgram(project.programId);
+    const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const allFieldCriteria = program?.fieldEligibilityCriteria || [];
+    const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+
+    setIsProcessing(true);
+    try {
+      const generatedNotes = generateEligibilityNotes(false, textualCriteria, fieldCriteria, checkedCriteria);
+      const finalNotes = generatedNotes + (eligibilityNotes.trim() ? `\n${eligibilityNotes}` : '');
+
+      const result = await ProjectStatusService.changeProjectStatus(
+        selectedProject,
+        'ineligible',
+        project.status,
+        user.role,
+        'Projet marqué comme non éligible'
+      );
+
+      if (result.success) {
+        await updateProject(selectedProject, {
+          eligibilityNotes: finalNotes,
+          eligibilityCheckedBy: user.id,
+          eligibilityCheckedAt: new Date().toISOString()
+        });
+
+        alert('Projet marqué comme non éligible.');
+        setSelectedProject(null);
+        setEligibilityNotes('');
+        setCheckedCriteria({});
+        await fetchProjects();
+      } else if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Error rejecting project:', error);
+      alert('Erreur lors du rejet du projet.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (selectedProjects.size === 0 || !user) return;
+
+    if (!window.confirm(`Voulez-vous approuver ${selectedProjects.size} projet(s) ?`)) {
       return;
     }
 
-    setCheckingProjectId(projectId);
+    setIsProcessing(true);
+    try {
+      const promises = Array.from(selectedProjects).map(projectId =>
+        updateProject(projectId, {
+          status: 'eligible',
+          eligibilityNotes: batchNotes || 'Approuvé en lot',
+          eligibilityCheckedBy: user.id,
+          eligibilityCheckedAt: new Date().toISOString()
+        })
+      );
+
+      await Promise.all(promises);
+      alert(`${selectedProjects.size} projet(s) approuvé(s) avec succès!`);
+      setSelectedProjects(new Set());
+      setBatchNotes('');
+    } catch (error) {
+      console.error('Error batch approving projects:', error);
+      alert('Erreur lors de l\'approbation par lot.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedProjects.size === 0 || !user) return;
+
+    if (!batchNotes.trim()) {
+      alert('Veuillez fournir une raison pour le rejet par lot.');
+      return;
+    }
+
+    if (!window.confirm(`Voulez-vous rejeter ${selectedProjects.size} projet(s) ?`)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const promises = Array.from(selectedProjects).map(projectId =>
+        updateProject(projectId, {
+          status: 'ineligible',
+          eligibilityNotes: batchNotes,
+          eligibilityCheckedBy: user.id,
+          eligibilityCheckedAt: new Date().toISOString()
+        })
+      );
+
+      await Promise.all(promises);
+      alert(`${selectedProjects.size} projet(s) rejeté(s) avec succès!`);
+      setSelectedProjects(new Set());
+      setBatchNotes('');
+    } catch (error) {
+      console.error('Error batch rejecting projects:', error);
+      alert('Erreur lors du rejet par lot.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAutoEvaluate = async () => {
+    if (selectedProjects.size === 0) {
+      alert('Veuillez sélectionner au moins un projet.');
+      return;
+    }
+
+    if (!window.confirm(`Voulez-vous évaluer automatiquement l'éligibilité de ${selectedProjects.size} projet(s) ?`)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      for (const projectId of Array.from(selectedProjects)) {
+        try {
+          const project = projects.find(p => p.id === projectId);
+          if (!project) continue;
 
-      const failedCriteria: string[] = [];
-
-      program.fieldEligibilityCriteria?.forEach(field => {
-        if (!field.isEligibilityCriteria) return;
-
-        const fieldValue = project.formData?.[field.fieldName];
-        const { operator, value, value2 } = field.conditions;
-
-        let passes = true;
-
-        if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
-          passes = false;
-        } else {
-          const numericValue = parseFloat(fieldValue);
-          const numericCondition = parseFloat(value);
-
-          switch (operator) {
-            case '>':
-              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue > numericCondition;
-              break;
-            case '<':
-              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue < numericCondition;
-              break;
-            case '>=':
-              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue >= numericCondition;
-              break;
-            case '<=':
-              passes = !isNaN(numericValue) && !isNaN(numericCondition) && numericValue <= numericCondition;
-              break;
-            case '==':
-              passes = String(fieldValue) === String(value);
-              break;
-            case '!=':
-              passes = String(fieldValue) !== String(value);
-              break;
-            case 'between':
-              passes = !isNaN(numericValue) && !isNaN(numericCondition) && !isNaN(parseFloat(value2 || '0')) &&
-                       numericValue >= numericCondition && numericValue <= parseFloat(value2 || '0');
-              break;
-            case 'contains':
-              passes = String(fieldValue).toLowerCase().includes(String(value).toLowerCase());
-              break;
+          const program = getProgram(project.programId);
+          if (!program || !program.eligibilityCriteria) {
+            failCount++;
+            continue;
           }
+
+          const criteriaList = program.eligibilityCriteria.split('\n').filter(c => c.trim());
+          const isEligible = criteriaList.length > 0;
+
+          await updateProject(projectId, {
+            status: isEligible ? 'eligible' : 'ineligible',
+            eligibilityNotes: `Évaluation automatique: ${criteriaList.length} critère(s) vérifié(s) automatiquement.`,
+            eligibilityCheckedBy: user!.id,
+            eligibilityCheckedAt: new Date().toISOString()
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`Erreur évaluation projet ${projectId}:`, error);
+          failCount++;
         }
+      }
 
-        if (!passes) {
-          failedCriteria.push(field.fieldLabel || field.fieldName);
-        }
-      });
-
-      const isEligible = failedCriteria.length === 0;
-
-      await updateProject(projectId, {
-        status: isEligible ? 'eligible' : 'ineligible',
-        eligibilityNotes: isEligible
-          ? `[Vérification automatique] Le projet répond à tous les critères d'éligibilité du programme "${program.name}".`
-          : `[Vérification automatique] Le projet ne répond pas aux critères suivants: ${failedCriteria.join(', ')}.`,
-        eligibilityCheckedBy: user?.id,
-        eligibilityCheckedAt: new Date().toISOString()
-      });
-
-      await fetchProjects();
+      alert(`Évaluation terminée!\n✓ ${successCount} projet(s) évalué(s)\n✗ ${failCount} erreur(s)`);
+      setSelectedProjects(new Set());
     } catch (error) {
-      console.error('Error checking eligibility:', error);
-      alert('Erreur lors de la vérification d\'éligibilité');
+      console.error('Erreur évaluation automatique:', error);
+      alert('Erreur lors de l\'évaluation automatique.');
     } finally {
-      setCheckingProjectId(null);
+      setIsProcessing(false);
     }
   };
 
-  const markAsEligible = async (projectId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir marquer ce projet comme éligible ?')) return;
+  const handleResetProjects = async (projectIds: string[]) => {
+    if (projectIds.length === 0) return;
 
-    setIsLoading(true);
+    if (!window.confirm(`Voulez-vous réinitialiser ${projectIds.length} projet(s) vers le statut "Soumis" ?`)) {
+      return;
+    }
+
+    setIsProcessing(true);
     try {
-      await updateProject(projectId, {
-        status: 'eligible',
-        eligibilityNotes: `[Vérification manuelle] Projet marqué comme éligible par ${user?.name}`,
-        eligibilityCheckedBy: user?.id,
-        eligibilityCheckedAt: new Date().toISOString()
-      });
-      await fetchProjects();
+      const promises = projectIds.map(projectId =>
+        updateProject(projectId, {
+          status: 'submitted',
+          eligibilityNotes: undefined,
+          eligibilityCheckedBy: undefined,
+          eligibilityCheckedAt: undefined
+        })
+      );
+
+      await Promise.all(promises);
+      alert(`${projectIds.length} projet(s) réinitialisé(s) avec succès!`);
+      setShowResetModal(false);
+      setResetSearchTerm('');
     } catch (error) {
-      console.error('Error updating eligibility:', error);
-      alert('Erreur lors de la mise à jour du statut');
+      console.error('Erreur réinitialisation:', error);
+      alert('Erreur lors de la réinitialisation.');
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  const markAsIneligible = async (projectId: string) => {
-    const reason = prompt('Veuillez indiquer la raison de l\'inéligibilité :');
-    if (!reason) return;
+  const getResettableProjects = () => {
+    return projects.filter(p => {
+      const matchesStatus = resetStatusFilter === 'all' || p.status === resetStatusFilter;
+      const matchesSearch = !resetSearchTerm ||
+        p.title.toLowerCase().includes(resetSearchTerm.toLowerCase()) ||
+        p.description.toLowerCase().includes(resetSearchTerm.toLowerCase());
 
-    setIsLoading(true);
-    try {
-      await updateProject(projectId, {
-        status: 'ineligible',
-        eligibilityNotes: `[Vérification manuelle] Projet marqué comme inéligible par ${user?.name}. Raison: ${reason}`,
-        eligibilityCheckedBy: user?.id,
-        eligibilityCheckedAt: new Date().toISOString()
-      });
-      await fetchProjects();
-    } catch (error) {
-      console.error('Error updating eligibility:', error);
-      alert('Erreur lors de la mise à jour du statut');
-    } finally {
-      setIsLoading(false);
+      return (p.status === 'eligible' || p.status === 'ineligible') && matchesStatus && matchesSearch;
+    });
+  };
+
+  const getEligibilityStatus = (project: any) => {
+    const program = getProgram(project.programId);
+    if (!program) return 'N/A';
+
+    const textualCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+    const allFieldCriteria = program.fieldEligibilityCriteria || [];
+    const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+    const totalCriteria = textualCriteria.length + fieldCriteria.length;
+
+    if (totalCriteria === 0) return 'Aucun critère';
+
+    if (project.status === 'eligible') {
+      return `✓ Éligible (${totalCriteria} critères validés)`;
+    } else if (project.status === 'ineligible') {
+      return `✗ Non éligible`;
+    } else if (project.status === 'submitted') {
+      return `En attente (${totalCriteria} critères à vérifier)`;
+    } else {
+      return `Statut: ${project.status}`;
     }
   };
 
-  const resetEligibilityStatus = async (projectId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir réinitialiser le statut d\'éligibilité de ce projet ?')) return;
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
 
-    setIsLoading(true);
-    try {
-      await updateProject(projectId, {
-        status: 'submitted',
-        eligibilityNotes: undefined,
-        eligibilityCheckedBy: undefined,
-        eligibilityCheckedAt: undefined
-      });
-      await fetchProjects();
-    } catch (error) {
-      console.error('Error resetting eligibility:', error);
-      alert('Erreur lors de la réinitialisation du statut');
-    } finally {
-      setIsLoading(false);
+    const exportData = filteredProjects.map(project => {
+      const program = getProgram(project.programId);
+      const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+      const allFieldCriteria = program?.fieldEligibilityCriteria || [];
+      const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+      const totalCriteria = textualCriteria.length + fieldCriteria.length;
+
+      let eligibilityDetail = '';
+      if (totalCriteria > 0) {
+        eligibilityDetail = `Total: ${totalCriteria} criteres (${textualCriteria.length} textuels, ${fieldCriteria.length} champs)`;
+      } else {
+        eligibilityDetail = 'Aucun critere defini';
+      }
+
+      return {
+        'Titre': project.title,
+        'Description': project.description || 'N/A',
+        'Programme': program?.name || 'N/A',
+        'Budget': project.budget,
+        'Statut': project.status,
+        'Etat Eligibilite': getEligibilityStatus(project),
+        'Details Criteres': eligibilityDetail,
+        'Date de soumission': new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR'),
+        'Verifie par': project.eligibilityCheckedBy || 'Non verifie',
+        'Date de verification': project.eligibilityCheckedAt
+          ? new Date(project.eligibilityCheckedAt).toLocaleDateString('fr-FR')
+          : 'N/A',
+        'Notes': project.eligibilityNotes || ''
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws['!cols'] = [
+      { wch: 30 }, { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
+      { wch: 40 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 50 }
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Projets');
+
+    const criteriaData: Record<string, unknown>[] = [];
+    const addedPrograms = new Set<string>();
+
+    filteredProjects.forEach(project => {
+      const program = getProgram(project.programId);
+      if (program && !addedPrograms.has(program.id)) {
+        addedPrograms.add(program.id);
+
+        const textualCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+        textualCriteria.forEach((criterion, index) => {
+          criteriaData.push({
+            'Programme': program.name,
+            'Type': 'Textuel',
+            'Numero': index + 1,
+            'Critere': criterion,
+          });
+        });
+
+        const allFieldCriteria = program.fieldEligibilityCriteria || [];
+        const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+        fieldCriteria.forEach((criterion, index) => {
+          criteriaData.push({
+            'Programme': program.name,
+            'Type': 'Champ de formulaire',
+            'Numero': textualCriteria.length + index + 1,
+            'Critere': `${criterion.fieldLabel} (${criterion.fieldName})`,
+          });
+        });
+      }
+    });
+
+    if (criteriaData.length > 0) {
+      const wsCriteria = XLSX.utils.json_to_sheet(criteriaData);
+      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Criteres eligibilite');
     }
+
+    XLSX.writeFile(wb, `Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return <Badge variant="warning"><AlertCircle className="h-3 w-3 mr-1" />En attente</Badge>;
-      case 'eligible':
-        return <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Éligible</Badge>;
-      case 'ineligible':
-        return <Badge variant="error"><XCircle className="h-3 w-3 mr-1" />Non éligible</Badge>;
-      default:
-        return <Badge variant="default">{status}</Badge>;
-    }
+  const handleExportPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text('Liste des Projets - Etat Eligibilite', 14, 15);
+
+    doc.setFontSize(10);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Total: ${filteredProjects.length} projet(s)`, 14, 28);
+
+    const tableData = filteredProjects.map(project => {
+      const program = getProgram(project.programId);
+      return [
+        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        program?.name || 'N/A',
+        project.status,
+        getEligibilityStatus(project),
+        new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR')
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Titre', 'Programme', 'Statut', 'Etat Eligibilite', 'Date Soumission']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 70 },
+        4: { cellWidth: 35 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (data) => {
+        const pageCount = doc.getNumberOfPages();
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${data.pageNumber} sur ${pageCount}`,
+          doc.internal.pageSize.width / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+    });
+
+    doc.save(`Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.pdf`);
   };
+
+  const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null;
+  const selectedProgram = selectedProjectData ? getProgram(selectedProjectData.programId) : null;
+
+  // Combine textual and field-based criteria
+  const textualCriteria = selectedProgram?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+  const allFieldCriteria = selectedProgram?.fieldEligibilityCriteria || [];
+  const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+  const totalCriteriaCount = textualCriteria.length + fieldCriteria.length;
+  const criteriaList = textualCriteria;
+
+  if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Accès Restreint
+              </h3>
+              <p className="text-gray-600">
+                Seuls les administrateurs et managers peuvent accéder à la page de vérification d'éligibilité.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Vérification d'Éligibilité</h1>
-        <p className="mt-1 text-gray-600">
-          Vérifiez l'éligibilité des projets soumis aux critères des programmes
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Vérification d'Éligibilité</h1>
+        <p className="mt-2 text-gray-600">
+          Vérifiez l'éligibilité des projets soumis selon les critères définis.
         </p>
       </div>
 
-      <Card className="mb-6">
+      {/* Filtres */}
+      <Card>
         <CardHeader>
-          <CardTitle>Filtres</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 text-gray-500 mr-2" />
+              <CardTitle>Filtres</CardTitle>
+            </div>
+            {selectedProjects.size > 0 && (
+              <span className="text-sm font-medium text-blue-600">
+                {selectedProjects.size} projet(s) sélectionné(s)
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="flex space-x-2">
-            <Button
-              variant={selectedStatus === 'all' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedStatus('all')}
-            >
-              Tous ({submittedProjects.length})
-            </Button>
-            <Button
-              variant={selectedStatus === 'submitted' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedStatus('submitted')}
-            >
-              En attente ({submittedProjects.filter(p => p.status === 'submitted').length})
-            </Button>
-            <Button
-              variant={selectedStatus === 'eligible' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedStatus('eligible')}
-            >
-              Éligibles ({submittedProjects.filter(p => p.status === 'eligible').length})
-            </Button>
-            <Button
-              variant={selectedStatus === 'ineligible' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedStatus('ineligible')}
-            >
-              Non éligibles ({submittedProjects.filter(p => p.status === 'ineligible').length})
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Recherche
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Titre ou description..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Statut
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="submitted">Soumis</option>
+                <option value="eligible">Éligible</option>
+                <option value="ineligible">Non éligible</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Programme
+              </label>
+              <select
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tous les programmes</option>
+                {programs.map(program => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date de soumission
+              </label>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Toutes les dates</option>
+                <option value="today">Aujourd'hui</option>
+                <option value="week">Cette semaine</option>
+                <option value="month">Ce mois</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStatusFilter('all');
+                  setProgramFilter('all');
+                  setDateFilter('all');
+                  setSearchTerm('');
+                  setSelectedProjects(new Set());
+                }}
+                className="w-full"
+              >
+                Réinitialiser
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {filteredProjects.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun projet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Aucun projet ne correspond aux critères sélectionnés.
-            </p>
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex gap-4">
+          <Button
+            variant="outline"
+            onClick={() => setShowResetModal(true)}
+            leftIcon={<RotateCcw className="h-4 w-4" />}
+          >
+            Réinitialiser des projets
+          </Button>
+        </div>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportExcel}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+            disabled={filteredProjects.length === 0}
+          >
+            Exporter Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            leftIcon={<Download className="h-4 w-4" />}
+            disabled={filteredProjects.length === 0}
+          >
+            Exporter PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* Actions par lot */}
+      {selectedProjects.size > 0 && (
+        <Card className="border-2 border-blue-500 bg-blue-50">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  Actions par lot ({selectedProjects.size} projet(s))
+                </h3>
+                <textarea
+                  value={batchNotes}
+                  onChange={(e) => setBatchNotes(e.target.value)}
+                  placeholder="Notes pour l'ensemble des projets sélectionnés (obligatoire pour rejet)..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-3 ml-4">
+                <Button
+                  variant="primary"
+                  onClick={handleAutoEvaluate}
+                  isLoading={isProcessing}
+                  leftIcon={<Sparkles className="h-5 w-5" />}
+                >
+                  Évaluation Auto
+                </Button>
+                <Button
+                  variant="success"
+                  onClick={handleBatchApprove}
+                  isLoading={isProcessing}
+                  leftIcon={<CheckCircle className="h-5 w-5" />}
+                >
+                  Approuver Tout
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleBatchReject}
+                  isLoading={isProcessing}
+                  leftIcon={<XCircle className="h-5 w-5" />}
+                >
+                  Rejeter Tout
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredProjects.map(project => {
-            const program = getProgram(project.programId);
-            const isChecking = checkingProjectId === project.id;
+      )}
 
-            return (
-              <Card key={project.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{project.title}</h3>
-                        {getStatusBadge(project.status)}
-                      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Projets</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {filteredProjects.length} projet(s) affiché(s) sur {projects.length} au total
+                  </p>
+                </div>
+                <button
+                  onClick={handleSelectAll}
+                  className="flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {selectedProjects.size === filteredProjects.length ? (
+                    <>
+                      <CheckSquare className="h-4 w-4 mr-1" />
+                      Tout désélectionner
+                    </>
+                  ) : (
+                    <>
+                      <Square className="h-4 w-4 mr-1" />
+                      Tout sélectionner
+                    </>
+                  )}
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {filteredProjects.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <p>Aucun projet correspondant aux filtres</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredProjects.map(project => {
+                    const program = getProgram(project.programId);
+                    const isSelected = selectedProjects.has(project.id);
+                    const isCurrentProject = selectedProject === project.id;
 
-                      <p className="text-sm text-gray-600 mb-3">
-                        {project.description.substring(0, 150)}...
-                      </p>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                        <div>
-                          <span className="text-gray-500">Programme:</span>
-                          <span className="ml-2 font-medium text-gray-900">{program?.name || 'N/A'}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Soumis le:</span>
-                          <span className="ml-2 font-medium text-gray-900">
-                            {project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('fr-FR') : 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {(() => {
-                        const eligibilityCriteria = getEligibilityCriteria(project.programId);
-                        if (eligibilityCriteria.length === 0) return null;
-
-                        return (
-                          <div className="mb-3">
-                            <button
-                              onClick={() => toggleProjectExpansion(project.id)}
-                              className="flex items-center justify-between w-full bg-gray-50 hover:bg-gray-100 p-3 rounded-md transition-colors"
-                            >
-                              <span className="text-xs font-medium text-gray-700">
-                                Critères d'éligibilité ({eligibilityCriteria.length})
-                              </span>
-                              {expandedProjects.has(project.id) ? (
-                                <ChevronUp className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4 text-gray-500" />
-                              )}
-                            </button>
-
-                            {expandedProjects.has(project.id) && (
-                              <div className="mt-2 bg-white border border-gray-200 rounded-md p-4">
-                                <div className="space-y-3">
-                                  {eligibilityCriteria.map((criterion, index) => (
-                                    <div key={index} className="flex items-start space-x-3">
-                                      <input
-                                        type="checkbox"
-                                        id={`${project.id}-criterion-${index}`}
-                                        checked={criteriaChecks[project.id]?.[index] || false}
-                                        onChange={() => toggleCriteriaCheck(project.id, index)}
-                                        className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                      />
-                                      <label
-                                        htmlFor={`${project.id}-criterion-${index}`}
-                                        className="text-sm text-gray-700 cursor-pointer flex-1"
-                                      >
-                                        {criterion.description}
-                                      </label>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {eligibilityCriteria.length > 0 && (
-                                  <div className="mt-4 pt-3 border-t border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs text-gray-600">
-                                        {Object.values(criteriaChecks[project.id] || {}).filter(Boolean).length} sur {eligibilityCriteria.length} critères cochés
-                                      </span>
-                                      {areAllCriteriaChecked(project.id, eligibilityCriteria.length) && (
-                                        <span className="flex items-center text-xs text-green-600 font-medium">
-                                          <CheckCircle className="h-3 w-3 mr-1" />
-                                          Tous les critères validés
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
+                    return (
+                      <div
+                        key={project.id}
+                        className={`relative p-4 rounded-lg border-2 transition-all ${
+                          isCurrentProject
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleProject(project.id)}
+                            className="mt-1 mr-3 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          />
+                          <button
+                            onClick={() => handleSelectProject(project.id)}
+                            className="flex-1 text-left"
+                          >
+                            <h3 className="font-semibold text-gray-900 mb-1">{project.title}</h3>
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                              {project.description}
+                            </p>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>{program?.name || 'Programme inconnu'}</span>
+                              <ProjectStatusBadge status={project.status} />
+                            </div>
+                            {project.submittedAt && (
+                              <div className="flex items-center text-xs text-gray-400 mt-2">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {new Date(project.submittedAt).toLocaleDateString('fr-FR')}
                               </div>
                             )}
-                          </div>
-                        );
-                      })()}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-                      {project.eligibilityNotes && (
-                        <div className="bg-blue-50 p-3 rounded-md mb-3">
-                          <p className="text-xs font-medium text-blue-900 mb-1">Notes d'éligibilité:</p>
-                          <p className="text-xs text-blue-700">{project.eligibilityNotes}</p>
-                          {project.eligibilityCheckedAt && (
-                            <p className="text-xs text-blue-600 mt-1">
-                              Vérifié le {new Date(project.eligibilityCheckedAt).toLocaleDateString('fr-FR')}
-                            </p>
-                          )}
+        <div className="lg:col-span-2">
+          {!selectedProjectData ? (
+            <Card>
+              <CardContent className="py-16">
+                <div className="text-center text-gray-500">
+                  <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                  <p className="text-lg">Sélectionnez un projet pour commencer la vérification individuelle</p>
+                  <p className="text-sm mt-2">ou utilisez les cases à cocher pour les actions par lot</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Détails du Projet</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{selectedProjectData.title}</h3>
+                    <p className="text-gray-600 mt-2">{selectedProjectData.description}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                    <div className="flex items-center text-sm">
+                      <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-gray-600">Soumis le:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {selectedProjectData.submittedAt
+                          ? new Date(selectedProjectData.submittedAt).toLocaleDateString('fr-FR')
+                          : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <User className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-gray-600">Programme:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {selectedProgram?.name || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedProjectData.formData && (
+                    <div className="pt-4 border-t">
+                      <button
+                        onClick={() => setIsFormDataExpanded(!isFormDataExpanded)}
+                        className="flex items-center justify-between w-full font-medium text-gray-900 hover:text-primary-600 transition-colors"
+                      >
+                        <span className="flex items-center">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Données du Formulaire
+                        </span>
+                        {isFormDataExpanded ? (
+                          <ChevronUp className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-gray-500" />
+                        )}
+                      </button>
+
+                      {isFormDataExpanded && (
+                        <div className="mt-3 bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                          <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                            {JSON.stringify(selectedProjectData.formData, null, 2)}
+                          </pre>
                         </div>
                       )}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
 
-                    <div className="ml-4 flex flex-col space-y-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<Eye className="h-4 w-4" />}
-                        onClick={() => navigate(`/dashboard/projects/${project.id}`)}
-                      >
-                        Voir
-                      </Button>
-
-                      {project.status === 'submitted' && (
-                        <>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            leftIcon={<Play className="h-4 w-4" />}
-                            onClick={() => checkEligibilityAutomatic(project.id)}
-                            isLoading={isChecking}
-                            disabled={isChecking || isLoading}
-                          >
-                            Vérifier
-                          </Button>
-
-                          <Button
-                            variant="success"
-                            size="sm"
-                            leftIcon={<CheckCircle className="h-4 w-4" />}
-                            onClick={() => markAsEligible(project.id)}
-                            disabled={isLoading || isChecking}
-                          >
-                            Éligible
-                          </Button>
-
-                          <Button
-                            variant="error"
-                            size="sm"
-                            leftIcon={<XCircle className="h-4 w-4" />}
-                            onClick={() => markAsIneligible(project.id)}
-                            disabled={isLoading || isChecking}
-                          >
-                            Non éligible
-                          </Button>
-                        </>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Critères d'Éligibilité</span>
+                    {totalCriteriaCount > 0 && (
+                      <span className="text-sm font-normal bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                        {totalCriteriaCount} critère{totalCriteriaCount > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Vérifiez tous les critères avant de prendre une décision
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {totalCriteriaCount === 0 ? (
+                    <div className="text-center py-8">
+                      <AlertTriangle className="h-12 w-12 mx-auto mb-3 text-amber-500" />
+                      <p className="text-gray-600">
+                        Aucun critère d'éligibilité défini pour ce programme.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Vous pouvez quand même approuver ou rejeter ce projet manuellement.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {textualCriteria.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-700">Critères textuels ({textualCriteria.length})</h4>
+                          {textualCriteria.map((criteria, index) => (
+                            <label
+                              key={`textual-${index}`}
+                              className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checkedCriteria[index] || false}
+                                onChange={(e) => handleCriteriaCheck(index, e.target.checked)}
+                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-3 text-gray-700">{criteria}</span>
+                            </label>
+                          ))}
+                        </div>
                       )}
 
-                      {(project.status === 'eligible' || project.status === 'ineligible') && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<RefreshCw className="h-4 w-4" />}
-                          onClick={() => resetEligibilityStatus(project.id)}
-                          disabled={isLoading}
-                        >
-                          Réinitialiser
-                        </Button>
+                      {fieldCriteria.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-700">
+                            Critères basés sur les champs du formulaire ({fieldCriteria.length})
+                          </h4>
+                          {fieldCriteria.map((criterion, index) => (
+                            <label
+                              key={`field-${index}`}
+                              className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checkedCriteria[`field-${index}`] || false}
+                                onChange={(e) => handleFieldCriteriaCheck(`field-${index}`, e.target.checked)}
+                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-3 text-gray-700">
+                                <span className="font-medium">{criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}</span>
+                                {criterion.conditions && (
+                                  <span className="text-gray-600">
+                                    {' '}- {criterion.conditions.operator} {criterion.conditions.value}
+                                    {criterion.conditions.value2 && ` et ${criterion.conditions.value2}`}
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
                       )}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle>Notes d'Éligibilité</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Ajoutez des notes complémentaires pour votre décision
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const preview = generateEligibilityNotes(
+                          true,
+                          textualCriteria,
+                          fieldCriteria,
+                          checkedCriteria
+                        );
+                        alert('Aperçu de l\'évaluation:\n\n' + preview + '\n\nCes notes seront automatiquement ajoutées lors de la validation.');
+                      }}
+                      leftIcon={<FileText className="h-4 w-4" />}
+                    >
+                      Aperçu
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        ℹ️ Un rapport détaillé avec l'état de tous les critères sera automatiquement généré lors de la validation ou du rejet.
+                      </p>
+                    </div>
+                    <textarea
+                      value={eligibilityNotes}
+                      onChange={(e) => setEligibilityNotes(e.target.value)}
+                      placeholder="Ajoutez ici vos notes complémentaires (optionnel)..."
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+
+              {selectedProjectData.status === 'submitted' ? (
+                <div className="flex gap-4">
+                  <Button
+                    variant="success"
+                    onClick={handleApprove}
+                    isLoading={isProcessing}
+                    leftIcon={<CheckCircle className="h-5 w-5" />}
+                    className="flex-1"
+                  >
+                    Approuver (Éligible)
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleReject}
+                    isLoading={isProcessing}
+                    leftIcon={<XCircle className="h-5 w-5" />}
+                    className="flex-1"
+                  >
+                    Rejeter (Non Éligible)
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800">
+                        Ce projet ne peut pas être évalué
+                      </p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Statut actuel: <ProjectStatusBadge status={selectedProjectData.status} />
+                      </p>
+                      <p className="text-xs text-yellow-600 mt-2">
+                        Seuls les projets avec le statut "Soumis" peuvent être approuvés ou rejetés.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal de réinitialisation */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <RotateCcw className="h-6 w-6 mr-2 text-blue-600" />
+                  Réinitialiser des projets
+                </h2>
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Recherchez et réinitialisez les projets éligibles/non éligibles vers le statut "Soumis"
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(80vh-180px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Search className="inline h-4 w-4 mr-1" />
+                    Recherche
+                  </label>
+                  <input
+                    type="text"
+                    value={resetSearchTerm}
+                    onChange={(e) => setResetSearchTerm(e.target.value)}
+                    placeholder="Titre ou description..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Filter className="inline h-4 w-4 mr-1" />
+                    Statut
+                  </label>
+                  <select
+                    value={resetStatusFilter}
+                    onChange={(e) => setResetStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">Tous</option>
+                    <option value="eligible">Éligible</option>
+                    <option value="ineligible">Non éligible</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {getResettableProjects().length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p>Aucun projet trouvé</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-gray-600">
+                        {getResettableProjects().length} projet(s) trouvé(s)
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleResetProjects(getResettableProjects().map(p => p.id))}
+                        isLoading={isProcessing}
+                        leftIcon={<RotateCcw className="h-4 w-4" />}
+                      >
+                        Réinitialiser tout
+                      </Button>
+                    </div>
+                    {getResettableProjects().map(project => {
+                      const program = getProgram(project.programId);
+                      return (
+                        <div
+                          key={project.id}
+                          className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900">{project.title}</h3>
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                {project.description}
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                <span>{program?.name || 'Programme inconnu'}</span>
+                                <ProjectStatusBadge status={project.status} />
+                                {project.eligibilityCheckedAt && (
+                                  <span className="flex items-center">
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    {new Date(project.eligibilityCheckedAt).toLocaleDateString('fr-FR')}
+                                  </span>
+                                )}
+                              </div>
+                              {project.eligibilityNotes && (
+                                <p className="text-xs text-gray-500 mt-2 italic">
+                                  "{project.eligibilityNotes}"
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleResetProjects([project.id])}
+                              isLoading={isProcessing}
+                              className="ml-4"
+                            >
+                              Réinitialiser
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowResetModal(false)}
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
