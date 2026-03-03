@@ -5,6 +5,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import {
   Card,
   CardHeader,
@@ -22,6 +24,8 @@ const ProjectsPage: React.FC = () => {
   const { checkPermission } = usePermissions();
   const { addProject, fetchProjects, filterProjectsByUser, deleteProject } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { users, fetchUsers } = useUserManagementStore();
+  const { sectors, fetchSectors } = useActivitySectorStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
@@ -40,7 +44,9 @@ const ProjectsPage: React.FC = () => {
     fetchProjects();
     fetchPrograms();
     fetchPartners();
-  }, [fetchProjects, fetchPrograms, fetchPartners]);
+    fetchUsers();
+    fetchSectors();
+  }, [fetchProjects, fetchPrograms, fetchPartners, fetchUsers, fetchSectors]);
   
   const userProjects = user ? filterProjectsByUser(user) : [];
 
@@ -223,8 +229,8 @@ const ProjectsPage: React.FC = () => {
     }
 
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
-    await exportSubmissionsToExcel({ projects: programProjects, program });
-  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
+    await exportSubmissionsToExcel({ projects: programProjects, program, users, sectors });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects, users, sectors]);
 
   const handleExportPDF = useCallback(async () => {
     if (!selectedProgramForExport) {
@@ -239,8 +245,8 @@ const ProjectsPage: React.FC = () => {
     }
 
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
-    await exportSubmissionsToPDF({ projects: programProjects, program });
-  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
+    await exportSubmissionsToPDF({ projects: programProjects, program, users, sectors });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects, users, sectors]);
 
   const handleQuickExportExcel = useCallback(async () => {
     if (programFilter === 'all') {
@@ -259,8 +265,8 @@ const ProjectsPage: React.FC = () => {
       alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
       return;
     }
-    await exportSubmissionsToExcel({ projects: programProjects, program });
-  }, [programFilter, accessiblePrograms, filteredProjects]);
+    await exportSubmissionsToExcel({ projects: programProjects, program, users, sectors });
+  }, [programFilter, accessiblePrograms, filteredProjects, users, sectors]);
 
   const handleQuickExportPDF = useCallback(async () => {
     if (programFilter === 'all') {
@@ -279,8 +285,8 @@ const ProjectsPage: React.FC = () => {
       alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
       return;
     }
-    await exportSubmissionsToPDF({ projects: programProjects, program });
-  }, [programFilter, accessiblePrograms, filteredProjects]);
+    await exportSubmissionsToPDF({ projects: programProjects, program, users, sectors });
+  }, [programFilter, accessiblePrograms, filteredProjects, users, sectors]);
   
   const getStatusLabel = (status: ProjectStatus): string => {
     const labels: Record<ProjectStatus, string> = {
