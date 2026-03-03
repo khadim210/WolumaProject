@@ -229,42 +229,42 @@ const ProjectDetailPage: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {project.projectDescription && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Description du Projet</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{project.projectDescription}</p>
-                </div>
-              )}
+              <div>
+                <h3 className="text-sm font-medium text-primary-600 mb-2">Description</h3>
+                <p className="text-gray-700 whitespace-pre-wrap">
+                  {project.projectDescription || project.description}
+                </p>
 
-              {!project.projectDescription && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Description</h3>
-                  <p className="text-gray-700">{project.description}</p>
+                <div className="mt-4 flex flex-wrap gap-4">
+                  {project.submitterName && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <User className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-gray-500">Porteur:</span>
+                      <span className="ml-1 font-medium text-gray-900">{project.submitterName}</span>
+                    </div>
+                  )}
+                  {project.activitySectorId && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-gray-500">Secteur:</span>
+                      <span className="ml-1 font-medium text-gray-900">
+                        {getSector(project.activitySectorId)?.name || 'Non defini'}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {(project.submitterPhone || project.activitySectorId || project.projectAgeMonths) && (
+              {(project.submitterPhone || project.projectAgeMonths) && (
                 <div className="pt-4 border-t border-gray-200">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Informations Complementaires</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {project.submitterPhone && (
                       <div className="flex items-center bg-gray-50 p-3 rounded-lg">
                         <Phone className="h-5 w-5 text-blue-500 mr-3" />
                         <div>
                           <div className="text-sm text-gray-500">Telephone</div>
                           <div className="font-medium">{project.submitterPhone}</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {project.activitySectorId && (
-                      <div className="flex items-center bg-gray-50 p-3 rounded-lg">
-                        <Briefcase className="h-5 w-5 text-blue-500 mr-3" />
-                        <div>
-                          <div className="text-sm text-gray-500">Secteur d'activite</div>
-                          <div className="font-medium">
-                            {getSector(project.activitySectorId)?.name || 'Non defini'}
-                          </div>
                         </div>
                       </div>
                     )}
