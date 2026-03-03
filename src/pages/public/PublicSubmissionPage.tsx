@@ -155,9 +155,16 @@ const PublicSubmissionPage: React.FC = () => {
         }
       }
 
+      let sessionUserId: string | undefined;
       if (supabase) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Session after auth:', session ? 'valid' : 'none');
+        console.log('Session user id (auth.uid):', session?.user?.id);
+        console.log('Session user email:', session?.user?.email);
+        sessionUserId = session?.user?.id;
+
         if (!session) {
           throw new Error('La session n\'a pas pu etre etablie. Veuillez reessayer.');
         }
@@ -170,7 +177,19 @@ const PublicSubmissionPage: React.FC = () => {
         throw new Error('Impossible d\'identifier l\'utilisateur');
       }
 
-      console.log('Submitting project with submitterId:', submitterId);
+      console.log('Submitting project with submitterId (users.id):', submitterId);
+      console.log('authUser from store:', authUser);
+      console.log('Session auth.uid:', sessionUserId);
+
+      if (supabase && sessionUserId) {
+        const { data: userCheck } = await supabase
+          .from('users')
+          .select('id, auth_user_id')
+          .eq('id', submitterId)
+          .maybeSingle();
+        console.log('User check from DB:', userCheck);
+        console.log('auth_user_id matches session?', userCheck?.auth_user_id === sessionUserId);
+      }
 
       await addProject({
         title: submitterInfo.projectName,
