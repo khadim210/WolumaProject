@@ -27,6 +27,7 @@ import {
   Building2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import logoImage from '../assets/logo_couleur.png';
 
 interface NavItemProps {
   to: string;
@@ -156,7 +157,7 @@ const DashboardLayout: React.FC = () => {
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center px-4 mb-8">
               <img 
-                src="/logo_couleur.png" 
+                src={logoImage} 
                 alt="Woluma" 
                 className="h-8 w-auto filter brightness-0 invert"
               />
@@ -244,7 +245,7 @@ const DashboardLayout: React.FC = () => {
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
               <div className="flex items-center flex-shrink-0 px-4 mb-8">
                 <img 
-                  src="/logo_couleur.png" 
+                  src={logoImage} 
                   alt="Woluma" 
                   className="h-8 w-auto"
                 />
