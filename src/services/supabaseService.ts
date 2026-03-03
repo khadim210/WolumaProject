@@ -218,15 +218,22 @@ export class UserService {
       throw new Error('Supabase not available');
     }
 
-    // Use regular client with RLS - admins can update all users via RLS policy
     const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Update user error:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Update failed - no data returned. Check RLS policies.');
+    }
+
     return data;
   }
 
