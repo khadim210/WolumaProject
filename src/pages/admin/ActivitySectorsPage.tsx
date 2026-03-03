@@ -3,18 +3,7 @@ import { useActivitySectorStore, ActivitySector } from '../../stores/activitySec
 import { useAuthStore } from '../../stores/authStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  Save,
-  X,
-  Briefcase,
-  AlertTriangle,
-  ArrowUp,
-  ArrowDown,
-  Check
-} from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Save, X, Briefcase, AlertTriangle, ArrowUp, ArrowDown, Check } from 'lucide-react';
 
 const ActivitySectorsPage: React.FC = () => {
   const { user } = useAuthStore();
