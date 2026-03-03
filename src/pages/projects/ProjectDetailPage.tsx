@@ -302,10 +302,10 @@ const ProjectDetailPage: React.FC = () => {
                     </p>
                     <div className="space-y-4">
                       {template.fields.map(field => {
-                        const value = project.formData?.[field.name];
+                        const value = project.formData?.[field.id] ?? project.formData?.[field.name];
 
                         return (
-                          <div key={field.id} className="bg-gray-50 p-4 rounded-lg">
+                          <div key={field.id} className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               {field.label}
                               {field.required && <span className="text-error-500 ml-1">*</span>}
