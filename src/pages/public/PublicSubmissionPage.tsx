@@ -347,7 +347,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="text"
                       value={submitterInfo.name}
                       onChange={(e) => handleSubmitterInfoChange('name', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.name ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Jean Dupont"
@@ -368,7 +368,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="email"
                       value={submitterInfo.email}
                       onChange={(e) => handleSubmitterInfoChange('email', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.email ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="jean@example.com"
@@ -389,7 +389,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="text"
                       value={submitterInfo.organization}
                       onChange={(e) => handleSubmitterInfoChange('organization', e.target.value)}
-                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                       placeholder="Mon Entreprise (optionnel)"
                     />
                   </div>
@@ -407,7 +407,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="password"
                       value={submitterInfo.password}
                       onChange={(e) => handleSubmitterInfoChange('password', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.password ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="••••••••"
@@ -430,7 +430,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="password"
                       value={submitterInfo.confirmPassword}
                       onChange={(e) => handleSubmitterInfoChange('confirmPassword', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="••••••••"
@@ -458,7 +458,7 @@ const PublicSubmissionPage: React.FC = () => {
                   type="text"
                   value={submitterInfo.projectName}
                   onChange={(e) => handleSubmitterInfoChange('projectName', e.target.value)}
-                  className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                     errors.projectName ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Ex: Application mobile de gestion agricole"
@@ -500,7 +500,7 @@ const PublicSubmissionPage: React.FC = () => {
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -511,7 +511,7 @@ const PublicSubmissionPage: React.FC = () => {
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -522,7 +522,7 @@ const PublicSubmissionPage: React.FC = () => {
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -544,6 +544,7 @@ const PublicSubmissionPage: React.FC = () => {
                           }
                           placeholder={field.placeholder || "0"}
                           required={field.required}
+                          className="bg-blue-50"
                         />
                       )}
 
@@ -554,7 +555,7 @@ const PublicSubmissionPage: React.FC = () => {
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
                           rows={4}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -563,7 +564,7 @@ const PublicSubmissionPage: React.FC = () => {
                           required={field.required}
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         >
                           <option value="">Selectionnez une option</option>
                           {field.options.map((option) => (
@@ -635,7 +636,7 @@ const PublicSubmissionPage: React.FC = () => {
                           required={field.required}
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 

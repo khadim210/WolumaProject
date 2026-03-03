@@ -89,6 +89,10 @@
   .form-input {
     @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
   }
+
+  .form-input-light-blue {
+    @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-blue-50;
+  }
   
   .form-label {
     @apply block text-sm font-medium text-gray-700 mb-1;
