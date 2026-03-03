@@ -406,54 +406,207 @@ const EligibilityPage: React.FC = () => {
     }
   };
 
+  const evaluateFieldCriteria = (
+    formData: Record<string, unknown> | undefined,
+    fieldCriteria: Array<{
+      fieldId?: string;
+      fieldName?: string;
+      fieldLabel?: string;
+      conditions?: { operator: string; value: string; value2?: string };
+      isEligibilityCriteria?: boolean;
+    }>
+  ): { passed: number; failed: number; results: Array<{ field: string; passed: boolean; reason: string }> } => {
+    if (!formData || fieldCriteria.length === 0) {
+      return { passed: 0, failed: 0, results: [] };
+    }
+
+    const results: Array<{ field: string; passed: boolean; reason: string }> = [];
+    let passed = 0;
+    let failed = 0;
+
+    for (const criterion of fieldCriteria) {
+      const fieldKey = criterion.fieldId || criterion.fieldName || '';
+      const fieldValue = formData[fieldKey];
+      const fieldLabel = criterion.fieldLabel || criterion.fieldName || fieldKey;
+
+      if (!criterion.conditions) {
+        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+          passed++;
+          results.push({ field: fieldLabel, passed: true, reason: 'Champ renseigne' });
+        } else {
+          failed++;
+          results.push({ field: fieldLabel, passed: false, reason: 'Champ non renseigne' });
+        }
+        continue;
+      }
+
+      const { operator, value, value2 } = criterion.conditions;
+      const numericFieldValue = typeof fieldValue === 'string' ? parseFloat(fieldValue) : (fieldValue as number);
+      const numericValue = parseFloat(value);
+      const numericValue2 = value2 ? parseFloat(value2) : undefined;
+
+      let criterionPassed = false;
+      let reason = '';
+
+      switch (operator) {
+        case 'equals':
+        case '=':
+          criterionPassed = String(fieldValue).toLowerCase() === String(value).toLowerCase();
+          reason = criterionPassed ? `Valeur egale a "${value}"` : `Valeur "${fieldValue}" differente de "${value}"`;
+          break;
+        case 'not_equals':
+        case '!=':
+          criterionPassed = String(fieldValue).toLowerCase() !== String(value).toLowerCase();
+          reason = criterionPassed ? `Valeur differente de "${value}"` : `Valeur egale a "${value}"`;
+          break;
+        case 'greater_than':
+        case '>':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue > numericValue;
+          reason = criterionPassed ? `${numericFieldValue} > ${numericValue}` : `${numericFieldValue} <= ${numericValue}`;
+          break;
+        case 'greater_than_or_equal':
+        case '>=':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue >= numericValue;
+          reason = criterionPassed ? `${numericFieldValue} >= ${numericValue}` : `${numericFieldValue} < ${numericValue}`;
+          break;
+        case 'less_than':
+        case '<':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue < numericValue;
+          reason = criterionPassed ? `${numericFieldValue} < ${numericValue}` : `${numericFieldValue} >= ${numericValue}`;
+          break;
+        case 'less_than_or_equal':
+        case '<=':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue <= numericValue;
+          reason = criterionPassed ? `${numericFieldValue} <= ${numericValue}` : `${numericFieldValue} > ${numericValue}`;
+          break;
+        case 'between':
+          if (numericValue2 !== undefined) {
+            criterionPassed = !isNaN(numericFieldValue) && numericFieldValue >= numericValue && numericFieldValue <= numericValue2;
+            reason = criterionPassed ? `${numericFieldValue} entre ${numericValue} et ${numericValue2}` : `${numericFieldValue} hors de [${numericValue}, ${numericValue2}]`;
+          }
+          break;
+        case 'contains':
+          criterionPassed = String(fieldValue).toLowerCase().includes(String(value).toLowerCase());
+          reason = criterionPassed ? `Contient "${value}"` : `Ne contient pas "${value}"`;
+          break;
+        case 'not_empty':
+          criterionPassed = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+          reason = criterionPassed ? 'Champ renseigne' : 'Champ vide';
+          break;
+        default:
+          criterionPassed = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+          reason = criterionPassed ? 'Champ renseigne' : 'Champ non renseigne';
+      }
+
+      if (criterionPassed) {
+        passed++;
+      } else {
+        failed++;
+      }
+      results.push({ field: fieldLabel, passed: criterionPassed, reason });
+    }
+
+    return { passed, failed, results };
+  };
+
   const handleAutoEvaluate = async () => {
     if (selectedProjects.size === 0) {
-      alert('Veuillez sélectionner au moins un projet.');
+      alert('Veuillez selectionner au moins un projet.');
       return;
     }
 
-    if (!window.confirm(`Voulez-vous évaluer automatiquement l'éligibilité de ${selectedProjects.size} projet(s) ?`)) {
+    if (!window.confirm(`Voulez-vous evaluer automatiquement l'eligibilite de ${selectedProjects.size} projet(s) ?`)) {
       return;
     }
 
     setIsProcessing(true);
     let successCount = 0;
     let failCount = 0;
+    const evaluationDetails: string[] = [];
 
     try {
       for (const projectId of Array.from(selectedProjects)) {
         try {
           const project = projects.find(p => p.id === projectId);
-          if (!project) continue;
-
-          const program = getProgram(project.programId);
-          if (!program || !program.eligibilityCriteria) {
+          if (!project) {
             failCount++;
+            evaluationDetails.push(`${projectId}: Projet non trouve`);
             continue;
           }
 
-          const criteriaList = program.eligibilityCriteria.split('\n').filter(c => c.trim());
-          const isEligible = criteriaList.length > 0;
+          const program = getProgram(project.programId);
+          if (!program) {
+            failCount++;
+            evaluationDetails.push(`${project.title}: Programme non trouve`);
+            continue;
+          }
+
+          const textualCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+          const allFieldCriteria = program.fieldEligibilityCriteria || [];
+          const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+          const totalCriteria = textualCriteria.length + fieldCriteria.length;
+
+          if (totalCriteria === 0) {
+            failCount++;
+            evaluationDetails.push(`${project.title}: Aucun critere d'eligibilite defini`);
+            continue;
+          }
+
+          const fieldEvaluation = evaluateFieldCriteria(
+            project.formData as Record<string, unknown> | undefined,
+            fieldCriteria
+          );
+
+          const fieldCriteriaPassed = fieldEvaluation.failed === 0;
+          const isEligible = fieldCriteriaPassed;
+
+          let notes = `=== EVALUATION AUTOMATIQUE D'ELIGIBILITE ===\n`;
+          notes += `Date: ${new Date().toLocaleString('fr-FR')}\n`;
+          notes += `Decision: ${isEligible ? 'ELIGIBLE' : 'NON ELIGIBLE'}\n\n`;
+
+          if (textualCriteria.length > 0) {
+            notes += `--- CRITERES TEXTUELS (${textualCriteria.length}) ---\n`;
+            notes += `Note: Les criteres textuels necessitent une verification manuelle.\n`;
+            textualCriteria.forEach((c, i) => {
+              notes += `${i + 1}. ${c}\n`;
+            });
+            notes += `\n`;
+          }
+
+          if (fieldCriteria.length > 0) {
+            notes += `--- CRITERES DE CHAMPS (${fieldCriteria.length}) ---\n`;
+            notes += `Valides: ${fieldEvaluation.passed}/${fieldCriteria.length}\n`;
+            if (fieldEvaluation.failed > 0) {
+              notes += `Echoues: ${fieldEvaluation.failed}\n`;
+            }
+            notes += `\n`;
+            fieldEvaluation.results.forEach(r => {
+              const status = r.passed ? 'OK' : 'ECHEC';
+              notes += `[${status}] ${r.field}: ${r.reason}\n`;
+            });
+          }
 
           await updateProject(projectId, {
             status: isEligible ? 'eligible' : 'ineligible',
-            eligibilityNotes: `Évaluation automatique: ${criteriaList.length} critère(s) vérifié(s) automatiquement.`,
+            eligibilityNotes: notes,
             eligibilityCheckedBy: user!.id,
             eligibilityCheckedAt: new Date().toISOString()
           });
 
           successCount++;
+          evaluationDetails.push(`${project.title}: ${isEligible ? 'Eligible' : 'Non eligible'}`);
         } catch (error) {
-          console.error(`Erreur évaluation projet ${projectId}:`, error);
+          console.error(`Erreur evaluation projet ${projectId}:`, error);
           failCount++;
         }
       }
 
-      alert(`Évaluation terminée!\n✓ ${successCount} projet(s) évalué(s)\n✗ ${failCount} erreur(s)`);
+      await fetchProjects();
+      alert(`Evaluation terminee!\n${successCount} projet(s) evalue(s)\n${failCount} erreur(s)`);
       setSelectedProjects(new Set());
     } catch (error) {
-      console.error('Erreur évaluation automatique:', error);
-      alert('Erreur lors de l\'évaluation automatique.');
+      console.error('Erreur evaluation automatique:', error);
+      alert('Erreur lors de l\'evaluation automatique.');
     } finally {
       setIsProcessing(false);
     }
