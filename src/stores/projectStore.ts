@@ -193,7 +193,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (updates.formData) supabaseUpdates.form_data = updates.formData;
       if (updates.recommendedStatus) supabaseUpdates.recommended_status = updates.recommendedStatus;
       if (updates.manuallySubmitted !== undefined) supabaseUpdates.manually_submitted = updates.manuallySubmitted;
-      
+      if (updates.eligibilityNotes !== undefined) supabaseUpdates.eligibility_notes = updates.eligibilityNotes;
+      if (updates.eligibilityCheckedBy !== undefined) supabaseUpdates.eligibility_checked_by = updates.eligibilityCheckedBy;
+      if (updates.eligibilityCheckedAt !== undefined) supabaseUpdates.eligibility_checked_at = updates.eligibilityCheckedAt;
+      if (updates.projectDescription !== undefined) supabaseUpdates.project_description = updates.projectDescription;
+      if (updates.projectAgeMonths !== undefined) supabaseUpdates.project_age_months = updates.projectAgeMonths;
+      if (updates.activitySectorId !== undefined) supabaseUpdates.activity_sector_id = updates.activitySectorId;
+      if (updates.submitterPhone !== undefined) supabaseUpdates.submitter_phone = updates.submitterPhone;
+      if (updates.submitterName !== undefined) supabaseUpdates.submitter_name = updates.submitterName;
+
       const supabaseProject = await ProjectService.updateProject(id, supabaseUpdates);
       const updatedProject = convertSupabaseProject(supabaseProject);
       

@@ -24,7 +24,10 @@ import {
   Download,
   FileSpreadsheet,
   Phone,
-  Briefcase
+  Briefcase,
+  Edit3,
+  Save,
+  X
 } from 'lucide-react';
 import { ProjectStatusService } from '../../services/projectStatusService';
 
@@ -44,6 +47,8 @@ const EligibilityPage: React.FC = () => {
   const [resetSearchTerm, setResetSearchTerm] = useState('');
   const [isFormDataExpanded, setIsFormDataExpanded] = useState(false);
   const [resetStatusFilter, setResetStatusFilter] = useState<string>('eligible');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<Record<string, any>>({});
 
   // Filtres
   const [programFilter, setProgramFilter] = useState<string>('all');
@@ -658,6 +663,60 @@ const EligibilityPage: React.FC = () => {
     });
   };
 
+  const handleOpenEditModal = () => {
+    if (!selectedProjectData) return;
+    setEditFormData({
+      title: selectedProjectData.title || '',
+      description: selectedProjectData.description || '',
+      budget: selectedProjectData.budget || 0,
+      submitterPhone: selectedProjectData.submitterPhone || '',
+      submitterName: selectedProjectData.submitterName || '',
+      projectDescription: selectedProjectData.projectDescription || '',
+      projectAgeMonths: selectedProjectData.projectAgeMonths || '',
+      activitySectorId: selectedProjectData.activitySectorId || '',
+      formData: selectedProjectData.formData || {}
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveProjectEdit = async () => {
+    if (!selectedProject || !selectedProjectData) return;
+
+    setIsProcessing(true);
+    try {
+      await updateProject(selectedProject, {
+        title: editFormData.title,
+        description: editFormData.description,
+        budget: Number(editFormData.budget),
+        submitterPhone: editFormData.submitterPhone || undefined,
+        submitterName: editFormData.submitterName || undefined,
+        projectDescription: editFormData.projectDescription || undefined,
+        projectAgeMonths: editFormData.projectAgeMonths ? Number(editFormData.projectAgeMonths) : undefined,
+        activitySectorId: editFormData.activitySectorId || undefined,
+        formData: editFormData.formData
+      });
+
+      await fetchProjects();
+      setShowEditModal(false);
+      alert('Projet mis a jour avec succes!');
+    } catch (error) {
+      console.error('Erreur mise a jour projet:', error);
+      alert('Erreur lors de la mise a jour du projet.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFormDataFieldChange = (fieldKey: string, value: any) => {
+    setEditFormData(prev => ({
+      ...prev,
+      formData: {
+        ...prev.formData,
+        [fieldKey]: value
+      }
+    }));
+  };
+
   const getEligibilityStatus = (project: any) => {
     const program = getProgram(project.programId);
     if (!program) return 'N/A';
@@ -1142,7 +1201,20 @@ const EligibilityPage: React.FC = () => {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Détails du Projet</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Détails du Projet</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <ProjectStatusBadge status={selectedProjectData.status} />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenEditModal}
+                        leftIcon={<Edit3 className="h-4 w-4" />}
+                      >
+                        Modifier
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -1649,6 +1721,202 @@ const EligibilityPage: React.FC = () => {
                 onClick={() => setShowResetModal(false)}
               >
                 Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && selectedProjectData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <Edit3 className="h-6 w-6 mr-2 text-blue-600" />
+                  Modifier le projet
+                </h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Modifiez les informations du projet "{selectedProjectData.title}"
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Titre du projet
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.title || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description courte
+                  </label>
+                  <textarea
+                    value={editFormData.description || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Budget (FCFA)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.budget || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, budget: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom du soumetteur
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.submitterName || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, submitterName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telephone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editFormData.submitterPhone || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, submitterPhone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Age du projet (mois)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.projectAgeMonths || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, projectAgeMonths: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Secteur d'activite
+                  </label>
+                  <select
+                    value={editFormData.activitySectorId || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, activitySectorId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Selectionner un secteur</option>
+                    {sectors.map(sector => (
+                      <option key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description detaillee du projet
+                  </label>
+                  <textarea
+                    value={editFormData.projectDescription || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {editFormData.formData && Object.keys(editFormData.formData).length > 0 && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                    Donnees du formulaire
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(editFormData.formData).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {key}
+                        </label>
+                        {typeof value === 'boolean' ? (
+                          <select
+                            value={value ? 'true' : 'false'}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value === 'true')}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                          </select>
+                        ) : typeof value === 'number' ? (
+                          <input
+                            type="number"
+                            value={value}
+                            onChange={(e) => handleFormDataFieldChange(key, Number(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : typeof value === 'string' && value.length > 100 ? (
+                          <textarea
+                            value={value as string}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={String(value || '')}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveProjectEdit}
+                isLoading={isProcessing}
+                leftIcon={<Save className="h-4 w-4" />}
+              >
+                Enregistrer
               </Button>
             </div>
           </div>
