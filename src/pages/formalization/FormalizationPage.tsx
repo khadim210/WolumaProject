@@ -5,24 +5,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import {
-  FileText,
-  GraduationCap,
-  DollarSign,
-  Archive,
-  Shield,
-  Plus,
-  Download,
-  Upload,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Edit,
-  Trash2,
-  AlertCircle,
-  Printer,
-  FileSpreadsheet
-} from 'lucide-react';
+import { FileText, GraduationCap, DollarSign, Archive, Shield, Plus, Download, Upload, CheckCircle, XCircle, Clock, CreditCard as Edit, Trash2, AlertCircle, Printer, FileSpreadsheet } from 'lucide-react';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
