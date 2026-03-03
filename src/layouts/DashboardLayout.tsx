@@ -23,7 +23,8 @@ import {
   History,
   BookOpen,
   Briefcase,
-  Sliders
+  Sliders,
+  Building2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -56,15 +57,15 @@ interface NavSubMenuProps {
   icon: React.ReactNode;
   label: string;
   children: React.ReactNode;
+  paths: string[];
   defaultOpen?: boolean;
 }
 
-const NavSubMenu: React.FC<NavSubMenuProps> = ({ icon, label, children, defaultOpen = false }) => {
+const NavSubMenu: React.FC<NavSubMenuProps> = ({ icon, label, children, paths, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const location = useLocation();
 
-  const subMenuPaths = ['/dashboard/parameters', '/dashboard/activity-sectors', '/dashboard/users', '/dashboard/status-history', '/dashboard/user-manual'];
-  const isActiveParent = subMenuPaths.some(path => location.pathname.startsWith(path));
+  const isActiveParent = paths.some(path => location.pathname.startsWith(path));
 
   React.useEffect(() => {
     if (isActiveParent) {
@@ -165,15 +166,21 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('dashboard.view') && (
                 <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
               )}
-              {checkPermission('form_templates.view') && (
-                <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modeles de formulaires" onClick={() => setSidebarOpen(false)} />
+
+              {(checkPermission('parameters.edit') || checkPermission('form_templates.view')) && (
+                <NavSubMenu icon={<Building2 />} label="Organisation" paths={['/dashboard/programs', '/dashboard/partners', '/dashboard/form-templates']}>
+                  {checkPermission('parameters.edit') && (
+                    <SubNavItem to="/dashboard/programs" icon={<Target />} label="Programmes" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  {checkPermission('parameters.edit') && (
+                    <SubNavItem to="/dashboard/partners" icon={<Building />} label="Partenaires" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  {checkPermission('form_templates.view') && (
+                    <SubNavItem to="/dashboard/form-templates" icon={<FileInput />} label="Formulaires" onClick={() => setSidebarOpen(false)} />
+                  )}
+                </NavSubMenu>
               )}
-              {checkPermission('parameters.edit') && (
-                <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
-              )}
-              {checkPermission('parameters.edit') && (
-                <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" onClick={() => setSidebarOpen(false)} />
-              )}
+
               {checkPermission('projects.view') && (
                 <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" onClick={() => setSidebarOpen(false)} />
               )}
@@ -194,7 +201,7 @@ const DashboardLayout: React.FC = () => {
               )}
 
               {checkPermission('parameters.view') && (
-                <NavSubMenu icon={<Settings />} label="Parametres">
+                <NavSubMenu icon={<Settings />} label="Parametres" paths={['/dashboard/parameters', '/dashboard/activity-sectors', '/dashboard/users', '/dashboard/status-history', '/dashboard/user-manual']}>
                   <SubNavItem to="/dashboard/parameters" icon={<Sliders />} label="Configuration" onClick={() => setSidebarOpen(false)} />
                   {checkPermission('parameters.edit') && (
                     <SubNavItem to="/dashboard/activity-sectors" icon={<Briefcase />} label="Secteurs d'activite" onClick={() => setSidebarOpen(false)} />
@@ -246,15 +253,21 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('dashboard.view') && (
                   <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
                 )}
-                {checkPermission('form_templates.view') && (
-                  <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modeles de formulaires" />
+
+                {(checkPermission('parameters.edit') || checkPermission('form_templates.view')) && (
+                  <NavSubMenu icon={<Building2 />} label="Organisation" paths={['/dashboard/programs', '/dashboard/partners', '/dashboard/form-templates']}>
+                    {checkPermission('parameters.edit') && (
+                      <SubNavItem to="/dashboard/programs" icon={<Target />} label="Programmes" />
+                    )}
+                    {checkPermission('parameters.edit') && (
+                      <SubNavItem to="/dashboard/partners" icon={<Building />} label="Partenaires" />
+                    )}
+                    {checkPermission('form_templates.view') && (
+                      <SubNavItem to="/dashboard/form-templates" icon={<FileInput />} label="Formulaires" />
+                    )}
+                  </NavSubMenu>
                 )}
-                {checkPermission('parameters.edit') && (
-                  <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" />
-                )}
-                {checkPermission('parameters.edit') && (
-                  <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" />
-                )}
+
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" />
                 )}
@@ -272,7 +285,7 @@ const DashboardLayout: React.FC = () => {
                 )}
 
                 {checkPermission('parameters.view') && (
-                  <NavSubMenu icon={<Settings />} label="Parametres">
+                  <NavSubMenu icon={<Settings />} label="Parametres" paths={['/dashboard/parameters', '/dashboard/activity-sectors', '/dashboard/users', '/dashboard/status-history', '/dashboard/user-manual']}>
                     <SubNavItem to="/dashboard/parameters" icon={<Sliders />} label="Configuration" />
                     {checkPermission('parameters.edit') && (
                       <SubNavItem to="/dashboard/activity-sectors" icon={<Briefcase />} label="Secteurs d'activite" />
