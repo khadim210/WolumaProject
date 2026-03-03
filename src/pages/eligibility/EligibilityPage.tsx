@@ -1243,30 +1243,138 @@ const EligibilityPage: React.FC = () => {
                       {fieldCriteria.length > 0 && (
                         <div className="space-y-3">
                           <h4 className="text-sm font-medium text-gray-700">
-                            Critères basés sur les champs du formulaire ({fieldCriteria.length})
+                            Criteres bases sur les champs du formulaire ({fieldCriteria.length})
                           </h4>
-                          {fieldCriteria.map((criterion, index) => (
-                            <label
-                              key={`field-${index}`}
-                              className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checkedCriteria[`field-${index}`] || false}
-                                onChange={(e) => handleFieldCriteriaCheck(`field-${index}`, e.target.checked)}
-                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                              />
-                              <span className="ml-3 text-gray-700">
-                                <span className="font-medium">{criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}</span>
-                                {criterion.conditions && (
-                                  <span className="text-gray-600">
-                                    {' '}- {criterion.conditions.operator} {criterion.conditions.value}
-                                    {criterion.conditions.value2 && ` et ${criterion.conditions.value2}`}
-                                  </span>
-                                )}
-                              </span>
-                            </label>
-                          ))}
+                          {fieldCriteria.map((criterion, index) => {
+                            const fieldKey = criterion.fieldId || criterion.fieldName || '';
+                            const formData = selectedProjectData?.formData as Record<string, unknown> | undefined;
+                            const fieldValue = formData?.[fieldKey];
+                            const displayValue = fieldValue !== undefined && fieldValue !== null && fieldValue !== ''
+                              ? String(fieldValue)
+                              : '(non renseigne)';
+
+                            const getOperatorLabel = (op: string) => {
+                              const labels: Record<string, string> = {
+                                'equals': 'doit etre egal a',
+                                '=': 'doit etre egal a',
+                                'not_equals': 'doit etre different de',
+                                '!=': 'doit etre different de',
+                                'greater_than': 'doit etre superieur a',
+                                '>': 'doit etre superieur a',
+                                'greater_than_or_equal': 'doit etre superieur ou egal a',
+                                '>=': 'doit etre superieur ou egal a',
+                                'less_than': 'doit etre inferieur a',
+                                '<': 'doit etre inferieur a',
+                                'less_than_or_equal': 'doit etre inferieur ou egal a',
+                                '<=': 'doit etre inferieur ou egal a',
+                                'between': 'doit etre compris entre',
+                                'contains': 'doit contenir',
+                                'not_empty': 'doit etre renseigne',
+                                'in': 'in'
+                              };
+                              return labels[op] || op;
+                            };
+
+                            let meetsCondition = false;
+                            if (criterion.conditions && fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                              const { operator, value, value2 } = criterion.conditions;
+                              const numericFieldValue = typeof fieldValue === 'string' ? parseFloat(fieldValue) : (fieldValue as number);
+                              const numericValue = parseFloat(value);
+                              const numericValue2 = value2 ? parseFloat(value2) : undefined;
+
+                              switch (operator) {
+                                case 'equals':
+                                case '=':
+                                  meetsCondition = String(fieldValue).toLowerCase() === String(value).toLowerCase();
+                                  break;
+                                case 'not_equals':
+                                case '!=':
+                                  meetsCondition = String(fieldValue).toLowerCase() !== String(value).toLowerCase();
+                                  break;
+                                case 'greater_than':
+                                case '>':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue > numericValue;
+                                  break;
+                                case 'greater_than_or_equal':
+                                case '>=':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue >= numericValue;
+                                  break;
+                                case 'less_than':
+                                case '<':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue < numericValue;
+                                  break;
+                                case 'less_than_or_equal':
+                                case '<=':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue <= numericValue;
+                                  break;
+                                case 'between':
+                                  if (numericValue2 !== undefined) {
+                                    meetsCondition = !isNaN(numericFieldValue) && numericFieldValue >= numericValue && numericFieldValue <= numericValue2;
+                                  }
+                                  break;
+                                case 'contains':
+                                  meetsCondition = String(fieldValue).toLowerCase().includes(String(value).toLowerCase());
+                                  break;
+                                case 'not_empty':
+                                  meetsCondition = true;
+                                  break;
+                                case 'in':
+                                  const allowedValues = value.split(',').map(v => v.trim().toLowerCase());
+                                  meetsCondition = allowedValues.includes(String(fieldValue).toLowerCase());
+                                  break;
+                                default:
+                                  meetsCondition = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+                              }
+                            } else if (!criterion.conditions && fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                              meetsCondition = true;
+                            }
+
+                            return (
+                              <label
+                                key={`field-${index}`}
+                                className={`flex items-start p-3 rounded-lg border cursor-pointer transition-colors ${
+                                  meetsCondition
+                                    ? 'border-green-300 bg-green-50 hover:bg-green-100'
+                                    : 'border-red-300 bg-red-50 hover:bg-red-100'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checkedCriteria[`field-${index}`] || false}
+                                  onChange={(e) => handleFieldCriteriaCheck(`field-${index}`, e.target.checked)}
+                                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-gray-900">
+                                      {criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}
+                                    </span>
+                                    {meetsCondition ? (
+                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 text-red-600" />
+                                    )}
+                                  </div>
+                                  {criterion.conditions && (
+                                    <div className="text-sm text-gray-600 mt-1">
+                                      <span className="italic">{getOperatorLabel(criterion.conditions.operator)}</span>
+                                      {' '}<span className="font-medium">{criterion.conditions.value}</span>
+                                      {criterion.conditions.value2 && (
+                                        <span> et <span className="font-medium">{criterion.conditions.value2}</span></span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className={`text-sm mt-1 px-2 py-1 rounded inline-block ${
+                                    meetsCondition
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    <span className="font-medium">Valeur actuelle:</span> {displayValue}
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
