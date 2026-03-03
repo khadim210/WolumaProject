@@ -20,7 +20,8 @@ import {
   Building,
   ClipboardCheck,
   History,
-  BookOpen
+  BookOpen,
+  Briefcase
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -125,11 +126,14 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('parameters.edit') && (
                 <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" onClick={() => setSidebarOpen(false)} />
               )}
+              {checkPermission('parameters.edit') && (
+                <NavItem to="/dashboard/activity-sectors" icon={<Briefcase />} label="Secteurs d'activite" onClick={() => setSidebarOpen(false)} />
+              )}
               {checkPermission('users.view') && (
                 <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('parameters.view') && (
-                <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
+                <NavItem to="/dashboard/parameters" icon={<Settings />} label="Parametres" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('status_history.view') && (
                 <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" onClick={() => setSidebarOpen(false)} />
@@ -181,6 +185,9 @@ const DashboardLayout: React.FC = () => {
                 )}
                 {checkPermission('parameters.edit') && (
                   <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" />
+                )}
+                {checkPermission('parameters.edit') && (
+                  <NavItem to="/dashboard/activity-sectors" icon={<Briefcase />} label="Secteurs d'activite" />
                 )}
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" />

@@ -46,6 +46,10 @@ export interface Project {
   formData?: Record<string, any>;
   recommendedStatus?: ProjectStatus;
   manuallySubmitted?: boolean;
+  projectDescription?: string;
+  projectAgeMonths?: number;
+  activitySectorId?: string;
+  submitterPhone?: string;
 }
 
 const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
@@ -75,7 +79,11 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   tags: supabaseProject.tags,
   formData: supabaseProject.form_data,
   recommendedStatus: supabaseProject.recommended_status as ProjectStatus,
-  manuallySubmitted: supabaseProject.manually_submitted
+  manuallySubmitted: supabaseProject.manually_submitted,
+  projectDescription: supabaseProject.project_description,
+  projectAgeMonths: supabaseProject.project_age_months,
+  activitySectorId: supabaseProject.activity_sector_id,
+  submitterPhone: supabaseProject.submitter_phone
 });
 
 interface ProjectState {
@@ -137,7 +145,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         tags: projectData.tags,
         form_data: projectData.formData,
         recommended_status: projectData.recommendedStatus,
-        manually_submitted: projectData.manuallySubmitted || false
+        manually_submitted: projectData.manuallySubmitted || false,
+        project_description: projectData.projectDescription,
+        project_age_months: projectData.projectAgeMonths,
+        activity_sector_id: projectData.activitySectorId,
+        submitter_phone: projectData.submitterPhone
       });
       
       const newProject = convertSupabaseProject(supabaseProject);

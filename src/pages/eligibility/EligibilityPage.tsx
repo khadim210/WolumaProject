@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
@@ -21,7 +22,9 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Phone,
+  Briefcase
 } from 'lucide-react';
 import { ProjectStatusService } from '../../services/projectStatusService';
 
@@ -29,6 +32,7 @@ const EligibilityPage: React.FC = () => {
   const { user } = useAuthStore();
   const { projects, fetchProjects, updateProject } = useProjectStore();
   const { programs, fetchPrograms } = useProgramStore();
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
@@ -50,7 +54,8 @@ const EligibilityPage: React.FC = () => {
   useEffect(() => {
     fetchProjects();
     fetchPrograms();
-  }, [fetchProjects, fetchPrograms]);
+    fetchSectors();
+  }, [fetchProjects, fetchPrograms, fetchSectors]);
 
   const getProgram = (programId: string) => {
     return programs.find(p => p.id === programId);
@@ -1163,6 +1168,49 @@ const EligibilityPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {(selectedProjectData.submitterPhone || selectedProjectData.activitySectorId || selectedProjectData.projectAgeMonths) && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t bg-blue-50 p-3 rounded-lg">
+                      {selectedProjectData.submitterPhone && (
+                        <div className="flex items-center text-sm">
+                          <Phone className="h-4 w-4 text-blue-500 mr-2" />
+                          <div>
+                            <span className="text-gray-600">Telephone:</span>
+                            <span className="ml-2 font-medium text-gray-900">{selectedProjectData.submitterPhone}</span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedProjectData.activitySectorId && (
+                        <div className="flex items-center text-sm">
+                          <Briefcase className="h-4 w-4 text-blue-500 mr-2" />
+                          <div>
+                            <span className="text-gray-600">Secteur:</span>
+                            <span className="ml-2 font-medium text-gray-900">
+                              {getSector(selectedProjectData.activitySectorId)?.name || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedProjectData.projectAgeMonths !== undefined && selectedProjectData.projectAgeMonths !== null && (
+                        <div className="flex items-center text-sm">
+                          <Calendar className="h-4 w-4 text-blue-500 mr-2" />
+                          <div>
+                            <span className="text-gray-600">Age du projet:</span>
+                            <span className="ml-2 font-medium text-gray-900">{selectedProjectData.projectAgeMonths} mois</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedProjectData.projectDescription && (
+                    <div className="pt-4 border-t">
+                      <h4 className="font-medium text-gray-900 mb-2">Description du projet</h4>
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
+                        {selectedProjectData.projectDescription}
+                      </p>
+                    </div>
+                  )}
 
                   {selectedProjectData.formData && (
                     <div className="pt-4 border-t">

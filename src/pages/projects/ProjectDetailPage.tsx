@@ -5,6 +5,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import {
   Card,
   CardHeader,
@@ -16,7 +17,7 @@ import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
 import FileLink from '../../components/projects/FileLink';
-import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink, Phone, Briefcase, User } from 'lucide-react';
 import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
@@ -30,6 +31,7 @@ const ProjectDetailPage: React.FC = () => {
   const { projects, getProject, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
   
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,12 +42,12 @@ const ProjectDetailPage: React.FC = () => {
     const loadData = async () => {
       console.log('📄 ProjectDetailPage: Fetching fresh data from Supabase...');
 
-      // Fetch fresh data from Supabase
       await Promise.all([
         fetchPrograms(),
         fetchPartners(),
         fetchTemplates(),
-        fetchProjects() // ✅ Reload projects from database
+        fetchProjects(),
+        fetchSectors()
       ]);
 
       if (id) {
@@ -227,11 +229,61 @@ const ProjectDetailPage: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Description</h3>
-                <p className="text-gray-700">{project.description}</p>
-              </div>
-              
+              {project.projectDescription && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Description du Projet</h3>
+                  <p className="text-gray-700 whitespace-pre-wrap">{project.projectDescription}</p>
+                </div>
+              )}
+
+              {!project.projectDescription && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Description</h3>
+                  <p className="text-gray-700">{project.description}</p>
+                </div>
+              )}
+
+              {(project.submitterPhone || project.activitySectorId || project.projectAgeMonths) && (
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Informations Complementaires</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {project.submitterPhone && (
+                      <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+                        <Phone className="h-5 w-5 text-blue-500 mr-3" />
+                        <div>
+                          <div className="text-sm text-gray-500">Telephone</div>
+                          <div className="font-medium">{project.submitterPhone}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {project.activitySectorId && (
+                      <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+                        <Briefcase className="h-5 w-5 text-blue-500 mr-3" />
+                        <div>
+                          <div className="text-sm text-gray-500">Secteur d'activite</div>
+                          <div className="font-medium">
+                            {getSector(project.activitySectorId)?.name || 'Non defini'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {project.projectAgeMonths !== undefined && project.projectAgeMonths !== null && (
+                      <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+                        <Calendar className="h-5 w-5 text-blue-500 mr-3" />
+                        <div>
+                          <div className="text-sm text-gray-500">Age du projet</div>
+                          <div className="font-medium">
+                            {project.projectAgeMonths} mois
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center">
                   <DollarSign className="h-5 w-5 text-gray-400 mr-2" />
@@ -245,19 +297,19 @@ const ProjectDetailPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center">
                   <Clock className="h-5 w-5 text-gray-400 mr-2" />
                   <div>
-                    <div className="text-sm text-gray-500">Durée</div>
+                    <div className="text-sm text-gray-500">Duree</div>
                     <div className="font-medium">{project.timeline}</div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center">
                   <Calendar className="h-5 w-5 text-gray-400 mr-2" />
                   <div>
-                    <div className="text-sm text-gray-500">Créé le</div>
+                    <div className="text-sm text-gray-500">Cree le</div>
                     <div className="font-medium">{project.createdAt.toLocaleDateString()}</div>
                   </div>
                 </div>

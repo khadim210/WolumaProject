@@ -4,6 +4,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import { supabase } from '../../services/supabaseService';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -16,7 +17,10 @@ import {
   Mail,
   Lock,
   Building,
-  FolderOpen
+  FolderOpen,
+  Phone,
+  Calendar,
+  Briefcase
 } from 'lucide-react';
 import CurrencyInput from '../../components/ui/CurrencyInput';
 
@@ -28,30 +32,38 @@ const PublicSubmissionPage: React.FC = () => {
   const { templates, fetchTemplates } = useFormTemplateStore();
   const { addProject } = useProjectStore();
   const { register, login } = useAuthStore();
+  const { sectors, fetchSectors } = useActivitySectorStore();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Données d'identification
   const [submitterInfo, setSubmitterInfo] = useState({
     projectName: '',
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     organization: ''
   });
 
+  const [projectInfo, setProjectInfo] = useState({
+    description: '',
+    ageMonths: '',
+    activitySectorId: ''
+  });
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔍 Loading data for programId:', programId);
+        console.log('Loading data for programId:', programId);
         await fetchPrograms();
         await fetchTemplates();
+        await fetchSectors();
       } catch (error) {
-        console.error('❌ Error loading data:', error);
+        console.error('Error loading data:', error);
       }
     };
     loadData();
@@ -82,7 +94,20 @@ const PublicSubmissionPage: React.FC = () => {
       ...prev,
       [field]: value
     }));
-    // Clear error for this field
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleProjectInfoChange = (field: string, value: string) => {
+    setProjectInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
     if (errors[field]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -112,11 +137,19 @@ const PublicSubmissionPage: React.FC = () => {
     if (!submitterInfo.password) {
       newErrors.password = 'Le mot de passe est requis';
     } else if (submitterInfo.password.length < 6) {
-      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+      newErrors.password = 'Le mot de passe doit contenir au moins 6 caracteres';
     }
 
     if (submitterInfo.password !== submitterInfo.confirmPassword) {
       newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+    }
+
+    if (!projectInfo.description.trim()) {
+      newErrors.description = 'La description du projet est requise';
+    }
+
+    if (!projectInfo.activitySectorId) {
+      newErrors.activitySectorId = 'Le secteur d\'activite est requis';
     }
 
     setErrors(newErrors);
@@ -202,7 +235,11 @@ const PublicSubmissionPage: React.FC = () => {
         submissionDate: new Date(),
         tags: [],
         formData: formData,
-        submittedAt: new Date()
+        submittedAt: new Date(),
+        projectDescription: projectInfo.description,
+        projectAgeMonths: projectInfo.ageMonths ? parseInt(projectInfo.ageMonths) : undefined,
+        activitySectorId: projectInfo.activitySectorId || undefined,
+        submitterPhone: submitterInfo.phone || undefined
       });
 
       setSubmitSuccess(true);
@@ -379,6 +416,24 @@ const PublicSubmissionPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telephone
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={submitterInfo.phone}
+                      onChange={(e) => handleSubmitterInfoChange('phone', e.target.value)}
+                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
+                      placeholder="+221 77 123 45 67"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Organisation
                   </label>
                   <div className="relative">
@@ -441,7 +496,7 @@ const PublicSubmissionPage: React.FC = () => {
               </CardContent>
             </Card>
 
-          {/* Section: Nom du Projet */}
+          {/* Section: Votre Projet */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -449,7 +504,7 @@ const PublicSubmissionPage: React.FC = () => {
                 Votre Projet
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nom du projet <span className="text-red-500">*</span>
@@ -464,6 +519,71 @@ const PublicSubmissionPage: React.FC = () => {
                   placeholder="Ex: Application mobile de gestion agricole"
                 />
                 {errors.projectName && <p className="mt-1 text-sm text-red-600">{errors.projectName}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description du projet <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={projectInfo.description}
+                  onChange={(e) => handleProjectInfoChange('description', e.target.value)}
+                  rows={4}
+                  className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
+                    errors.description ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Decrivez votre projet en quelques lignes: objectifs, activites principales, impact attendu..."
+                />
+                {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Secteur d'activite <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Briefcase className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      value={projectInfo.activitySectorId}
+                      onChange={(e) => handleProjectInfoChange('activitySectorId', e.target.value)}
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
+                        errors.activitySectorId ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">Selectionnez un secteur</option>
+                      {sectors.filter(s => s.isActive).map(sector => (
+                        <option key={sector.id} value={sector.id}>
+                          {sector.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.activitySectorId && <p className="mt-1 text-sm text-red-600">{errors.activitySectorId}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Age du projet (en mois)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Calendar className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="600"
+                      value={projectInfo.ageMonths}
+                      onChange={(e) => handleProjectInfoChange('ageMonths', e.target.value)}
+                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
+                      placeholder="Ex: 12"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Depuis combien de mois existe votre projet/entreprise?</p>
+                </div>
               </div>
             </CardContent>
           </Card>

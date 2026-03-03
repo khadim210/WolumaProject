@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import {
   Card,
   CardHeader,
@@ -20,7 +21,10 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
   AlertTriangle,
   X,
   Printer,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Phone,
+  Briefcase,
+  Calendar
 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -35,6 +39,7 @@ const EvaluationPage: React.FC = () => {
   const { checkPermission } = usePermissions();
   const { projects, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
   const { parameters, loadParameters } = useParametersStore();
   const navigate = useNavigate();
   
@@ -69,8 +74,9 @@ const EvaluationPage: React.FC = () => {
   useEffect(() => {
     fetchPrograms();
     fetchPartners();
+    fetchSectors();
     loadParameters();
-  }, [fetchPrograms, fetchPartners, loadParameters]);
+  }, [fetchPrograms, fetchPartners, fetchSectors, loadParameters]);
 
   useEffect(() => {
     if (parameters.enableAiEvaluation) {
@@ -1201,10 +1207,48 @@ const EvaluationPage: React.FC = () => {
                           </div>
                           
                           <div>
-                            <h4 className="text-sm font-medium text-gray-700">Durée</h4>
+                            <h4 className="text-sm font-medium text-gray-700">Duree</h4>
                             <p className="text-sm text-gray-600 mt-1">{selectedProject.timeline}</p>
                           </div>
-                          
+
+                          {(selectedProject.submitterPhone || selectedProject.activitySectorId || selectedProject.projectAgeMonths !== undefined) && (
+                            <div className="bg-blue-50 p-3 rounded-lg space-y-2">
+                              <h4 className="text-sm font-medium text-gray-700">Informations complementaires</h4>
+                              {selectedProject.submitterPhone && (
+                                <div className="flex items-center text-sm">
+                                  <Phone className="h-4 w-4 text-blue-500 mr-2" />
+                                  <span className="text-gray-600">Tel:</span>
+                                  <span className="ml-2 font-medium text-gray-900">{selectedProject.submitterPhone}</span>
+                                </div>
+                              )}
+                              {selectedProject.activitySectorId && (
+                                <div className="flex items-center text-sm">
+                                  <Briefcase className="h-4 w-4 text-blue-500 mr-2" />
+                                  <span className="text-gray-600">Secteur:</span>
+                                  <span className="ml-2 font-medium text-gray-900">
+                                    {getSector(selectedProject.activitySectorId)?.name || 'N/A'}
+                                  </span>
+                                </div>
+                              )}
+                              {selectedProject.projectAgeMonths !== undefined && selectedProject.projectAgeMonths !== null && (
+                                <div className="flex items-center text-sm">
+                                  <Calendar className="h-4 w-4 text-blue-500 mr-2" />
+                                  <span className="text-gray-600">Age:</span>
+                                  <span className="ml-2 font-medium text-gray-900">{selectedProject.projectAgeMonths} mois</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {selectedProject.projectDescription && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700">Description du projet</h4>
+                              <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded whitespace-pre-wrap">
+                                {selectedProject.projectDescription}
+                              </p>
+                            </div>
+                          )}
+
                           <div>
                             <h4 className="text-sm font-medium text-gray-700">Tags</h4>
                             <div className="flex flex-wrap gap-2 mt-1">
@@ -1215,7 +1259,7 @@ const EvaluationPage: React.FC = () => {
                               ))}
                             </div>
                           </div>
-                          
+
                           <div>
                             <h4 className="text-sm font-medium text-gray-700">Date de soumission</h4>
                             <p className="text-sm text-gray-600 mt-1">

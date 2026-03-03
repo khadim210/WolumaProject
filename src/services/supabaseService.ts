@@ -160,6 +160,10 @@ export interface SupabaseProject {
   eligibility_checked_by?: string;
   eligibility_checked_at?: string;
   submitted_at?: string;
+  project_description?: string;
+  project_age_months?: number;
+  activity_sector_id?: string;
+  submitter_phone?: string;
 }
 
 export interface SupabaseFormTemplate {
