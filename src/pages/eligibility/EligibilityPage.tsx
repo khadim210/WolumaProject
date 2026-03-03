@@ -23,9 +23,6 @@ import {
   Download,
   FileSpreadsheet
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EligibilityPage: React.FC = () => {
@@ -525,7 +522,8 @@ const EligibilityPage: React.FC = () => {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     const exportData = filteredProjects.map(project => {
@@ -537,9 +535,9 @@ const EligibilityPage: React.FC = () => {
 
       let eligibilityDetail = '';
       if (totalCriteria > 0) {
-        eligibilityDetail = `Total: ${totalCriteria} critères (${textualCriteria.length} textuels, ${fieldCriteria.length} champs)`;
+        eligibilityDetail = `Total: ${totalCriteria} criteres (${textualCriteria.length} textuels, ${fieldCriteria.length} champs)`;
       } else {
-        eligibilityDetail = 'Aucun critère défini';
+        eligibilityDetail = 'Aucun critere defini';
       }
 
       return {
@@ -548,11 +546,11 @@ const EligibilityPage: React.FC = () => {
         'Programme': program?.name || 'N/A',
         'Budget': project.budget,
         'Statut': project.status,
-        'État Éligibilité': getEligibilityStatus(project),
-        'Détails Critères': eligibilityDetail,
+        'Etat Eligibilite': getEligibilityStatus(project),
+        'Details Criteres': eligibilityDetail,
         'Date de soumission': new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR'),
-        'Vérifié par': project.eligibilityCheckedBy || 'Non vérifié',
-        'Date de vérification': project.eligibilityCheckedAt
+        'Verifie par': project.eligibilityCheckedBy || 'Non verifie',
+        'Date de verification': project.eligibilityCheckedAt
           ? new Date(project.eligibilityCheckedAt).toLocaleDateString('fr-FR')
           : 'N/A',
         'Notes': project.eligibilityNotes || ''
@@ -561,21 +559,12 @@ const EligibilityPage: React.FC = () => {
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws['!cols'] = [
-      { wch: 30 },
-      { wch: 40 },
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 15 },
-      { wch: 40 },
-      { wch: 35 },
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 50 }
+      { wch: 30 }, { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
+      { wch: 40 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 50 }
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Projets');
 
-    const criteriaData: any[] = [];
+    const criteriaData: Record<string, unknown>[] = [];
     const addedPrograms = new Set<string>();
 
     filteredProjects.forEach(project => {
@@ -588,8 +577,8 @@ const EligibilityPage: React.FC = () => {
           criteriaData.push({
             'Programme': program.name,
             'Type': 'Textuel',
-            'Numéro': index + 1,
-            'Critère': criterion,
+            'Numero': index + 1,
+            'Critere': criterion,
           });
         });
 
@@ -599,8 +588,8 @@ const EligibilityPage: React.FC = () => {
           criteriaData.push({
             'Programme': program.name,
             'Type': 'Champ de formulaire',
-            'Numéro': textualCriteria.length + index + 1,
-            'Critère': `${criterion.fieldLabel} (${criterion.fieldName})`,
+            'Numero': textualCriteria.length + index + 1,
+            'Critere': `${criterion.fieldLabel} (${criterion.fieldName})`,
           });
         });
       }
@@ -608,20 +597,25 @@ const EligibilityPage: React.FC = () => {
 
     if (criteriaData.length > 0) {
       const wsCriteria = XLSX.utils.json_to_sheet(criteriaData);
-      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Critères d\'éligibilité');
+      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Criteres eligibilite');
     }
 
     XLSX.writeFile(wb, `Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
     const doc = new jsPDF('l', 'mm', 'a4');
 
     doc.setFontSize(18);
-    doc.text('Liste des Projets - État d\'Éligibilité', 14, 15);
+    doc.text('Liste des Projets - Etat Eligibilite', 14, 15);
 
     doc.setFontSize(10);
-    doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
     doc.text(`Total: ${filteredProjects.length} projet(s)`, 14, 28);
 
     const tableData = filteredProjects.map(project => {
@@ -637,7 +631,7 @@ const EligibilityPage: React.FC = () => {
 
     autoTable(doc, {
       startY: 35,
-      head: [['Titre', 'Programme', 'Statut', 'État Éligibilité', 'Date Soumission']],
+      head: [['Titre', 'Programme', 'Statut', 'Etat Eligibilite', 'Date Soumission']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -655,7 +649,7 @@ const EligibilityPage: React.FC = () => {
         4: { cellWidth: 35 }
       },
       margin: { left: 14, right: 14 },
-      didDrawPage: (data: any) => {
+      didDrawPage: (data) => {
         const pageCount = doc.getNumberOfPages();
         const pageHeight = doc.internal.pageSize.height;
         doc.setFontSize(8);

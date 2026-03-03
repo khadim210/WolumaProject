@@ -19,9 +19,6 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { getStatusLabel } from '../../utils/statusTransitions';
 import { formatCurrency, formatNumberWithSpaces } from '../../utils/currency';
 
@@ -229,7 +226,8 @@ const MonitoringPage = () => {
     await Promise.all([fetchProjects(), fetchPrograms()]);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     const summaryData = [
@@ -316,7 +314,12 @@ const MonitoringPage = () => {
     XLSX.writeFile(wb, `suivi-projets-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
     const doc = new jsPDF();
     let yPosition = 15;
 

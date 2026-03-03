@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -22,15 +22,13 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
   Printer,
   FileSpreadsheet
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
 import { generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
 import { useParametersStore } from '../../stores/parametersStore';
 import { ProjectStatusService } from '../../services/projectStatusService';
+import { getAccessiblePrograms } from '../../hooks/useFilteredProjects';
 
 const EvaluationPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -111,30 +109,16 @@ const EvaluationPage: React.FC = () => {
     }
   }, [parameters]);
   
-  // Ensure user is a manager
   useEffect(() => {
     if (!checkPermission('evaluation.evaluate')) {
       navigate('/dashboard');
     }
   }, [checkPermission, navigate]);
-  
-  // Get accessible programs based on user role
-  const getAccessiblePrograms = () => {
-    if (!user) return [];
-    
-    if (user.role === 'admin') {
-      return programs;
-    } else if (user.role === 'manager') {
-      // Manager can see programs from their assigned partners
-      const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
-      const partnerIds = managerPartners.map(p => p.id);
-      return programs.filter(p => partnerIds.includes(p.partnerId));
-    }
-    
-    return programs;
-  };
-  
-  const accessiblePrograms = getAccessiblePrograms();
+
+  const accessiblePrograms = useMemo(
+    () => getAccessiblePrograms(user, programs, partners),
+    [user, programs, partners]
+  );
   
   // Get projects with specific statuses for evaluation
   const submittedProjects = projects.filter(project => {
@@ -549,122 +533,6 @@ const EvaluationPage: React.FC = () => {
     }
   };
 
-  // Fonction de simulation conservée comme fallback
-  const simulateAIEvaluation = async (projectData: any, criteria: any[]) => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const scores: Record<string, number> = {};
-    
-    criteria.forEach(criterion => {
-      let score = Math.floor(Math.random() * (criterion.maxScore * 0.4)) + Math.floor(criterion.maxScore * 0.6);
-      
-      const description = projectData.description?.toLowerCase() || '';
-      const title = projectData.title?.toLowerCase() || '';
-      
-      if (criterion.name.toLowerCase().includes('innovation')) {
-        if (description.includes('nouveau') || description.includes('innovant') || title.includes('ia')) {
-          score = Math.min(criterion.maxScore, score + 2);
-        }
-      }
-      
-      if (criterion.name.toLowerCase().includes('faisabilité')) {
-        if (projectData.budget > 100000000) {
-          score = Math.max(1, score - 1);
-        }
-      }
-      
-      if (criterion.name.toLowerCase().includes('impact')) {
-        if (projectData.tags?.some((tag: string) => 
-          ['environnement', 'santé', 'education'].includes(tag.toLowerCase())
-        )) {
-          score = Math.min(criterion.maxScore, score + 1);
-        }
-      }
-      
-      scores[criterion.name] = Math.max(0, Math.min(criterion.maxScore, score));
-    });
-    
-    const totalScore = criteria.reduce((total, criterion) => {
-      return total + (scores[criterion.name] / criterion.maxScore) * criterion.weight;
-    }, 0);
-    
-    let recommendation = 'rejected';
-    if (totalScore >= 80) recommendation = 'selected';
-    else if (totalScore >= 60) recommendation = 'pre_selected';
-    
-    return {
-      scores,
-      notes: `Évaluation automatique basée sur l'analyse du contenu du projet. Score total calculé: ${Math.round(totalScore)}%. ${
-        totalScore >= 80 ? 'Projet très prometteur avec des critères solides.' :
-        totalScore >= 60 ? 'Projet intéressant nécessitant quelques améliorations.' :
-        'Projet nécessitant des améliorations significatives avant acceptation.'
-      }`,
-      recommendation
-    };
-  };
-
-  // Version simplifiée pour la compatibilité
-  const handleAIEvaluationLegacy = async (project: Project, program: any, setFieldValue: any, setValues: any) => {
-    setIsAIEvaluating(true);
-    
-    try {
-      const projectData = {
-        title: project.title,
-        description: project.description,
-        budget: project.budget,
-        timeline: project.timeline,
-        tags: project.tags,
-        submissionDate: project.submissionDate?.toLocaleDateString()
-      };
-      
-      const response = await simulateAIEvaluation(projectData, program.evaluationCriteria);
-      
-      if (response.scores) {
-        const newValues: any = {};
-        
-        program.evaluationCriteria.forEach((criterion: any) => {
-          if (response.scores[criterion.name] !== undefined) {
-            const score = response.scores[criterion.name];
-            const maxScore = criterion.maxScore;
-            const percentage = (score / maxScore) * 100;
-            
-            newValues[`score_${criterion.id}`] = score;
-            
-            let aiComment = '';
-            if (percentage >= 75) {
-              aiComment = `Score élevé (${score}/${maxScore}) - Le projet répond excellemment à ce critère.`;
-            } else if (percentage >= 50) {
-              aiComment = `Score moyen (${score}/${maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
-            } else {
-              aiComment = `Score faible (${score}/${maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
-            }
-            
-            newValues[`comment_${criterion.id}`] = `[IA] ${aiComment}`;
-          }
-        });
-        
-        if (response.notes) {
-          newValues.evaluationNotes = `[Évaluation IA] ${response.notes}`;
-        }
-        
-        if (response.recommendation) {
-          newValues.decision = response.recommendation;
-        }
-        
-        setValues((prevValues: any) => ({
-          ...prevValues,
-          ...newValues
-        }));
-      }
-      
-    } catch (error) {
-      console.error('Erreur lors de l\'évaluation IA:', error);
-      alert('Erreur lors de l\'évaluation par IA. Veuillez réessayer.');
-    } finally {
-      setIsAIEvaluating(false);
-    }
-  };
-  
   const renderScoreIndicator = (score: number, maxScore: number) => {
     const percentage = (score / maxScore) * 100;
     let bgColor = 'bg-error-500';
@@ -716,14 +584,19 @@ const EvaluationPage: React.FC = () => {
     return `${statusLabel} - Score: ${totalScore}/${maxScore} (${percentage.toFixed(1)}%)`;
   };
 
-  const handlePrintProjects = () => {
+  const handlePrintProjects = useCallback(async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
     const doc = new jsPDF('l', 'mm', 'a4');
 
     doc.setFontSize(18);
-    doc.text('Liste des Projets - État d\'Évaluation', 14, 15);
+    doc.text('Liste des Projets - Etat Evaluation', 14, 15);
 
     doc.setFontSize(10);
-    doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
     doc.text(`Total: ${submittedProjects.length} projet(s)`, 14, 28);
 
     const tableData = submittedProjects.map(project => {
@@ -731,10 +604,10 @@ const EvaluationPage: React.FC = () => {
       return [
         project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
         program?.name || 'N/A',
-        project.status === 'selected' ? 'Sélectionné' :
-        project.status === 'pre_selected' ? 'Présélectionné' :
-        project.status === 'rejected' ? 'Rejeté' :
-        project.status === 'eligible' ? 'Éligible' : project.status,
+        project.status === 'selected' ? 'Selectionne' :
+        project.status === 'pre_selected' ? 'Preselectionne' :
+        project.status === 'rejected' ? 'Rejete' :
+        project.status === 'eligible' ? 'Eligible' : project.status,
         getEvaluationState(project),
         project.evaluatedAt ? new Date(project.evaluatedAt).toLocaleDateString('fr-FR') : 'N/A'
       ];
@@ -742,7 +615,7 @@ const EvaluationPage: React.FC = () => {
 
     autoTable(doc, {
       startY: 35,
-      head: [['Titre', 'Programme', 'Statut', 'État Évaluation', 'Date Évaluation']],
+      head: [['Titre', 'Programme', 'Statut', 'Etat Evaluation', 'Date Evaluation']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -760,7 +633,7 @@ const EvaluationPage: React.FC = () => {
         4: { cellWidth: 30 }
       },
       margin: { left: 14, right: 14 },
-      didDrawPage: (data: any) => {
+      didDrawPage: (data) => {
         const pageCount = doc.getNumberOfPages();
         const pageHeight = doc.internal.pageSize.height;
         doc.setFontSize(8);
@@ -774,9 +647,10 @@ const EvaluationPage: React.FC = () => {
     });
 
     doc.save(`Projets_Evaluation_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
+  }, [submittedProjects, programs, getEvaluationState]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = useCallback(async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     const summaryData = submittedProjects.map(project => {
@@ -895,7 +769,7 @@ const EvaluationPage: React.FC = () => {
     }
 
     XLSX.writeFile(wb, `Evaluations_Detaillees_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
+  }, [submittedProjects, programs]);
 
   return (
     <div className="space-y-6">

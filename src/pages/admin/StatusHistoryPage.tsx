@@ -6,9 +6,6 @@ import Button from '../../components/ui/Button';
 import { History, Download, FileSpreadsheet, Filter, Search } from 'lucide-react';
 import { ProjectStatusService, StatusHistoryEntry } from '../../services/projectStatusService';
 import { getStatusLabel } from '../../utils/statusTransitions';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const StatusHistoryPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -75,12 +72,13 @@ const StatusHistoryPage: React.FC = () => {
     setFilteredHistory(filtered);
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const XLSX = await import('xlsx');
     const data = filteredHistory.map((entry) => ({
       Projet: entry.projectTitle || 'N/A',
       'Ancien statut': entry.oldStatus ? getStatusLabel(entry.oldStatus as any) : 'N/A',
       'Nouveau statut': getStatusLabel(entry.newStatus as any),
-      'Modifié par': entry.changerName || 'Système',
+      'Modifie par': entry.changerName || 'Systeme',
       Date: new Date(entry.changedAt).toLocaleString('fr-FR'),
       Commentaire: entry.comment || '',
     }));
@@ -91,26 +89,31 @@ const StatusHistoryPage: React.FC = () => {
     XLSX.writeFile(wb, `historique-statuts-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
     const doc = new jsPDF();
 
     doc.setFontSize(16);
     doc.text('Historique des changements de statut', 14, 15);
 
     doc.setFontSize(10);
-    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, 22);
+    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, 14, 22);
 
     const tableData = filteredHistory.map((entry) => [
       entry.projectTitle || 'N/A',
       entry.oldStatus ? getStatusLabel(entry.oldStatus as any) : 'N/A',
       getStatusLabel(entry.newStatus as any),
-      entry.changerName || 'Système',
+      entry.changerName || 'Systeme',
       new Date(entry.changedAt).toLocaleDateString('fr-FR'),
     ]);
 
     autoTable(doc, {
       startY: 28,
-      head: [['Projet', 'Ancien statut', 'Nouveau statut', 'Modifié par', 'Date']],
+      head: [['Projet', 'Ancien statut', 'Nouveau statut', 'Modifie par', 'Date']],
       body: tableData,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [41, 128, 185] },

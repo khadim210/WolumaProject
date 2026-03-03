@@ -23,9 +23,6 @@ import {
   Printer,
   FileSpreadsheet
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
@@ -254,6 +251,11 @@ const FormalizationPage: React.FC = () => {
   };
 
   const handleExportFormalizationPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
     const doc = new jsPDF('l', 'mm', 'a4');
 
     doc.setFontSize(18);
@@ -341,6 +343,7 @@ const FormalizationPage: React.FC = () => {
   };
 
   const handleExportFormalizationExcel = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     const allData = await Promise.all(

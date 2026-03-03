@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { Project } from '../stores/projectStore';
 import { Program, Partner } from '../stores/programStore';
 import type { AIEvaluationResponse } from '../services/aiEvaluationService';
@@ -10,6 +8,11 @@ export const generateEvaluationReport = async (
   program: Program,
   partner: Partner | null
 ): Promise<void> => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+
   const pdf = new jsPDF();
   const pageWidth = pdf.internal.pageSize.width;
   const pageHeight = pdf.internal.pageSize.height;
@@ -266,6 +269,11 @@ export const generateWolumaEvaluationReport = async (
   evaluatorName?: string,
   aiAnalysis?: AIEvaluationResponse
 ): Promise<void> => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+
   const pdf = new jsPDF();
   const pageWidth = pdf.internal.pageSize.width;
   const pageHeight = pdf.internal.pageSize.height;

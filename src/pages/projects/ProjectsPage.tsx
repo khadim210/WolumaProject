@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu } from '@headlessui/react';
 import { useAuthStore } from '../../stores/authStore';
@@ -14,8 +14,8 @@ import {
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import { FolderPlus, FileSpreadsheet, Filter, Search, Trash2, AlertCircle, Download, FileDown, ChevronDown } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { exportSubmissionsToExcel, exportSubmissionsToPDF } from '../../utils/submissionExport';
+import { useFilteredProjects, getAccessiblePrograms, getAccessiblePartners } from '../../hooks/useFilteredProjects';
 
 const ProjectsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -43,62 +43,36 @@ const ProjectsPage: React.FC = () => {
   }, [fetchProjects, fetchPrograms, fetchPartners]);
   
   const userProjects = user ? filterProjectsByUser(user) : [];
-  
-  // Filter projects based on user role and program access
-  const getAccessiblePrograms = () => {
-    if (!user) return [];
-    
-    if (user.role === 'admin') {
-      return programs;
-    } else if (user.role === 'manager') {
-      // Manager can see programs from their assigned partners
-      const managerPartners = partners.filter(p => p.assignedManagerId === user.id);
-      const partnerIds = managerPartners.map(p => p.id);
-      return programs.filter(p => partnerIds.includes(p.partnerId));
-    } else if (user.role === 'partner') {
-      // Partner can see their own programs
-      const userPartner = partners.find(p => 
-        p.contactEmail === user.email || 
-        p.name === user.organization
-      );
-      if (userPartner) {
-        return programs.filter(p => p.partnerId === userPartner.id);
-      }
-      // Fallback: show all programs if partner not found by email/organization
-      return programs;
+
+  const accessiblePrograms = useMemo(
+    () => getAccessiblePrograms(user, programs, partners),
+    [user, programs, partners]
+  );
+
+  const accessiblePartners = useMemo(
+    () => getAccessiblePartners(accessiblePrograms, partners),
+    [accessiblePrograms, partners]
+  );
+
+  const { filteredProjects, statusCounts } = useFilteredProjects(
+    userProjects,
+    programs,
+    partners,
+    user,
+    {
+      searchTerm,
+      statusFilter,
+      programFilter,
+      partnerFilter
     }
-    
-    return programs; // For submitters, show all programs
-  };
-  
-  const accessiblePrograms = getAccessiblePrograms();
-  
-  const filteredProjects = userProjects.filter(project => {
-    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          project.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
-    const matchesPartner = partnerFilter === 'all' || 
-                          accessiblePrograms.some(p => p.id === project.programId && p.partnerId === partnerFilter);
-    const matchesProgram = programFilter === 'all' || project.programId === programFilter;
-    
-    // Also check if user has access to this program
-    const hasAccessToProgram = accessiblePrograms.some(p => p.id === project.programId);
-    
-    return matchesSearch && matchesStatus && matchesPartner && matchesProgram && hasAccessToProgram;
-  });
-  
-  // Get programs filtered by selected partner
-  const getFilteredPrograms = () => {
-    if (partnerFilter === 'all') {
-      return accessiblePrograms;
-    }
+  );
+
+  const filteredPrograms = useMemo(() => {
+    if (partnerFilter === 'all') return accessiblePrograms;
     return accessiblePrograms.filter(p => p.partnerId === partnerFilter);
-  };
-  
-  const filteredPrograms = getFilteredPrograms();
-  
-  // Reset program filter when partner changes
-  React.useEffect(() => {
+  }, [accessiblePrograms, partnerFilter]);
+
+  useEffect(() => {
     if (partnerFilter !== 'all' && programFilter !== 'all') {
       const programExists = filteredPrograms.some(p => p.id === programFilter);
       if (!programExists) {
@@ -107,24 +81,16 @@ const ProjectsPage: React.FC = () => {
     }
   }, [partnerFilter, programFilter, filteredPrograms]);
   
-  // Get unique partners from accessible programs
-  const getAccessiblePartners = () => {
-    const partnerIds = [...new Set(accessiblePrograms.map(p => p.partnerId))];
-    return partners.filter(partner => partnerIds.includes(partner.id));
-  };
-  
-  const accessiblePartners = getAccessiblePartners();
-  
   const sortedProjects = [...filteredProjects].sort((a, b) => 
     b.updatedAt.getTime() - a.updatedAt.getTime()
   );
   
 
   
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !selectedProgramForImport || !user) {
-      setImportError('Veuillez sélectionner un programme et un fichier');
+      setImportError('Veuillez selectionner un programme et un fichier');
       return;
     }
 
@@ -133,6 +99,7 @@ const ProjectsPage: React.FC = () => {
     setImportSuccess('');
 
     try {
+      const XLSX = await import('xlsx');
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -197,10 +164,9 @@ const ProjectsPage: React.FC = () => {
       setImportError(`Erreur lors de l'importation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsImporting(false);
-      // Reset file input
       event.target.value = '';
     }
-  };
+  }, [selectedProgramForImport, user, accessiblePrograms, addProject]);
 
   const handleDeleteProject = async (projectId: string) => {
     setDeletingProjectId(projectId);
@@ -220,141 +186,119 @@ const ProjectsPage: React.FC = () => {
     }
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = useCallback(async () => {
+    const XLSX = await import('xlsx');
     const templateData = [
       {
         'Titre': 'Exemple de projet',
-        'Description': 'Description détaillée du projet avec ses objectifs et son impact potentiel',
+        'Description': 'Description detaillee du projet avec ses objectifs et son impact potentiel',
         'Budget': 150000,
-        'Durée': '18 mois',
+        'Duree': '18 mois',
         'Tags': 'innovation, technologie, impact'
       }
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modèle');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modele');
 
-    // Auto-size columns
     const colWidths = Object.keys(templateData[0]).map(key => ({
       wch: Math.max(key.length, 20)
     }));
     worksheet['!cols'] = colWidths;
 
     XLSX.writeFile(workbook, 'Modele_Import_Projets.xlsx');
-  };
+  }, []);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = useCallback(async () => {
     if (!selectedProgramForExport) {
-      alert('Veuillez sélectionner un programme');
+      alert('Veuillez selectionner un programme');
       return;
     }
 
     const program = accessiblePrograms.find(p => p.id === selectedProgramForExport);
     if (!program) {
-      alert('Programme non trouvé');
+      alert('Programme non trouve');
       return;
     }
 
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
-    exportSubmissionsToExcel({ projects: programProjects, program });
-  };
+    await exportSubmissionsToExcel({ projects: programProjects, program });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
 
-  const handleExportPDF = () => {
+  const handleExportPDF = useCallback(async () => {
     if (!selectedProgramForExport) {
-      alert('Veuillez sélectionner un programme');
+      alert('Veuillez selectionner un programme');
       return;
     }
 
     const program = accessiblePrograms.find(p => p.id === selectedProgramForExport);
     if (!program) {
-      alert('Programme non trouvé');
+      alert('Programme non trouve');
       return;
     }
 
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
-    exportSubmissionsToPDF({ projects: programProjects, program });
-  };
+    await exportSubmissionsToPDF({ projects: programProjects, program });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
 
-  const handleQuickExportExcel = () => {
+  const handleQuickExportExcel = useCallback(async () => {
     if (programFilter === 'all') {
-      alert('Veuillez sélectionner un programme spécifique dans les filtres');
+      alert('Veuillez selectionner un programme specifique dans les filtres');
       return;
     }
 
     const program = accessiblePrograms.find(p => p.id === programFilter);
     if (!program) {
-      alert('Programme non trouvé');
+      alert('Programme non trouve');
       return;
     }
 
     const programProjects = filteredProjects.filter(p => p.programId === programFilter);
     if (programProjects.length === 0) {
-      alert('Aucune soumission à exporter pour ce programme avec les filtres actuels');
+      alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
       return;
     }
-    exportSubmissionsToExcel({ projects: programProjects, program });
-  };
+    await exportSubmissionsToExcel({ projects: programProjects, program });
+  }, [programFilter, accessiblePrograms, filteredProjects]);
 
-  const handleQuickExportPDF = () => {
+  const handleQuickExportPDF = useCallback(async () => {
     if (programFilter === 'all') {
-      alert('Veuillez sélectionner un programme spécifique dans les filtres');
+      alert('Veuillez selectionner un programme specifique dans les filtres');
       return;
     }
 
     const program = accessiblePrograms.find(p => p.id === programFilter);
     if (!program) {
-      alert('Programme non trouvé');
+      alert('Programme non trouve');
       return;
     }
 
     const programProjects = filteredProjects.filter(p => p.programId === programFilter);
     if (programProjects.length === 0) {
-      alert('Aucune soumission à exporter pour ce programme avec les filtres actuels');
+      alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
       return;
     }
-    exportSubmissionsToPDF({ projects: programProjects, program });
-  };
+    await exportSubmissionsToPDF({ projects: programProjects, program });
+  }, [programFilter, accessiblePrograms, filteredProjects]);
   
   const getStatusLabel = (status: ProjectStatus): string => {
     const labels: Record<ProjectStatus, string> = {
       draft: 'Brouillon',
       submitted: 'Soumis',
       under_review: 'En revue',
-      pre_selected: 'Présélectionné',
-      selected: 'Sélectionné',
+      eligible: 'Eligible',
+      ineligible: 'Non eligible',
+      pre_selected: 'Preselectionne',
+      selected: 'Selectionne',
       formalization: 'Formalisation',
-      financed: 'Financé',
+      financed: 'Finance',
       monitoring: 'Suivi',
-      closed: 'Clôturé',
-      rejected: 'Rejeté'
+      closed: 'Cloture',
+      rejected: 'Rejete'
     };
-    return labels[status];
+    return labels[status] || status;
   };
-  
-  const statusCounts = React.useMemo(() => {
-    const counts: Record<ProjectStatus | 'all', number> = {
-      all: userProjects.length,
-      draft: 0,
-      submitted: 0,
-      under_review: 0,
-      eligible: 0,
-      ineligible: 0,
-      pre_selected: 0,
-      selected: 0,
-      formalization: 0,
-      financed: 0,
-      monitoring: 0,
-      closed: 0,
-      rejected: 0
-    };
-
-    userProjects.forEach(project => {
-      counts[project.status]++;
-    });
-
-    return counts;
-  }, [userProjects]);
 
   return (
     <div className="space-y-6">

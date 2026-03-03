@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { FileText, Download, Loader2, Camera, AlertCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
@@ -545,6 +544,7 @@ const UserManualPage: React.FC = () => {
     setIsGenerating(true);
 
     try {
+      const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
