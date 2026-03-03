@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import logger from '../utils/logger';
 
-// Function to check if Supabase is enabled from parameters
 export function getSupabaseEnabled(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -10,12 +10,11 @@ export function getSupabaseEnabled(): boolean {
       return parsed.state?.parameters?.enableSupabase === true;
     }
   } catch (error) {
-    console.error('Error reading Supabase enabled state:', error);
+    logger.db.error('Error reading Supabase enabled state:', error);
   }
   return false;
 }
 
-// Function to get Supabase configuration from parameters
 function getSupabaseConfig() {
   if (typeof window === 'undefined') return null;
   try {
@@ -32,7 +31,7 @@ function getSupabaseConfig() {
       }
     }
   } catch (error) {
-    console.error('Error reading Supabase config:', error);
+    logger.db.error('Error reading Supabase config:', error);
   }
   return null;
 }
@@ -72,14 +71,12 @@ const supabaseUrl = credentials?.url;
 const supabaseAnonKey = credentials?.anonKey;
 const supabaseServiceRoleKey = credentials?.serviceRoleKey;
 
-// Vérifier que les variables d'environnement sont définies
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Missing Supabase configuration. Please check your .env file.');
-  console.error('Required variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+  logger.db.error('Missing Supabase configuration. Please check your .env file.');
 }
 
 if (!supabaseServiceRoleKey) {
-  console.warn('⚠️ Missing VITE_SUPABASE_SERVICE_ROLE_KEY. Admin operations will be limited.');
+  logger.db.warn('Missing SERVICE_ROLE_KEY. Admin operations will be limited.');
 }
 
 export const supabase = (supabaseUrl && supabaseAnonKey) ? createClient(supabaseUrl, supabaseAnonKey) : null;
@@ -175,23 +172,16 @@ export interface SupabaseFormTemplate {
   updated_at: string;
 }
 
-// Service pour les utilisateurs
 export class UserService {
   static async getUsers(): Promise<SupabaseUser[]> {
-    console.log('UserService.getUsers called');
-
     if (!supabase) {
-      console.error('❌ Supabase client not available.');
       throw new Error('Supabase not available');
     }
 
-    // Use regular client with RLS - admins will see all users via RLS policy
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-
-    console.log('Supabase response - data:', data, 'error:', error);
 
     if (error) throw error;
     return data || [];
@@ -225,14 +215,8 @@ export class UserService {
       .select()
       .maybeSingle();
 
-    if (error) {
-      console.error('Update user error:', error);
-      throw error;
-    }
-
-    if (!data) {
-      throw new Error('Update failed - no data returned. Check RLS policies.');
-    }
+    if (error) throw error;
+    if (!data) throw new Error('Update failed - no data returned');
 
     return data;
   }
@@ -296,43 +280,26 @@ export class UserService {
       throw new Error(`Erreur lors de la suppression du profil: ${deleteUserError.message}`);
     }
 
-    // Delete from auth.users using admin client
     if (user?.auth_user_id && supabaseAdmin) {
       const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(user.auth_user_id);
       if (authDeleteError) {
-        console.error('Error deleting auth user:', authDeleteError);
+        logger.db.error('Error deleting auth user:', authDeleteError);
       }
     }
   }
 }
 
-// Service pour les partenaires
 export class PartnerService {
   static async getPartners(): Promise<SupabasePartner[]> {
-    console.log('🏢 PartnerService.getPartners called');
-    console.log('🏢 Supabase enabled:', getSupabaseEnabled());
-    console.log('🏢 Supabase client available:', !!supabase);
-    console.log('🏢 Environment variables:', {
-      url: !!import.meta.env.VITE_SUPABASE_URL,
-      anonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
-    });
-    
     if (!supabase) {
-      console.error('❌ Supabase client not available');
       throw new Error('Supabase not available');
     }
-    
-    console.log('🏢 Querying Supabase partners table...');
+
     const { data, error } = await supabase
       .from('partners')
       .select('*')
       .order('created_at', { ascending: false });
-    
-    console.log('🏢 Supabase query result:', { data: data?.length, error });
-    if (data) {
-      console.log('🏢 Partners from Supabase:', data);
-    }
-    
+
     if (error) throw error;
     return data || [];
   }
@@ -342,20 +309,13 @@ export class PartnerService {
       throw new Error('Supabase not available');
     }
 
-    console.log('🏢 PartnerService.createPartner called with:', partner);
-
     const { data, error } = await supabase
       .from('partners')
       .insert([partner])
       .select()
       .single();
 
-    console.log('🏢 PartnerService.createPartner response:', { data, error });
-
-    if (error) {
-      console.error('🏢 PartnerService.createPartner error:', error);
-      throw error;
-    }
+    if (error) throw error;
     return data;
   }
 
@@ -364,17 +324,12 @@ export class PartnerService {
       throw new Error('Supabase not available');
     }
 
-    console.log('🏢 PartnerService.updatePartner called with:', { id, updates });
-
-    // Use regular client with RLS
     const { data, error } = await supabase
       .from('partners')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
-
-    console.log('🏢 PartnerService.updatePartner response:', { data, error });
 
     if (error) throw error;
     return data;
@@ -385,7 +340,6 @@ export class PartnerService {
       throw new Error('Supabase not available');
     }
 
-    // Use regular client with RLS
     const { error } = await supabase
       .from('partners')
       .delete()
@@ -395,7 +349,6 @@ export class PartnerService {
   }
 }
 
-// Service pour les programmes
 export class ProgramService {
   static async getPrograms(): Promise<SupabaseProgram[]> {
     if (!supabase) {
@@ -431,10 +384,6 @@ export class ProgramService {
       throw new Error('Supabase not available');
     }
 
-    console.log('📤 ProgramService.updateProgram called');
-    console.log('📤 Program ID:', id);
-    console.log('📤 Updates to send:', JSON.stringify(updates, null, 2));
-
     const { data, error } = await supabase
       .from('programs')
       .update(updates)
@@ -442,13 +391,7 @@ export class ProgramService {
       .select()
       .single();
 
-    console.log('📥 Supabase response - data:', data);
-    console.log('📥 Supabase response - error:', error);
-
-    if (error) {
-      console.error('❌ Supabase update error:', error);
-      throw error;
-    }
+    if (error) throw error;
     return data;
   }
 
@@ -466,7 +409,6 @@ export class ProgramService {
   }
 }
 
-// Service pour les projets
 export class ProjectService {
   static async getProjects(): Promise<SupabaseProject[]> {
     if (!supabase) {
@@ -527,25 +469,17 @@ export class ProjectService {
   }
 }
 
-// Service pour les modèles de formulaires
 export class FormTemplateService {
   static async getFormTemplates(): Promise<SupabaseFormTemplate[]> {
-    console.log('🔄 FormTemplateService.getFormTemplates called');
-    console.log('🔄 Supabase enabled:', getSupabaseEnabled());
-    
     if (!supabase) {
-      console.error('❌ Supabase not available for form templates');
       throw new Error('Supabase not available');
     }
-    
-    console.log('🔄 Fetching from Supabase...');
+
     const { data, error } = await supabase
       .from('form_templates')
       .select('*')
       .order('created_at', { ascending: false });
-    
-    console.log('🔄 Supabase response - data:', data?.length, 'error:', error);
-    
+
     if (error) throw error;
     return data || [];
   }
@@ -595,7 +529,6 @@ export class FormTemplateService {
   }
 }
 
-// Service d'authentification
 export class AuthService {
   static async signIn(email: string, password: string): Promise<{ user: any; session: any }> {
     if (supabase === null) {
@@ -684,7 +617,7 @@ export class AuthService {
       .single();
 
     if (error) {
-      console.error('Error creating user profile:', error);
+      logger.auth.error('Error creating user profile:', error);
       return null;
     }
 
@@ -720,86 +653,68 @@ export class AuthService {
   }
 
   static async updateUserPassword(authUserId: string, newPassword: string): Promise<void> {
-    // NOTE: Password updates from client side are not supported for security reasons
-    // This functionality requires an edge function with admin privileges
-    throw new Error('Password updates must be performed through secure admin endpoints. This feature requires an edge function.');
+    throw new Error('Password updates must be performed through secure admin endpoints.');
   }
 }
 
-// Service de migration et seeding
 export class MigrationService {
   static async seedData(): Promise<void> {
-    console.log('🌱 Starting data seeding...');
-    
+    logger.db.info('Starting data seeding...');
+
     try {
-      // Verify Supabase configuration before proceeding
       if (!supabase || !supabaseAdmin) {
-        console.log('⚠️ Supabase not properly configured, skipping data seeding');
+        logger.db.warn('Supabase not properly configured, skipping data seeding');
         return;
       }
 
-      // Test basic connectivity
       try {
-        const { data: testData, error: testError } = await supabase
+        const { error: testError } = await supabase
           .from('users')
           .select('count')
           .limit(1);
-        
+
         if (testError) {
-          console.log('⚠️ Supabase connectivity test failed:', testError.message);
-          console.log('💡 Please check your Supabase URL and keys in the configuration');
+          logger.db.warn('Supabase connectivity test failed:', testError.message);
           return;
         }
       } catch (fetchError) {
-        console.log('⚠️ Network error connecting to Supabase:', fetchError);
-        console.log('💡 Please verify your Supabase URL is correct and accessible');
+        logger.db.warn('Network error connecting to Supabase:', fetchError);
         return;
       }
 
-      // Create default partners and programs
       await this.createDefaultPartners();
       await this.createDefaultPrograms();
-      
-      // Check if we should use demo mode or Supabase for users
-      const isDemo = import.meta.env.VITE_DEMO_MODE === 'true' && !getSupabaseEnabled();
-      
+
       if (supabaseAdmin === null) {
-        console.log('⚠️ Admin client not available (missing SERVICE_ROLE_KEY), skipping user seeding');
-        console.log('💡 Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env file to enable user seeding');
+        logger.db.warn('Admin client not available, skipping user seeding');
         return;
       }
-      
-      console.log('✅ Data seeding completed successfully');
+
+      logger.db.info('Data seeding completed successfully');
     } catch (error) {
-      console.error('❌ Error during data seeding:', error);
-      // Don't throw error to prevent app crash, just log it
-      console.log('💡 Tip: Ensure your Supabase project has the correct configuration and SERVICE_ROLE_KEY');
+      logger.db.error('Error during data seeding:', error);
     }
   }
 
   private static async createDefaultPartners(): Promise<void> {
     if (supabaseAdmin === null) {
-      console.log('⚠️ Admin client not available, skipping partners creation');
+      logger.db.warn('Admin client not available, skipping partners creation');
       return;
     }
-    
-    console.log('🏢 Creating default partners...');
-    
+
     try {
-      // Test admin client connectivity first
       try {
-        const { data: testData, error: testError } = await supabaseAdmin
+        const { error: testError } = await supabaseAdmin
           .from('partners')
           .select('count')
           .limit(1);
-        
+
         if (testError) {
-          console.log('⚠️ Admin client test failed:', testError.message);
+          logger.db.warn('Admin client test failed:', testError.message);
           return;
         }
       } catch (fetchError) {
-        console.log('⚠️ Network error with admin client:', fetchError);
-        console.log('💡 Please verify your Supabase Service Role Key is correct');
+        logger.db.warn('Network error with admin client:', fetchError);
         return;
       }
 
@@ -834,59 +749,43 @@ export class MigrationService {
       ];
       
       for (const partner of defaultPartners) {
-        // Check if partner already exists
         const { data: existingPartner } = await supabaseAdmin
           .from('partners')
           .select('id')
           .eq('name', partner.name)
           .maybeSingle();
-        
-        if (existingPartner) {
-          console.log(`✅ Partner already exists: ${partner.name}`);
-          continue;
-        }
-        
-        // Create the partner
+
+        if (existingPartner) continue;
+
         const { error } = await supabaseAdmin
           .from('partners')
           .insert([partner]);
-        
+
         if (error) {
-          console.error(`❌ Error creating partner ${partner.name}:`, error);
-          continue;
+          logger.db.error(`Error creating partner ${partner.name}:`, error);
         }
-        
-        console.log(`✅ Created partner: ${partner.name}`);
       }
-      
-      console.log('🏢 Partners creation completed');
     } catch (error) {
-      console.error('❌ Error creating default partners:', error);
-      console.log('💡 Tip: Verify your Supabase URL and Service Role Key are correct');
-      console.log('💡 Check that your Supabase project is accessible and the partners table exists');
+      logger.db.error('Error creating default partners:', error);
     }
   }
 
   private static async createDefaultPrograms(): Promise<void> {
     if (supabaseAdmin === null) {
-      console.log('⚠️ Admin client not available, skipping programs creation');
+      logger.db.warn('Admin client not available, skipping programs creation');
       return;
     }
-    
-    console.log('🎯 Creating default programs...');
-    
+
     try {
-      // First get the created partners
       const { data: partners } = await supabaseAdmin
         .from('partners')
         .select('id, name');
-      
+
       if (!partners || partners.length === 0) {
-        console.log('⚠️ No partners found, skipping programs creation');
+        logger.db.warn('No partners found, skipping programs creation');
         return;
       }
-      
-      // Get form templates
+
       const { data: templates } = await supabaseAdmin
         .from('form_templates')
         .select('id, name');
@@ -1014,35 +913,24 @@ export class MigrationService {
       ];
       
       for (const program of defaultPrograms) {
-        // Check if program already exists (case-insensitive and trim)
         const { data: existingProgram } = await supabaseAdmin
           .from('programs')
           .select('id, name')
           .ilike('name', program.name.trim())
           .maybeSingle();
 
-        if (existingProgram) {
-          console.log(`✅ Program already exists: ${existingProgram.name} (ID: ${existingProgram.id})`);
-          continue;
-        }
-        
-        // Create the program
+        if (existingProgram) continue;
+
         const { error } = await supabaseAdmin
           .from('programs')
           .insert([program]);
-        
+
         if (error) {
-          console.error(`❌ Error creating program ${program.name}:`, error);
-          continue;
+          logger.db.error(`Error creating program ${program.name}:`, error);
         }
-        
-        console.log(`✅ Created program: ${program.name}`);
       }
-      
-      console.log('🎯 Programs creation completed');
     } catch (error) {
-      console.error('❌ Error creating default programs:', error);
+      logger.db.error('Error creating default programs:', error);
     }
   }
-
 }

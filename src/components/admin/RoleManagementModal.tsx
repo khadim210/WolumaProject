@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useRolePermissionStore, UserRole, Permission } from '../../stores/rolePermissionStore';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
 import Button from '../ui/Button';
@@ -9,7 +9,7 @@ interface RoleManagementModalProps {
   onClose: () => void;
 }
 
-const RoleManagementModal: React.FC<RoleManagementModalProps> = ({ isOpen, onClose }) => {
+const RoleManagementModal: React.FC<RoleManagementModalProps> = memo(({ isOpen, onClose }) => {
   const { 
     rolePermissions, 
     permissionGroups, 
@@ -234,6 +234,8 @@ const RoleManagementModal: React.FC<RoleManagementModalProps> = ({ isOpen, onClo
       </div>
     </div>
   );
-};
+});
+
+RoleManagementModal.displayName = 'RoleManagementModal';
 
 export default RoleManagementModal;

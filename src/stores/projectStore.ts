@@ -25,33 +25,29 @@ export interface Project {
   budget: number;
   timeline: string;
   submitterId: string;
-  programId: string; // Projet soumis pour un programme spécifique
+  programId: string;
   createdAt: Date;
   updatedAt: Date;
   submissionDate?: Date;
-  evaluationScores?: Record<string, number>; // Scores par critère d'évaluation
-  evaluationComments?: Record<string, string>; // Commentaires par critère d'évaluation
+  evaluationScores?: Record<string, number>;
+  evaluationComments?: Record<string, string>;
   totalEvaluationScore?: number;
   evaluationNotes?: string;
   evaluatedBy?: string;
   evaluationDate?: Date;
+  evaluatedAt?: Date;
   eligibilityNotes?: string;
   eligibilityCheckedBy?: string;
-  eligibilityCheckedAt?: string;
-  submittedAt?: string;
+  eligibilityCheckedAt?: Date;
+  submittedAt?: Date;
   formalizationCompleted?: boolean;
   ndaSigned?: boolean;
   tags: string[];
-  formData?: Record<string, any>; // Données du formulaire soumis
-  recommendedStatus?: ProjectStatus; // Status recommandé après évaluation
-  manuallySubmitted?: boolean; // Indique si le projet a été soumis manuellement après évaluation
-  eligibilityNotes?: string; // Notes sur la vérification d'éligibilité
-  eligibilityCheckedBy?: string; // ID de l'utilisateur qui a vérifié l'éligibilité
-  eligibilityCheckedAt?: Date; // Date de vérification d'éligibilité
-  submittedAt?: Date; // Date de soumission du projet
+  formData?: Record<string, any>;
+  recommendedStatus?: ProjectStatus;
+  manuallySubmitted?: boolean;
 }
 
-// Fonction utilitaire pour convertir SupabaseProject vers Project
 const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   id: supabaseProject.id,
   title: supabaseProject.title,
@@ -72,18 +68,14 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   evaluationDate: supabaseProject.evaluation_date ? new Date(supabaseProject.evaluation_date) : undefined,
   eligibilityNotes: supabaseProject.eligibility_notes,
   eligibilityCheckedBy: supabaseProject.eligibility_checked_by,
-  eligibilityCheckedAt: supabaseProject.eligibility_checked_at,
-  submittedAt: supabaseProject.submitted_at,
+  eligibilityCheckedAt: supabaseProject.eligibility_checked_at ? new Date(supabaseProject.eligibility_checked_at) : undefined,
+  submittedAt: supabaseProject.submitted_at ? new Date(supabaseProject.submitted_at) : undefined,
   formalizationCompleted: supabaseProject.formalization_completed,
   ndaSigned: supabaseProject.nda_signed,
   tags: supabaseProject.tags,
   formData: supabaseProject.form_data,
   recommendedStatus: supabaseProject.recommended_status as ProjectStatus,
-  manuallySubmitted: supabaseProject.manually_submitted,
-  eligibilityNotes: supabaseProject.eligibility_notes,
-  eligibilityCheckedBy: supabaseProject.eligibility_checked_by,
-  eligibilityCheckedAt: supabaseProject.eligibility_checked_at ? new Date(supabaseProject.eligibility_checked_at) : undefined,
-  submittedAt: supabaseProject.submitted_at ? new Date(supabaseProject.submitted_at) : undefined
+  manuallySubmitted: supabaseProject.manually_submitted
 });
 
 interface ProjectState {

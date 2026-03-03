@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { aiEvaluationService, AIProvider } from '../../services/aiEvaluationService';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
 import Button from '../ui/Button';
@@ -9,7 +9,7 @@ interface AIConfigModalProps {
   onClose: () => void;
 }
 
-const AIConfigModal: React.FC<AIConfigModalProps> = ({ isOpen, onClose }) => {
+const AIConfigModal: React.FC<AIConfigModalProps> = memo(({ isOpen, onClose }) => {
   const [selectedProvider, setSelectedProvider] = useState<AIProvider>('mock');
   const [apiKey, setApiKey] = useState('');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
@@ -275,6 +275,8 @@ const AIConfigModal: React.FC<AIConfigModalProps> = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
-};
+});
+
+AIConfigModal.displayName = 'AIConfigModal';
 
 export default AIConfigModal;

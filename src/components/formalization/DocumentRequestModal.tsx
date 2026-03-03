@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import Button from '../ui/Button';
@@ -33,7 +33,7 @@ const validationSchema = Yup.object().shape({
     .min(new Date(), 'La date doit être dans le futur')
 });
 
-const DocumentRequestModal: React.FC<DocumentRequestModalProps> = ({
+const DocumentRequestModal: React.FC<DocumentRequestModalProps> = memo(({
   isOpen,
   onClose,
   onSubmit,
@@ -191,6 +191,8 @@ const DocumentRequestModal: React.FC<DocumentRequestModalProps> = ({
       </div>
     </div>
   );
-};
+});
+
+DocumentRequestModal.displayName = 'DocumentRequestModal';
 
 export default DocumentRequestModal;
