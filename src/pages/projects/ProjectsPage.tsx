@@ -140,6 +140,10 @@ const ProjectsPage: React.FC = () => {
           // Traitement des tags
           const tags = rowData.Tags ? String(rowData.Tags).split(',').map((tag: string) => tag.trim()).filter(Boolean) : ['import'];
 
+          // Traitement du secteur d'activite
+          const sectorName = rowData['Secteur d\'activite'] || rowData['Secteur d\'activité'] || rowData['Secteur'];
+          const matchedSector = sectorName ? sectors.find(s => s.name.toLowerCase() === String(sectorName).toLowerCase().trim()) : undefined;
+
           // Créer le projet
           await addProject({
             title: String(rowData.Titre).trim(),
@@ -148,6 +152,9 @@ const ProjectsPage: React.FC = () => {
             budget: budget,
             timeline: String(rowData.Durée).trim(),
             submitterId: user.id,
+            submitterName: rowData['Nom du porteur'] ? String(rowData['Nom du porteur']).trim() : user.name,
+            submitterPhone: rowData['Telephone du porteur'] || rowData['Téléphone du porteur'] ? String(rowData['Telephone du porteur'] || rowData['Téléphone du porteur']).trim() : undefined,
+            activitySectorId: matchedSector?.id,
             programId: selectedProgramForImport,
             tags: tags,
           });
@@ -172,7 +179,7 @@ const ProjectsPage: React.FC = () => {
       setIsImporting(false);
       event.target.value = '';
     }
-  }, [selectedProgramForImport, user, accessiblePrograms, addProject]);
+  }, [selectedProgramForImport, user, accessiblePrograms, addProject, sectors]);
 
   const handleDeleteProject = async (projectId: string) => {
     setDeletingProjectId(projectId);
@@ -198,8 +205,11 @@ const ProjectsPage: React.FC = () => {
       {
         'Titre': 'Exemple de projet',
         'Description': 'Description detaillee du projet avec ses objectifs et son impact potentiel',
+        'Nom du porteur': 'Jean Dupont',
+        'Telephone du porteur': '+221 77 123 45 67',
+        'Secteur d\'activite': 'Numerique / Tech',
         'Budget': 150000,
-        'Duree': '18 mois',
+        'Durée': '18 mois',
         'Tags': 'innovation, technologie, impact'
       }
     ];
@@ -209,7 +219,7 @@ const ProjectsPage: React.FC = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Modele');
 
     const colWidths = Object.keys(templateData[0]).map(key => ({
-      wch: Math.max(key.length, 20)
+      wch: Math.max(key.length, 25)
     }));
     worksheet['!cols'] = colWidths;
 
@@ -537,12 +547,12 @@ const ProjectsPage: React.FC = () => {
             
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                <p>Format attendu: Titre, Description, Budget, Durée, Tags (optionnel)</p>
+                <p>Format attendu: Titre, Description, Nom du porteur, Telephone, Secteur d'activite, Budget, Duree, Tags</p>
                 <button
                   onClick={downloadTemplate}
                   className="text-secondary-600 hover:text-secondary-700 underline"
                 >
-                  Télécharger le modèle Excel
+                  Telecharger le modele Excel
                 </button>
               </div>
               
