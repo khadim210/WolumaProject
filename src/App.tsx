@@ -37,6 +37,9 @@ import UserManualPage from './pages/admin/UserManualPage';
 // Public Pages
 import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
 
+// Public Pages
+import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
+
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuthStore();

@@ -36,7 +36,7 @@ const RegisterPage: React.FC = () => {
   
   const handleSubmit = async (values: RegisterFormValues, { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }) => {
     setRegisterError('');
-    
+
     try {
       const success = await register(
         values.name,

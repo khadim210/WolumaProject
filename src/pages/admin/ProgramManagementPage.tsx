@@ -318,8 +318,11 @@ const ProgramManagementPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <Badge variant="success">Actif</Badge>
+            <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="success">Actif</Badge>
+                {program.isLocked && <Badge variant="error">Verrouillé</Badge>}
+              </div>
             </div>
           </Card>
         ))}

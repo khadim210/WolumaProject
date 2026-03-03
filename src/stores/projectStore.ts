@@ -35,6 +35,10 @@ export interface Project {
   evaluationNotes?: string;
   evaluatedBy?: string;
   evaluationDate?: Date;
+  eligibilityNotes?: string;
+  eligibilityCheckedBy?: string;
+  eligibilityCheckedAt?: string;
+  submittedAt?: string;
   formalizationCompleted?: boolean;
   ndaSigned?: boolean;
   tags: string[];
@@ -66,6 +70,10 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   evaluationNotes: supabaseProject.evaluation_notes,
   evaluatedBy: supabaseProject.evaluated_by,
   evaluationDate: supabaseProject.evaluation_date ? new Date(supabaseProject.evaluation_date) : undefined,
+  eligibilityNotes: supabaseProject.eligibility_notes,
+  eligibilityCheckedBy: supabaseProject.eligibility_checked_by,
+  eligibilityCheckedAt: supabaseProject.eligibility_checked_at,
+  submittedAt: supabaseProject.submitted_at,
   formalizationCompleted: supabaseProject.formalization_completed,
   ndaSigned: supabaseProject.nda_signed,
   tags: supabaseProject.tags,
