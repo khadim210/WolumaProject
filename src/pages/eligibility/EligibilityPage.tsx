@@ -6,29 +6,7 @@ import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import {
-  CheckCircle,
-  XCircle,
-  FileText,
-  Calendar,
-  User,
-  AlertTriangle,
-  Filter,
-  CheckSquare,
-  Square,
-  Sparkles,
-  RotateCcw,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Download,
-  FileSpreadsheet,
-  Phone,
-  Briefcase,
-  Edit3,
-  Save,
-  X
-} from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Calendar, User, AlertTriangle, Filter, CheckSquare, Square, Sparkles, RotateCcw, Search, ChevronDown, ChevronUp, Download, FileSpreadsheet, Phone, Briefcase, CreditCard as Edit3, Save, X } from 'lucide-react';
 import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EligibilityPage: React.FC = () => {
