@@ -173,6 +173,7 @@ const CreateProjectPage: React.FC = () => {
         budget: values.budget,
         timeline: values.timeline,
         submitterId: user.id,
+        submitterName: user.name,
         programId: values.programId,
         tags: values.tags.filter(tag => tag.trim() !== ''),
         formData: formDataWithFiles,

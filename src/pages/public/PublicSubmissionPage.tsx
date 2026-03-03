@@ -231,6 +231,7 @@ const PublicSubmissionPage: React.FC = () => {
         budget: 0,
         timeline: '12 mois',
         submitterId: submitterId,
+        submitterName: submitterInfo.name,
         programId: program.id,
         submissionDate: new Date(),
         tags: [],

@@ -164,6 +164,7 @@ export interface SupabaseProject {
   project_age_months?: number;
   activity_sector_id?: string;
   submitter_phone?: string;
+  submitter_name?: string;
 }
 
 export interface SupabaseFormTemplate {

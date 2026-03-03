@@ -50,6 +50,7 @@ export interface Project {
   projectAgeMonths?: number;
   activitySectorId?: string;
   submitterPhone?: string;
+  submitterName?: string;
 }
 
 const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
@@ -83,7 +84,8 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   projectDescription: supabaseProject.project_description,
   projectAgeMonths: supabaseProject.project_age_months,
   activitySectorId: supabaseProject.activity_sector_id,
-  submitterPhone: supabaseProject.submitter_phone
+  submitterPhone: supabaseProject.submitter_phone,
+  submitterName: supabaseProject.submitter_name
 });
 
 interface ProjectState {
@@ -149,7 +151,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_description: projectData.projectDescription,
         project_age_months: projectData.projectAgeMonths,
         activity_sector_id: projectData.activitySectorId,
-        submitter_phone: projectData.submitterPhone
+        submitter_phone: projectData.submitterPhone,
+        submitter_name: projectData.submitterName
       });
       
       const newProject = convertSupabaseProject(supabaseProject);
