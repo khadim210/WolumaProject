@@ -4,6 +4,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../services/supabaseService';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import {
@@ -26,7 +27,7 @@ const PublicSubmissionPage: React.FC = () => {
   const { programs, fetchPrograms } = useProgramStore();
   const { templates, fetchTemplates } = useFormTemplateStore();
   const { addProject } = useProjectStore();
-  const { register, login, isAuthenticated, user } = useAuthStore();
+  const { register, login } = useAuthStore();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,33 +95,28 @@ const PublicSubmissionPage: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Si l'utilisateur n'est pas déjà authentifié, valider les champs d'identification
-    if (!isAuthenticated) {
-      if (!submitterInfo.projectName.trim()) {
-        newErrors.projectName = 'Le nom du projet est requis';
-      }
-
-      if (!submitterInfo.name.trim()) {
-        newErrors.name = 'Le nom complet est requis';
-      }
-
-      if (!submitterInfo.email.trim()) {
-        newErrors.email = 'L\'email est requis';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(submitterInfo.email)) {
-        newErrors.email = 'Email invalide';
-      }
-
-      if (!submitterInfo.password) {
-        newErrors.password = 'Le mot de passe est requis';
-      } else if (submitterInfo.password.length < 6) {
-        newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
-      }
-
-      if (submitterInfo.password !== submitterInfo.confirmPassword) {
-        newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
-      }
-    } else if (!submitterInfo.projectName.trim()) {
+    if (!submitterInfo.projectName.trim()) {
       newErrors.projectName = 'Le nom du projet est requis';
+    }
+
+    if (!submitterInfo.name.trim()) {
+      newErrors.name = 'Le nom complet est requis';
+    }
+
+    if (!submitterInfo.email.trim()) {
+      newErrors.email = 'L\'email est requis';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(submitterInfo.email)) {
+      newErrors.email = 'Email invalide';
+    }
+
+    if (!submitterInfo.password) {
+      newErrors.password = 'Le mot de passe est requis';
+    } else if (submitterInfo.password.length < 6) {
+      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+    }
+
+    if (submitterInfo.password !== submitterInfo.confirmPassword) {
+      newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
     }
 
     setErrors(newErrors);
@@ -139,34 +135,42 @@ const PublicSubmissionPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      let submitterId = user?.id;
+      const cleanEmail = submitterInfo.email.trim().toLowerCase();
 
-      if (!isAuthenticated) {
-        const cleanEmail = submitterInfo.email.trim().toLowerCase();
+      console.log('Starting submission process...');
+      const registered = await register(
+        submitterInfo.name.trim(),
+        cleanEmail,
+        submitterInfo.password,
+        'submitter',
+        submitterInfo.organization.trim()
+      );
 
-        const registered = await register(
-          submitterInfo.name.trim(),
-          cleanEmail,
-          submitterInfo.password,
-          'submitter',
-          submitterInfo.organization.trim()
-        );
+      if (!registered) {
+        console.log('Registration failed (user may exist), trying login');
+        const loggedIn = await login(cleanEmail, submitterInfo.password);
 
-        if (!registered) {
-          const loggedIn = await login(cleanEmail, submitterInfo.password);
-
-          if (!loggedIn) {
-            throw new Error('Impossible de creer ou connecter le compte. Verifiez votre mot de passe.');
-          }
+        if (!loggedIn) {
+          throw new Error('Impossible de creer ou connecter le compte. Verifiez votre mot de passe.');
         }
-
-        const { user: authUser } = useAuthStore.getState();
-        submitterId = authUser?.id;
       }
+
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session after auth:', session ? 'valid' : 'none');
+        if (!session) {
+          throw new Error('La session n\'a pas pu etre etablie. Veuillez reessayer.');
+        }
+      }
+
+      const { user: authUser } = useAuthStore.getState();
+      const submitterId = authUser?.id;
 
       if (!submitterId) {
         throw new Error('Impossible d\'identifier l\'utilisateur');
       }
+
+      console.log('Submitting project with submitterId:', submitterId);
 
       await addProject({
         title: submitterInfo.projectName,
@@ -267,15 +271,11 @@ const PublicSubmissionPage: React.FC = () => {
                 Projet Soumis avec Succès!
               </h3>
               <p className="text-gray-600 mb-6">
-                Votre projet <strong>{submitterInfo.projectName}</strong> a été soumis au programme <strong>{program.name}</strong>.
-                {!isAuthenticated && (
-                  <>
-                    <br /><br />
-                    Un compte a été créé avec l'email <strong>{submitterInfo.email}</strong>.
-                  </>
-                )}
+                Votre projet <strong>{submitterInfo.projectName}</strong> a ete soumis au programme <strong>{program.name}</strong>.
                 <br /><br />
-                Vous recevrez une notification par email concernant l'état de votre candidature.
+                Votre compte avec l'email <strong>{submitterInfo.email}</strong> a ete cree ou connecte.
+                <br /><br />
+                Vous recevrez une notification par email concernant l'etat de votre candidature.
               </p>
               <Button
                 onClick={() => navigate('/')}
@@ -304,8 +304,7 @@ const PublicSubmissionPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Section: Informations du Soumissionnaire */}
-          {!isAuthenticated && (
-            <Card>
+          <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <User className="h-6 w-6 mr-2 text-blue-600" />
@@ -422,7 +421,6 @@ const PublicSubmissionPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          )}
 
           {/* Section: Nom du Projet */}
           <Card>
@@ -664,11 +662,9 @@ const PublicSubmissionPage: React.FC = () => {
             </Button>
           </div>
 
-          {!isAuthenticated && (
-            <p className="text-sm text-center text-gray-500">
-              En soumettant ce formulaire, un compte sera automatiquement créé pour vous permettre de suivre votre candidature.
-            </p>
-          )}
+          <p className="text-sm text-center text-gray-500">
+            En soumettant ce formulaire, un compte sera cree ou connecte pour vous permettre de suivre votre candidature.
+          </p>
         </form>
       </div>
     </div>
