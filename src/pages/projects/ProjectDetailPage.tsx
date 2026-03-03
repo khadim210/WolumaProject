@@ -17,7 +17,7 @@ import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
 import FileLink from '../../components/projects/FileLink';
-import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink, Phone, Briefcase, User, Edit3, Save, X } from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink, Phone, Briefcase, User, CreditCard as Edit3, Save, X } from 'lucide-react';
 import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
