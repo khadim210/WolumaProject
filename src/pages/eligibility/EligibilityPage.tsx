@@ -723,6 +723,7 @@ const EligibilityPage: React.FC = () => {
 
     const exportData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
+      const sector = getSector(project.activitySectorId || '');
       const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
       const allFieldCriteria = program?.fieldEligibilityCriteria || [];
       const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
@@ -737,6 +738,10 @@ const EligibilityPage: React.FC = () => {
 
       return {
         'Titre': project.title,
+        'Nom du porteur': project.submitterName || 'N/A',
+        'Email du porteur': project.submitterEmail || 'N/A',
+        'Telephone': project.submitterPhone || 'N/A',
+        'Secteur d\'activite': sector?.name || 'N/A',
         'Description': project.description || 'N/A',
         'Programme': program?.name || 'N/A',
         'Budget': project.budget,
@@ -754,7 +759,8 @@ const EligibilityPage: React.FC = () => {
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws['!cols'] = [
-      { wch: 30 }, { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
+      { wch: 30 }, { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 25 },
+      { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
       { wch: 40 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 50 }
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Projets');
@@ -804,7 +810,7 @@ const EligibilityPage: React.FC = () => {
       import('jspdf-autotable')
     ]);
 
-    const doc = new jsPDF('l', 'mm', 'a4');
+    const doc = new jsPDF('l', 'mm', 'a3');
 
     doc.setFontSize(18);
     doc.text('Liste des Projets - Etat Eligibilite', 14, 15);
@@ -815,33 +821,40 @@ const EligibilityPage: React.FC = () => {
 
     const tableData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
+      const sector = getSector(project.activitySectorId || '');
       return [
-        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        project.title.length > 25 ? project.title.substring(0, 22) + '...' : project.title,
+        project.submitterName || 'N/A',
+        project.submitterEmail || 'N/A',
+        project.submitterPhone || 'N/A',
+        sector?.name || 'N/A',
         program?.name || 'N/A',
         project.status,
-        getEligibilityStatus(project),
         new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR')
       ];
     });
 
     autoTable(doc, {
       startY: 35,
-      head: [['Titre', 'Programme', 'Statut', 'Etat Eligibilite', 'Date Soumission']],
+      head: [['Titre', 'Porteur', 'Email', 'Telephone', 'Secteur', 'Programme', 'Statut', 'Date Soumission']],
       body: tableData,
       theme: 'grid',
       headStyles: {
         fillColor: [59, 130, 246],
         textColor: 255,
-        fontSize: 9,
+        fontSize: 8,
         fontStyle: 'bold'
       },
-      bodyStyles: { fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
       columnStyles: {
-        0: { cellWidth: 60 },
-        1: { cellWidth: 45 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 70 },
-        4: { cellWidth: 35 }
+        0: { cellWidth: 45 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 55 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 40 },
+        6: { cellWidth: 25 },
+        7: { cellWidth: 30 }
       },
       margin: { left: 14, right: 14 },
       didDrawPage: (data) => {

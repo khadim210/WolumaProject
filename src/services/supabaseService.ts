@@ -166,6 +166,7 @@ export interface SupabaseProject {
   activity_sector_id?: string;
   submitter_phone?: string;
   submitter_name?: string;
+  submitter_email?: string;
 }
 
 export interface SupabaseFormTemplate {

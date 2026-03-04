@@ -51,6 +51,7 @@ export interface Project {
   activitySectorId?: string;
   submitterPhone?: string;
   submitterName?: string;
+  submitterEmail?: string;
 }
 
 const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
@@ -85,7 +86,8 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   projectAgeMonths: supabaseProject.project_age_months,
   activitySectorId: supabaseProject.activity_sector_id,
   submitterPhone: supabaseProject.submitter_phone,
-  submitterName: supabaseProject.submitter_name
+  submitterName: supabaseProject.submitter_name,
+  submitterEmail: supabaseProject.submitter_email
 });
 
 interface ProjectState {
@@ -152,7 +154,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         project_age_months: projectData.projectAgeMonths,
         activity_sector_id: projectData.activitySectorId,
         submitter_phone: projectData.submitterPhone,
-        submitter_name: projectData.submitterName
+        submitter_name: projectData.submitterName,
+        submitter_email: projectData.submitterEmail
       });
       
       const newProject = convertSupabaseProject(supabaseProject);
@@ -201,6 +204,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (updates.activitySectorId !== undefined) supabaseUpdates.activity_sector_id = updates.activitySectorId;
       if (updates.submitterPhone !== undefined) supabaseUpdates.submitter_phone = updates.submitterPhone;
       if (updates.submitterName !== undefined) supabaseUpdates.submitter_name = updates.submitterName;
+      if (updates.submitterEmail !== undefined) supabaseUpdates.submitter_email = updates.submitterEmail;
 
       const supabaseProject = await ProjectService.updateProject(id, supabaseUpdates);
       const updatedProject = convertSupabaseProject(supabaseProject);

@@ -224,6 +224,7 @@ const PublicSubmissionPage: React.FC = () => {
         timeline: '12 mois',
         submitterId: submitterId,
         submitterName: submitterInfo.name,
+        submitterEmail: cleanEmail,
         programId: program.id,
         submissionDate: new Date(),
         tags: [],
