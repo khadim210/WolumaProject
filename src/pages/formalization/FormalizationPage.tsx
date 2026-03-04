@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { FileText, GraduationCap, DollarSign, Archive, Shield, Plus, Download, Upload, CheckCircle, XCircle, Clock, CreditCard as Edit, Trash2, AlertCircle, Printer, FileSpreadsheet } from 'lucide-react';
+import { FileText, GraduationCap, DollarSign, Archive, Shield, Plus, Download, Upload, CheckCircle, XCircle, Clock, CreditCard as Edit, Trash2, AlertCircle, Printer, FileSpreadsheet, Search, Filter } from 'lucide-react';
+import { getAccessiblePrograms } from '../../hooks/useFilteredProjects';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
@@ -24,7 +25,7 @@ const FormalizationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, fetchProjects } = useProjectStore();
-  const { programs, fetchPrograms } = useProgramStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('documents');
   const [selectedProject, setSelectedProject] = useState<string>('');
@@ -40,10 +41,15 @@ const FormalizationPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [programFilter, setProgramFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+
   useEffect(() => {
     fetchPrograms();
+    fetchPartners();
     fetchProjects();
-  }, [fetchPrograms, fetchProjects]);
+  }, [fetchPrograms, fetchPartners, fetchProjects]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -74,9 +80,46 @@ const FormalizationPage: React.FC = () => {
     );
   }
 
-  const selectedProjectsData = projects.filter(
-    p => p.status === 'selected' || p.recommendedStatus === 'selected'
+  const accessiblePrograms = useMemo(
+    () => getAccessiblePrograms(user, programs, partners),
+    [user, programs, partners]
   );
+
+  const selectedProjectsData = useMemo(() => {
+    return projects.filter(p => {
+      const hasRelevantStatus = p.status === 'selected' || p.recommendedStatus === 'selected';
+      if (!hasRelevantStatus) return false;
+
+      const isAccessible = accessiblePrograms.some(prog => prog.id === p.programId);
+      if (!isAccessible) return false;
+
+      const matchesSearch = searchTerm === '' ||
+        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesProgram = programFilter === 'all' || p.programId === programFilter;
+
+      let matchesDate = true;
+      if (dateFilter !== 'all' && p.submissionDate) {
+        const submissionDate = new Date(p.submissionDate);
+        const now = new Date();
+
+        if (dateFilter === 'today') {
+          matchesDate = submissionDate.toDateString() === now.toDateString();
+        } else if (dateFilter === 'week') {
+          const weekAgo = new Date(now);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          matchesDate = submissionDate >= weekAgo;
+        } else if (dateFilter === 'month') {
+          const monthAgo = new Date(now);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          matchesDate = submissionDate >= monthAgo;
+        }
+      }
+
+      return matchesSearch && matchesProgram && matchesDate;
+    });
+  }, [projects, accessiblePrograms, searchTerm, programFilter, dateFilter]);
 
   const currentProject = projects.find(p => p.id === selectedProject);
 
@@ -481,9 +524,90 @@ const FormalizationPage: React.FC = () => {
         </div>
       </div>
 
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center">
+            <Filter className="h-5 w-5 text-gray-500 mr-2" />
+            <CardTitle>Filtres</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Recherche
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Titre ou description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Programme
+              </label>
+              <select
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+              >
+                <option value="all">Tous les programmes</option>
+                {accessiblePrograms.map(program => {
+                  const partner = partners.find(p => p.id === program.partnerId);
+                  return (
+                    <option key={program.id} value={program.id}>
+                      {program.name} {partner && `(${partner.name})`}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Periode de soumission
+              </label>
+              <select
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              >
+                <option value="all">Toutes les dates</option>
+                <option value="today">Aujourd'hui</option>
+                <option value="week">Cette semaine</option>
+                <option value="month">Ce mois</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('');
+                setProgramFilter('all');
+                setDateFilter('all');
+              }}
+            >
+              Reinitialiser les filtres
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Sélectionner un projet
+          Selectionner un projet
         </label>
         {selectedProjectsData.length === 0 ? (
           <Card>
