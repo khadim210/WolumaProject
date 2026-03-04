@@ -12,22 +12,7 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import {
-  Users,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Filter,
-  Shield,
-  Mail,
-  Building,
-  Calendar,
-  MoreVertical,
-  UserCheck,
-  UserX,
-  Lock
-} from 'lucide-react';
+import { Users, Plus, CreditCard as Edit, Trash2, Search, Filter, Shield, Mail, Building, Calendar, MoreVertical, UserCheck, UserX, Lock } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 
