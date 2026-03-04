@@ -24,8 +24,11 @@ import { Search, Filter, CheckCircle, XCircle, ArrowLeft, Save, Award, Target, S
   FileSpreadsheet,
   Phone,
   Briefcase,
-  Calendar
+  Calendar,
+  FileText,
+  ClipboardList
 } from 'lucide-react';
+import FileLink from '../../components/projects/FileLink';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
@@ -60,6 +63,7 @@ const EvaluationPage: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [aiAnalysisCache, setAiAnalysisCache] = useState<Record<string, any>>({});
   const [includeFileContents, setIncludeFileContents] = useState(true);
+  const [activeTab, setActiveTab] = useState<'evaluation' | 'submission'>('evaluation');
 
   if (!user || !checkPermission('evaluation.evaluate')) {
     return (
@@ -1365,14 +1369,129 @@ const EvaluationPage: React.FC = () => {
                     </div>
                     
                     <div className="lg:col-span-2">
+                      <div className="mb-4">
+                        <div className="border-b border-gray-200">
+                          <nav className="-mb-px flex space-x-8">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('evaluation')}
+                              className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center ${
+                                activeTab === 'evaluation'
+                                  ? 'border-primary-500 text-primary-600'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                              }`}
+                            >
+                              <Award className="h-4 w-4 mr-2" />
+                              Evaluation
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('submission')}
+                              className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center ${
+                                activeTab === 'submission'
+                                  ? 'border-primary-500 text-primary-600'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                              }`}
+                            >
+                              <ClipboardList className="h-4 w-4 mr-2" />
+                              Donnees de soumission
+                            </button>
+                          </nav>
+                        </div>
+                      </div>
+
+                      {activeTab === 'submission' && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center">
+                              <ClipboardList className="h-5 w-5 mr-2" />
+                              Donnees du formulaire de soumission
+                            </CardTitle>
+                            <CardDescription>
+                              Informations saisies lors de la soumission du projet
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {selectedProject.formData && Object.keys(selectedProject.formData).length > 0 ? (
+                              <div className="space-y-4">
+                                {Object.entries(selectedProject.formData).map(([key, value]) => {
+                                  if (Array.isArray(value) && value.length > 0 && value[0]?.name && value[0]?.path) {
+                                    return (
+                                      <div key={key} className="border border-gray-200 rounded-lg p-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                          <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                                          {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                                        </h4>
+                                        <div className="space-y-2">
+                                          {value.map((file: any, idx: number) => (
+                                            <FileLink key={idx} file={file} />
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (typeof value === 'object' && value !== null && value.name && value.path) {
+                                    return (
+                                      <div key={key} className="border border-gray-200 rounded-lg p-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                          <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                                          {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                                        </h4>
+                                        <FileLink file={value} />
+                                      </div>
+                                    );
+                                  }
+
+                                  if (value === null || value === undefined || value === '') {
+                                    return null;
+                                  }
+
+                                  return (
+                                    <div key={key} className="border border-gray-200 rounded-lg p-4">
+                                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                        {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                                      </h4>
+                                      <div className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md whitespace-pre-wrap">
+                                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-gray-500">
+                                <ClipboardList className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                                <p>Aucune donnee de formulaire disponible</p>
+                              </div>
+                            )}
+
+                            {selectedProject.attachments && selectedProject.attachments.length > 0 && (
+                              <div className="border-t pt-6">
+                                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                  <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                                  Fichiers joints supplementaires
+                                </h4>
+                                <div className="space-y-2">
+                                  {selectedProject.attachments.map((file: any, idx: number) => (
+                                    <FileLink key={idx} file={file} />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeTab === 'evaluation' && (
                       <Card>
                         <CardHeader>
                           <CardTitle className="flex items-center">
                             <Award className="h-5 w-5 mr-2" />
-                            Évaluation du projet
+                            Evaluation du projet
                           </CardTitle>
                           <CardDescription>
-                            Évaluez le projet selon les critères définis pour le programme "{program.name}"
+                            Evaluez le projet selon les criteres definis pour le programme "{program.name}"
                           </CardDescription>
                         </CardHeader>
                         <Formik
@@ -1582,6 +1701,7 @@ const EvaluationPage: React.FC = () => {
                           )}
                         </Formik>
                       </Card>
+                      )}
                     </div>
                   </div>
                 );
