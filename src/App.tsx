@@ -50,49 +50,23 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  // Initialiser Supabase au démarrage de l'application
   React.useEffect(() => {
     const initializeSupabase = async () => {
       try {
-        console.log('🚀 Initializing Supabase...');
-        console.log('🚀 Environment check:', {
-          hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
-          hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-          hasServiceKey: !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-          demoMode: import.meta.env.VITE_DEMO_MODE
-        });
-        
-        // Check if Supabase is properly configured
         const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (hasSupabaseConfig) {
-          console.log('✅ Supabase configuration found');
-          console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
 
-          // Seed data only once per browser using localStorage
+        if (hasSupabaseConfig) {
           const hasSeeded = localStorage.getItem('app_data_seeded');
           if (!hasSeeded && import.meta.env.MODE === 'development') {
-            console.log('🌱 First run in development - seeding data...');
             await MigrationService.seedData();
             localStorage.setItem('app_data_seeded', 'true');
-            console.log('✅ Data seeded successfully');
-          } else if (hasSeeded) {
-            console.log('✅ Data already seeded, skipping...');
-          } else {
-            console.log('📦 Production mode - skipping automatic seed');
           }
-
-          console.log('✅ Supabase initialized successfully');
-        } else {
-          console.log('⚠️ Supabase not configured, running in demo mode');
-          console.log('💡 Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable Supabase');
         }
       } catch (error) {
-        console.error('❌ Supabase initialization error:', error);
-        console.log('💡 The app will continue to work in demo mode');
+        console.error('Supabase initialization error:', error);
       }
     };
-    
+
     initializeSupabase();
   }, []);
   

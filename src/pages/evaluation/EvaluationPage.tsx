@@ -105,8 +105,6 @@ const EvaluationPage: React.FC = () => {
 
         const configuredModel = parameters.openaiModel || 'gpt-4';
         model = validModels[configuredModel] || validModels[configuredModel.toLowerCase()] || 'gpt-4o-mini';
-
-        console.log(`[AI Config] Configured model: "${parameters.openaiModel}" → Using: "${model}"`);
       } else if (provider === 'gemini') {
         apiKey = parameters.googleApiKey;
       }
@@ -286,12 +284,8 @@ const EvaluationPage: React.FC = () => {
             recommendedStatus: response.recommendation as ProjectStatus,
             evaluatedBy: user.id,
             evaluationDate: new Date(),
-            // Don't change status automatically - wait for manual submission
           });
 
-          console.log('✅ Project evaluated:', project.id, { evaluationScores, totalEvaluationScore: Math.round(totalScore) });
-          
-          // Petite pause entre les évaluations pour éviter les limites de taux
           if (i < selectedProjects.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
@@ -363,11 +357,8 @@ const EvaluationPage: React.FC = () => {
         evaluatedBy: user.id,
         evaluationDate: new Date(),
         recommendedStatus: values.decision as ProjectStatus,
-        // Don't change status automatically - wait for manual submission
       });
 
-      console.log('✅ Project evaluated:', selectedProject.id, { evaluationScores, totalEvaluationScore: Math.round(totalScore) });
-      
       if (updatedProject) {
         setIsEvaluating(false);
         setSelectedProject(null);
@@ -384,10 +375,6 @@ const EvaluationPage: React.FC = () => {
 
     try {
       const partner = partners.find(p => p.id === program?.partnerId);
-
-      console.log('[AI Evaluation] Starting evaluation for project:', project.title);
-      console.log('[AI Evaluation] Program:', program.name);
-      console.log('[AI Evaluation] Criteria count:', program.evaluationCriteria.length);
 
       const request = {
         projectData: {
@@ -410,9 +397,7 @@ const EvaluationPage: React.FC = () => {
         includeFileContents: includeFileContents
       };
 
-      console.log('[AI Evaluation] Sending request to AI service...');
       const response = await aiEvaluationService.evaluateProject(request);
-      console.log('[AI Evaluation] Received response:', response);
 
       // Stocker l'analyse IA pour la génération du rapport
       setAiAnalysisCache(prev => ({
@@ -420,13 +405,9 @@ const EvaluationPage: React.FC = () => {
         [project.id]: response
       }));
 
-      // Vérifier que la réponse contient des données
       if (!response || !response.scores) {
-        console.error('[AI Evaluation] Invalid response - no scores found');
         throw new Error('La réponse de l\'IA ne contient pas de scores');
       }
-
-      console.log('[AI Evaluation] Processing scores...');
 
       // Préparer les nouvelles valeurs pour Formik
       const newValues: any = {};
@@ -454,24 +435,16 @@ const EvaluationPage: React.FC = () => {
             }
             newValues[`comment_${criterion.id}`] = comment;
           }
-        } else {
-          console.warn(`[AI Evaluation] No score found for criterion: ${criterion.name}`);
         }
       });
-
-      console.log(`[AI Evaluation] Processed ${processedCount}/${program.evaluationCriteria.length} criteria`);
 
       newValues.evaluationNotes = response.notes;
       newValues.decision = response.recommendation;
 
-      console.log('[AI Evaluation] Updating form values...');
-      // Appliquer toutes les mises à jour
       setValues((prevValues: any) => ({
         ...prevValues,
         ...newValues
       }));
-
-      console.log('[AI Evaluation] Form updated successfully!');
       
     } catch (error) {
       console.error('Erreur lors de l\'évaluation IA:', error);

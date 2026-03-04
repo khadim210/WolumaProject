@@ -61,7 +61,6 @@ const PublicSubmissionPage: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('Loading data for programId:', programId);
         await fetchPrograms();
         await fetchTemplates();
         await fetchSectors();
@@ -77,13 +76,6 @@ const PublicSubmissionPage: React.FC = () => {
     ? templates.find(t => t.id === program.formTemplateId)
     : null;
 
-  useEffect(() => {
-    if (programs.length > 0) {
-      console.log('📋 Available programs:', programs.map(p => ({ id: p.id, name: p.name })));
-      console.log('🎯 Looking for program:', programId);
-      console.log('✨ Program found:', program ? program.name : 'NOT FOUND');
-    }
-  }, [programs, programId, program]);
 
   const handleFieldChange = (fieldId: string, value: any) => {
     setFormData(prev => ({
@@ -173,7 +165,6 @@ const PublicSubmissionPage: React.FC = () => {
     try {
       const cleanEmail = submitterInfo.email.trim().toLowerCase();
 
-      console.log('Starting submission process...');
       const registered = await register(
         submitterInfo.name.trim(),
         cleanEmail,
@@ -183,7 +174,6 @@ const PublicSubmissionPage: React.FC = () => {
       );
 
       if (!registered) {
-        console.log('Registration failed (user may exist), trying login');
         const loggedIn = await login(cleanEmail, submitterInfo.password);
 
         if (!loggedIn) {
@@ -196,9 +186,6 @@ const PublicSubmissionPage: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Session after auth:', session ? 'valid' : 'none');
-        console.log('Session user id (auth.uid):', session?.user?.id);
-        console.log('Session user email:', session?.user?.email);
         sessionUserId = session?.user?.id;
 
         if (!session) {
@@ -211,20 +198,6 @@ const PublicSubmissionPage: React.FC = () => {
 
       if (!submitterId) {
         throw new Error('Impossible d\'identifier l\'utilisateur');
-      }
-
-      console.log('Submitting project with submitterId (users.id):', submitterId);
-      console.log('authUser from store:', authUser);
-      console.log('Session auth.uid:', sessionUserId);
-
-      if (supabase && sessionUserId) {
-        const { data: userCheck } = await supabase
-          .from('users')
-          .select('id, auth_user_id')
-          .eq('id', submitterId)
-          .maybeSingle();
-        console.log('User check from DB:', userCheck);
-        console.log('auth_user_id matches session?', userCheck?.auth_user_id === sessionUserId);
       }
 
       const fileStorageFolder = sessionUserId || submitterId;

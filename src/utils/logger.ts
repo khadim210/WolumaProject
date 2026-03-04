@@ -11,7 +11,7 @@ const LOG_COLORS: Record<LogLevel, string> = {
 
 const createLogger = (category: string) => {
   const log = (level: LogLevel, ...args: unknown[]) => {
-    if (!isDev && level === 'debug') return;
+    if (!isDev && level !== 'error') return;
 
     const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
     const color = LOG_COLORS[level];

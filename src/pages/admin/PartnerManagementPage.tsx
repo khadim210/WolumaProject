@@ -59,16 +59,7 @@ const PartnerManagementPage: React.FC = () => {
   useEffect(() => {
     fetchPartners();
     fetchUsers();
-    console.log('🏢 PartnerManagementPage mounted');
-    console.log('🏢 Initial partners state:', partners);
-    console.log('🏢 Initial loading state:', isLoading);
-    console.log('🏢 Initial error state:', error);
   }, [fetchPartners, fetchUsers]);
-
-  // Debug: Log partners to see if they're being fetched
-  console.log('🏢 Partners in component:', partners);
-  console.log('🏢 Is loading:', isLoading);
-  console.log('🏢 Error:', error);
 
   const filteredPartners = partners.filter(partner => {
     const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,7 +74,6 @@ const PartnerManagementPage: React.FC = () => {
 
   const handleCreatePartner = async (values: PartnerFormValues, { resetForm, setSubmitting }: any) => {
     try {
-      console.log('Creating partner with values:', values);
       const result = await addPartner({
         name: values.name,
         description: values.description,
@@ -93,7 +83,6 @@ const PartnerManagementPage: React.FC = () => {
         isActive: values.isActive,
         assignedManagerId: values.assignedManagerId || undefined
       });
-      console.log('Partner created successfully:', result);
 
       if (values.assignedUserId && result) {
         await updateUser(values.assignedUserId, { partnerId: result.id });
@@ -115,8 +104,6 @@ const PartnerManagementPage: React.FC = () => {
     if (!editingPartner) return;
 
     try {
-      console.log('PartnerManagementPage - handleUpdatePartner called with values:', values);
-
       await updatePartner(editingPartner.id, {
         name: values.name,
         description: values.description,
@@ -138,7 +125,6 @@ const PartnerManagementPage: React.FC = () => {
         await updateUser(newAssignedUserId, { partnerId: editingPartner.id });
       }
 
-      console.log('PartnerManagementPage - Partner updated successfully');
       setEditingPartner(null);
       fetchUsers();
     } catch (error) {
@@ -358,9 +344,7 @@ const PartnerManagementPage: React.FC = () => {
                 onSubmit={editingPartner ? handleUpdatePartner : handleCreatePartner}
                 enableReinitialize
               >
-                {({ isSubmitting, values }) => {
-                  console.log('📋 Current Formik values:', values);
-                  return (
+                {({ isSubmitting, values }) => (
                   <Form className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -504,8 +488,7 @@ const PartnerManagementPage: React.FC = () => {
                       </Button>
                     </div>
                   </Form>
-                  );
-                }}
+                )}
               </Formik>
             </div>
           </div>

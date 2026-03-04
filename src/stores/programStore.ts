@@ -155,15 +155,8 @@ export const useProgramStore = create<ProgramState>()(
       fetchPartners: async () => {
         set({ isLoading: true, error: null });
         try {
-          console.log('🏢 Store: Fetching partners...');
-          console.log('🏢 Store: Supabase enabled:', getSupabaseEnabled());
-          console.log('🏢 Fetching partners from Supabase...');
           const supabasePartners = await PartnerService.getPartners();
-          console.log('🏢 Partners received:', supabasePartners.length);
-          console.log('🏢 Raw partners data:', supabasePartners);
           const partners = supabasePartners.map(convertSupabasePartner);
-          console.log('🏢 Converted partners:', partners.length);
-          console.log('🏢 Final partners:', partners);
           set({ partners, isLoading: false });
         } catch (error) {
           console.error('Error fetching partners:', error);
@@ -202,8 +195,6 @@ export const useProgramStore = create<ProgramState>()(
       updatePartner: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          console.log('🔄 Store updatePartner - updates received:', updates);
-
           const supabaseUpdates: Partial<SupabasePartner> = {};
           if (updates.name !== undefined) supabaseUpdates.name = updates.name;
           if (updates.description !== undefined) supabaseUpdates.description = updates.description;
@@ -213,13 +204,8 @@ export const useProgramStore = create<ProgramState>()(
           if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
           if (updates.assignedManagerId !== undefined) supabaseUpdates.assigned_manager_id = updates.assignedManagerId || null;
 
-          console.log('🔄 Store updatePartner - supabaseUpdates to send:', supabaseUpdates);
-
           const supabasePartner = await PartnerService.updatePartner(id, supabaseUpdates);
-          console.log('🔄 Store updatePartner - response from Supabase:', supabasePartner);
-
           const updatedPartner = convertSupabasePartner(supabasePartner);
-          console.log('🔄 Store updatePartner - converted partner:', updatedPartner);
 
           set(state => ({
             partners: state.partners.map(p => p.id === id ? updatedPartner : p),
@@ -278,8 +264,6 @@ export const useProgramStore = create<ProgramState>()(
       addProgram: async (programData) => {
         set({ isLoading: true, error: null });
         try {
-          console.log('Store addProgram - programData received:', programData);
-
           const dataToSend = {
             name: programData.name,
             description: programData.description,
@@ -296,8 +280,6 @@ export const useProgramStore = create<ProgramState>()(
             evaluation_criteria: programData.evaluationCriteria,
             custom_ai_prompt: programData.customAiPrompt
           };
-
-          console.log('Store addProgram - dataToSend:', dataToSend);
 
           const supabaseProgram = await ProgramService.createProgram(dataToSend);
           
@@ -335,9 +317,6 @@ export const useProgramStore = create<ProgramState>()(
           if (updates.evaluationCriteria !== undefined) supabaseUpdates.evaluation_criteria = updates.evaluationCriteria;
           if (updates.customAiPrompt !== undefined) supabaseUpdates.custom_ai_prompt = updates.customAiPrompt;
 
-          console.log('Store updateProgram - updates received:', updates);
-          console.log('Store updateProgram - supabaseUpdates to send:', supabaseUpdates);
-          
           const supabaseProgram = await ProgramService.updateProgram(id, supabaseUpdates);
           const updatedProgram = convertSupabaseProgram(supabaseProgram);
           
