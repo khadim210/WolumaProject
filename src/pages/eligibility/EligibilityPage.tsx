@@ -3,6 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useActivitySectorStore } from '../../stores/activitySectorStore';
+import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
@@ -14,6 +15,7 @@ const EligibilityPage: React.FC = () => {
   const { projects, fetchProjects, updateProject } = useProjectStore();
   const { programs, fetchPrograms } = useProgramStore();
   const { sectors, fetchSectors, getSector } = useActivitySectorStore();
+  const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
@@ -38,7 +40,8 @@ const EligibilityPage: React.FC = () => {
     fetchProjects();
     fetchPrograms();
     fetchSectors();
-  }, [fetchProjects, fetchPrograms, fetchSectors]);
+    fetchTemplates();
+  }, [fetchProjects, fetchPrograms, fetchSectors, fetchTemplates]);
 
   const getProgram = (programId: string) => {
     return programs.find(p => p.id === programId);
@@ -810,67 +813,202 @@ const EligibilityPage: React.FC = () => {
       import('jspdf-autotable')
     ]);
 
-    const doc = new jsPDF('l', 'mm', 'a3');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
 
     doc.setFontSize(18);
-    doc.text('Liste des Projets - Etat Eligibilite', 14, 15);
+    doc.text('Liste des Projets - Etat Eligibilite', margin, 20);
 
     doc.setFontSize(10);
-    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
-    doc.text(`Total: ${filteredProjects.length} projet(s)`, 14, 28);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin, 28);
+    doc.text(`Total: ${filteredProjects.length} projet(s)`, margin, 34);
 
-    const tableData = filteredProjects.map(project => {
+    const summaryData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
       const sector = getSector(project.activitySectorId || '');
       return [
-        project.title.length > 25 ? project.title.substring(0, 22) + '...' : project.title,
+        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
         project.submitterName || 'N/A',
-        project.submitterEmail || 'N/A',
-        project.submitterPhone || 'N/A',
         sector?.name || 'N/A',
         program?.name || 'N/A',
-        project.status,
-        new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR')
+        project.status
       ];
     });
 
     autoTable(doc, {
-      startY: 35,
-      head: [['Titre', 'Porteur', 'Email', 'Telephone', 'Secteur', 'Programme', 'Statut', 'Date Soumission']],
-      body: tableData,
+      startY: 40,
+      head: [['Titre', 'Porteur', 'Secteur', 'Programme', 'Statut']],
+      body: summaryData,
       theme: 'grid',
       headStyles: {
         fillColor: [59, 130, 246],
         textColor: 255,
-        fontSize: 8,
+        fontSize: 9,
         fontStyle: 'bold'
       },
-      bodyStyles: { fontSize: 7 },
-      columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 55 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 40 },
-        5: { cellWidth: 40 },
-        6: { cellWidth: 25 },
-        7: { cellWidth: 30 }
-      },
-      margin: { left: 14, right: 14 },
-      didDrawPage: (data) => {
-        const pageCount = doc.getNumberOfPages();
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFontSize(8);
-        doc.text(
-          `Page ${data.pageNumber} sur ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          pageHeight - 10,
-          { align: 'center' }
-        );
+      bodyStyles: { fontSize: 8 },
+      margin: { left: margin, right: margin }
+    });
+
+    filteredProjects.forEach((project, index) => {
+      doc.addPage();
+      const program = getProgram(project.programId);
+      const sector = getSector(project.activitySectorId || '');
+      const template = program?.formTemplateId ? getTemplate(program.formTemplateId) : null;
+
+      let yPos = 20;
+
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, pageWidth, 12, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.text(`Projet ${index + 1}/${filteredProjects.length}: ${project.title}`, margin, 8);
+
+      doc.setTextColor(0, 0, 0);
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informations du Porteur', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      const porteurData = [
+        ['Nom du porteur', project.submitterName || 'N/A'],
+        ['Email', project.submitterEmail || 'N/A'],
+        ['Telephone', project.submitterPhone || 'N/A'],
+        ['Secteur d\'activite', sector?.name || 'N/A']
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: porteurData,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { cellWidth: 130 }
+        },
+        margin: { left: margin, right: margin }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informations du Projet', margin, yPos);
+      yPos += 8;
+
+      const projetData = [
+        ['Programme', program?.name || 'N/A'],
+        ['Statut', project.status],
+        ['Budget', project.budget.toLocaleString('fr-FR') + ' FCFA'],
+        ['Date de soumission', project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('fr-FR') : 'N/A'],
+        ['Description', project.description || 'N/A']
+      ];
+
+      if (project.projectDescription) {
+        projetData.push(['Description detaillee', project.projectDescription]);
+      }
+
+      autoTable(doc, {
+        startY: yPos,
+        body: projetData,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { cellWidth: 130 }
+        },
+        margin: { left: margin, right: margin }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      if (template && template.fields && template.fields.length > 0 && project.formData) {
+        if (yPos > pageHeight - 40) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Formulaire de Soumission', margin, yPos);
+        yPos += 8;
+
+        const formDataRows: [string, string][] = [];
+
+        template.fields.forEach(field => {
+          const value = project.formData?.[field.id] ?? project.formData?.[field.name];
+          let displayValue = 'Non renseigne';
+
+          if (value !== undefined && value !== null && value !== '') {
+            if (field.type === 'file') {
+              if (Array.isArray(value)) {
+                displayValue = value.map((f: any) => f.name || 'Fichier').join(', ');
+              } else if (typeof value === 'object' && value.name) {
+                displayValue = value.name;
+              }
+            } else if (field.type === 'checkbox') {
+              displayValue = value ? 'Oui' : 'Non';
+            } else if (field.type === 'multiple_select' && Array.isArray(value)) {
+              displayValue = value.join(', ');
+            } else if (field.type === 'date' && value) {
+              displayValue = new Date(value).toLocaleDateString('fr-FR');
+            } else {
+              displayValue = String(value);
+            }
+          }
+
+          if (displayValue.length > 100) {
+            displayValue = displayValue.substring(0, 97) + '...';
+          }
+
+          formDataRows.push([field.label || field.name, displayValue]);
+        });
+
+        autoTable(doc, {
+          startY: yPos,
+          body: formDataRows,
+          theme: 'striped',
+          styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 60 },
+            1: { cellWidth: 120 }
+          },
+          margin: { left: margin, right: margin },
+          didDrawPage: () => {
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+              `Page ${doc.getNumberOfPages()}`,
+              pageWidth / 2,
+              pageHeight - 10,
+              { align: 'center' }
+            );
+            doc.setTextColor(0, 0, 0);
+          }
+        });
       }
     });
 
-    doc.save(`Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.pdf`);
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Page ${i} sur ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+    }
+
+    doc.save(`Projets_Eligibilite_Complet_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null;
