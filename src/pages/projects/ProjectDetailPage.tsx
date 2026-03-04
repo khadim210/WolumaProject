@@ -437,11 +437,14 @@ const ProjectDetailPage: React.FC = () => {
                             )}
                             {value === undefined || value === null || value === '' ? (
                               <p className="text-sm text-gray-400 italic">Non renseigné</p>
-                            ) : field.type === 'file' && Array.isArray(value) ? (
+                            ) : field.type === 'file' || (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && 'path' in value[0]) ? (
                               <div className="space-y-2">
-                                {(value as UploadedFile[]).map((file, idx) => (
-                                  <FileLink key={idx} file={file} />
-                                ))}
+                                {(Array.isArray(value) ? value : [value]).map((file, idx) => {
+                                  if (typeof file === 'object' && file !== null && 'name' in file && 'path' in file) {
+                                    return <FileLink key={idx} file={file as UploadedFile} />;
+                                  }
+                                  return <p key={idx} className="text-sm text-gray-400 italic">Fichier non disponible</p>;
+                                })}
                               </div>
                             ) : field.type === 'textarea' ? (
                               <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
