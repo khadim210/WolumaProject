@@ -582,40 +582,45 @@ const EvaluationPage: React.FC = () => {
 
     const summaryData = submittedProjects.map(project => {
       const program = programs.find(p => p.id === project.programId);
+      const sector = getSector(project.activitySectorId || '');
       return [
-        project.title.length > 40 ? project.title.substring(0, 37) + '...' : project.title,
+        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        project.submitterName || 'N/A',
+        project.submitterEmail || 'N/A',
+        project.submitterPhone || 'N/A',
+        sector?.name || 'N/A',
         program?.name || 'N/A',
         project.status === 'selected' ? 'Selectionne' :
         project.status === 'pre_selected' ? 'Preselectionne' :
         project.status === 'rejected' ? 'Rejete' :
         project.status === 'eligible' ? 'Eligible' : project.status,
         project.totalEvaluationScore !== undefined ? `${project.totalEvaluationScore}%` : 'N/A',
-        project.recommendedStatus === 'selected' ? 'Selectionne' :
-        project.recommendedStatus === 'pre_selected' ? 'Preselectionne' :
-        project.recommendedStatus === 'rejected' ? 'Rejete' : 'N/A',
         project.evaluationDate ? new Date(project.evaluationDate).toLocaleDateString('fr-FR') : 'N/A'
       ];
     });
 
     autoTable(doc, {
       startY: 35,
-      head: [['Titre', 'Programme', 'Statut', 'Score Total', 'Recommandation', 'Date Evaluation']],
+      head: [['Titre', 'Porteur', 'Email', 'Tel', 'Secteur', 'Programme', 'Statut', 'Score', 'Date']],
       body: summaryData,
       theme: 'grid',
       headStyles: {
         fillColor: [59, 130, 246],
         textColor: 255,
-        fontSize: 9,
+        fontSize: 8,
         fontStyle: 'bold'
       },
-      bodyStyles: { fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
       columnStyles: {
-        0: { cellWidth: 70 },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 30 },
+        0: { cellWidth: 50 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 50 },
+        3: { cellWidth: 25 },
         4: { cellWidth: 35 },
-        5: { cellWidth: 35 }
+        5: { cellWidth: 40 },
+        6: { cellWidth: 30 },
+        7: { cellWidth: 20 },
+        8: { cellWidth: 25 }
       },
       margin: { left: margin, right: margin }
     });
@@ -710,7 +715,7 @@ const EvaluationPage: React.FC = () => {
     }
 
     doc.save(`Evaluations_Detaillees_${new Date().toISOString().split('T')[0]}.pdf`);
-  }, [submittedProjects, programs]);
+  }, [submittedProjects, programs, getSector]);
 
   const handleExportExcel = useCallback(async () => {
     const XLSX = await import('xlsx');
@@ -718,9 +723,14 @@ const EvaluationPage: React.FC = () => {
 
     const summaryData = submittedProjects.map(project => {
       const program = programs.find(p => p.id === project.programId);
+      const sector = getSector(project.activitySectorId || '');
 
       return {
         'Titre': project.title,
+        'Nom du porteur': project.submitterName || 'N/A',
+        'Email du porteur': project.submitterEmail || 'N/A',
+        'Telephone': project.submitterPhone || 'N/A',
+        'Secteur d\'activite': sector?.name || 'N/A',
         'Programme': program?.name || 'N/A',
         'Statut': project.status === 'selected' ? 'Selectionne' :
                   project.status === 'pre_selected' ? 'Preselectionne' :
@@ -737,7 +747,8 @@ const EvaluationPage: React.FC = () => {
 
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
     wsSummary['!cols'] = [
-      { wch: 40 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 80 }
+      { wch: 40 }, { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 25 },
+      { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 80 }
     ];
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Resume Evaluations');
 
@@ -826,7 +837,7 @@ const EvaluationPage: React.FC = () => {
     }
 
     XLSX.writeFile(wb, `Evaluations_Completes_${new Date().toISOString().split('T')[0]}.xlsx`);
-  }, [submittedProjects, programs]);
+  }, [submittedProjects, programs, getSector]);
 
   return (
     <div className="space-y-6">
