@@ -654,7 +654,7 @@ const FormalizationPage: React.FC = () => {
                             </span>
                           </div>
 
-                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{project.description}</p>
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{project.projectDescription || project.description}</p>
 
                           <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                             {program && (
