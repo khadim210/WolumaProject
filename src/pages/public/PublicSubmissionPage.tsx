@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import CurrencyInput from '../../components/ui/CurrencyInput';
 import logoImage from '../../assets/logo_couleur.png';
+import { uploadFile, UploadedFile } from '../../utils/fileUpload';
 
 const PublicSubmissionPage: React.FC = () => {
   const { programId } = useParams<{ programId: string }>();
@@ -36,6 +37,7 @@ const PublicSubmissionPage: React.FC = () => {
   const { sectors, fetchSectors } = useActivitySectorStore();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -225,6 +227,22 @@ const PublicSubmissionPage: React.FC = () => {
         console.log('auth_user_id matches session?', userCheck?.auth_user_id === sessionUserId);
       }
 
+      const fileStorageFolder = sessionUserId || submitterId;
+
+      const finalFormData = { ...formData };
+      const uploadedFiles: Record<string, UploadedFile> = {};
+
+      for (const [fieldId, file] of Object.entries(pendingFiles)) {
+        try {
+          const uploadedFile = await uploadFile(fileStorageFolder, file);
+          uploadedFiles[fieldId] = uploadedFile;
+          finalFormData[fieldId] = uploadedFile;
+        } catch (uploadError) {
+          console.error(`Error uploading file for field ${fieldId}:`, uploadError);
+          throw new Error(`Erreur lors de l'upload du fichier: ${file.name}`);
+        }
+      }
+
       await addProject({
         title: submitterInfo.projectName,
         description: formData.description || formData.probleme || 'Description du projet',
@@ -236,7 +254,7 @@ const PublicSubmissionPage: React.FC = () => {
         programId: program.id,
         submissionDate: new Date(),
         tags: [],
-        formData: formData,
+        formData: finalFormData,
         submittedAt: new Date(),
         projectDescription: projectInfo.description,
         projectAgeMonths: projectInfo.ageMonths ? parseInt(projectInfo.ageMonths) : undefined,
@@ -770,22 +788,31 @@ const PublicSubmissionPage: React.FC = () => {
                       )}
 
                       {field.type === 'file' && (
-                        <input
-                          type="file"
-                          required={field.required}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleFieldChange(field.id, file.name);
-                            }
-                          }}
-                          className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-md file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                        />
+                        <div>
+                          <input
+                            type="file"
+                            required={field.required && !pendingFiles[field.id]}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setPendingFiles(prev => ({ ...prev, [field.id]: file }));
+                                handleFieldChange(field.id, file.name);
+                              }
+                            }}
+                            className="block w-full text-sm text-gray-500
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-md file:border-0
+                              file:text-sm file:font-semibold
+                              file:bg-blue-50 file:text-blue-700
+                              hover:file:bg-blue-100"
+                          />
+                          {pendingFiles[field.id] && (
+                            <p className="mt-1 text-sm text-green-600 flex items-center">
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              {pendingFiles[field.id].name}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {field.helperText && (
