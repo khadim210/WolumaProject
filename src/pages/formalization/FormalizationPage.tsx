@@ -82,16 +82,20 @@ const FormalizationPage: React.FC = () => {
   }, [selectedProject]);
 
   const loadProjectData = async (projectId: string) => {
-    const [docs, supports, financial] = await Promise.all([
-      formalizationService.getDocumentRequestsByProject(projectId),
-      formalizationService.getTechnicalSupportByProject(projectId),
-      formalizationService.getDisbursementPlanByProject(projectId)
-    ]);
+    try {
+      const [docs, supports, financial] = await Promise.all([
+        formalizationService.getDocumentRequestsByProject(projectId),
+        formalizationService.getTechnicalSupportByProject(projectId),
+        formalizationService.getDisbursementPlanByProject(projectId)
+      ]);
 
-    setDocumentRequests(docs);
-    setTechnicalSupports(supports);
-    setDisbursementPlan(financial.plan);
-    setDisbursementTranches(financial.tranches);
+      setDocumentRequests(docs);
+      setTechnicalSupports(supports);
+      setDisbursementPlan(financial.plan);
+      setDisbursementTranches(financial.tranches);
+    } catch (error) {
+      console.error('Error loading project data:', error);
+    }
   };
 
   if (!user || !checkPermission('evaluation.evaluate')) {
