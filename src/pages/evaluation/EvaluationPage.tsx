@@ -254,22 +254,20 @@ const EvaluationPage: React.FC = () => {
             const score = response.scores[criterion.name] || 0;
             evaluationScores[criterion.id] = score;
 
-            // Utiliser l'observation de l'IA si disponible
             const observation = response.detailedAnalysis?.observations?.[criterion.name];
             if (observation) {
-              evaluationComments[criterion.id] = `[IA] ${observation}`;
+              evaluationComments[criterion.id] = observation;
             } else {
-              // Fallback sur un commentaire généré
               const percentage = (score / criterion.maxScore) * 100;
               let comment = '';
               if (percentage >= 75) {
-                comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+                comment = `Le projet demontre un niveau satisfaisant pour ce critere avec un score de ${score}/${criterion.maxScore}.`;
               } else if (percentage >= 50) {
-                comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+                comment = `Le projet montre un potentiel d'innovation mais pourrait beneficier d'une approche plus novatrice.`;
               } else {
-                comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+                comment = `Le projet presente des lacunes importantes sur ce critere.`;
               }
-              evaluationComments[criterion.id] = `[IA] ${comment}`;
+              evaluationComments[criterion.id] = comment;
             }
 
             totalScore += (score / criterion.maxScore) * criterion.weight;
@@ -280,7 +278,7 @@ const EvaluationPage: React.FC = () => {
             evaluationScores,
             evaluationComments,
             totalEvaluationScore: Math.round(totalScore),
-            evaluationNotes: `[Évaluation IA en lot]\n\n${response.notes}`,
+            evaluationNotes: response.notes,
             recommendedStatus: response.recommendation as ProjectStatus,
             evaluatedBy: user.id,
             evaluationDate: new Date(),
@@ -437,22 +435,20 @@ const EvaluationPage: React.FC = () => {
           processedCount++;
           newValues[`score_${criterion.id}`] = score;
 
-          // Utiliser l'observation de l'IA si disponible
           const observation = response.detailedAnalysis?.observations?.[criterion.name];
           if (observation) {
-            newValues[`comment_${criterion.id}`] = `[IA] ${observation}`;
+            newValues[`comment_${criterion.id}`] = observation;
           } else {
-            // Fallback sur un commentaire généré
             const percentage = (score / criterion.maxScore) * 100;
             let comment = '';
             if (percentage >= 75) {
-              comment = `Score élevé (${score}/${criterion.maxScore}) - Le projet répond excellemment à ce critère.`;
+              comment = `Le projet demontre un niveau satisfaisant pour ce critere avec un score de ${score}/${criterion.maxScore}.`;
             } else if (percentage >= 50) {
-              comment = `Score moyen (${score}/${criterion.maxScore}) - Le projet répond partiellement à ce critère avec des améliorations possibles.`;
+              comment = `Le projet montre un potentiel d'innovation mais pourrait beneficier d'une approche plus novatrice.`;
             } else {
-              comment = `Score faible (${score}/${criterion.maxScore}) - Le projet présente des lacunes importantes sur ce critère.`;
+              comment = `Le projet presente des lacunes importantes sur ce critere.`;
             }
-            newValues[`comment_${criterion.id}`] = `[IA] ${comment}`;
+            newValues[`comment_${criterion.id}`] = comment;
           }
         } else {
           console.warn(`[AI Evaluation] No score found for criterion: ${criterion.name}`);
@@ -461,8 +457,7 @@ const EvaluationPage: React.FC = () => {
 
       console.log(`[AI Evaluation] Processed ${processedCount}/${program.evaluationCriteria.length} criteria`);
 
-      // Mettre à jour les notes globales et la décision
-      newValues.evaluationNotes = `[Évaluation IA]\n\n${response.notes}`;
+      newValues.evaluationNotes = response.notes;
       newValues.decision = response.recommendation;
 
       console.log('[AI Evaluation] Updating form values...');
