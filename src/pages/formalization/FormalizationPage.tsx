@@ -844,7 +844,7 @@ const FormalizationPage: React.FC = () => {
 
               <div className="md:col-span-2">
                 <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
-                <p className="text-gray-700 text-sm">{currentProject?.description}</p>
+                <p className="text-gray-700 text-sm">{currentProject?.projectDescription || currentProject?.description}</p>
               </div>
             </div>
           </CardContent>
