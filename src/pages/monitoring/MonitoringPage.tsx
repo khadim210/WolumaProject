@@ -80,18 +80,83 @@ const MonitoringPage = () => {
   }, [projects, selectedPeriod, selectedProgram]);
 
   const statistics = useMemo(() => {
+    const statusOrder = [
+      'draft',
+      'submitted',
+      'under_review',
+      'eligible',
+      'ineligible',
+      'pre_selected',
+      'selected',
+      'rejected',
+      'formalization',
+      'financed',
+      'monitoring',
+      'closed'
+    ];
+
+    const getStatusIndex = (status: string) => {
+      const index = statusOrder.indexOf(status);
+      return index === -1 ? -1 : index;
+    };
+
+    const hasPassedStatus = (projectStatus: string, targetStatus: string) => {
+      const projectIndex = getStatusIndex(projectStatus);
+      const targetIndex = getStatusIndex(targetStatus);
+      if (projectIndex === -1 || targetIndex === -1) return false;
+
+      if (targetStatus === 'ineligible') {
+        return projectStatus === 'ineligible';
+      }
+      if (targetStatus === 'rejected') {
+        return projectStatus === 'rejected';
+      }
+
+      if (projectStatus === 'ineligible') {
+        return targetIndex <= getStatusIndex('under_review');
+      }
+      if (projectStatus === 'rejected') {
+        return targetIndex <= getStatusIndex('pre_selected');
+      }
+
+      return projectIndex >= targetIndex;
+    };
+
+    const countPassedSoumis = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'submitted')
+    ).length;
+    const countPassedExamen = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'under_review')
+    ).length;
+    const countPassedEligible = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'eligible')
+    ).length;
+    const countIneligible = filteredProjects.filter(p =>
+      p.status === 'ineligible'
+    ).length;
+    const countPassedPreSelected = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'pre_selected')
+    ).length;
+    const countPassedSelected = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'selected')
+    ).length;
+    const countRejected = filteredProjects.filter(p =>
+      p.status === 'rejected'
+    ).length;
+    const countPassedFormalization = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'formalization')
+    ).length;
+    const countPassedFinanced = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'financed')
+    ).length;
+    const countPassedMonitoring = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'monitoring')
+    ).length;
+    const countPassedClosed = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'closed')
+    ).length;
+
     const draftProjects = filteredProjects.filter(p => p.status === 'draft');
-    const submittedProjects = filteredProjects.filter(p => p.status === 'submitted');
-    const underReviewProjects = filteredProjects.filter(p => p.status === 'under_review');
-    const eligibleProjects = filteredProjects.filter(p => p.status === 'eligible');
-    const ineligibleProjects = filteredProjects.filter(p => p.status === 'ineligible');
-    const preSelectedProjects = filteredProjects.filter(p => p.status === 'pre_selected');
-    const selectedProjects = filteredProjects.filter(p => p.status === 'selected');
-    const rejectedProjects = filteredProjects.filter(p => p.status === 'rejected');
-    const formalizationProjects = filteredProjects.filter(p => p.status === 'formalization');
-    const financedProjects = filteredProjects.filter(p => p.status === 'financed');
-    const monitoringProjects = filteredProjects.filter(p => p.status === 'monitoring');
-    const closedProjects = filteredProjects.filter(p => p.status === 'closed');
 
     const activeProjects = filteredProjects.filter(p =>
       ['monitoring', 'financed', 'formalization', 'selected'].includes(p.status)
@@ -135,17 +200,17 @@ const MonitoringPage = () => {
 
     const statusDistribution = {
       draft: draftProjects.length,
-      submitted: submittedProjects.length,
-      under_review: underReviewProjects.length,
-      eligible: eligibleProjects.length,
-      ineligible: ineligibleProjects.length,
-      pre_selected: preSelectedProjects.length,
-      selected: selectedProjects.length,
-      rejected: rejectedProjects.length,
-      formalization: formalizationProjects.length,
-      financed: financedProjects.length,
-      monitoring: monitoringProjects.length,
-      closed: closedProjects.length
+      submitted: countPassedSoumis,
+      under_review: countPassedExamen,
+      eligible: countPassedEligible,
+      ineligible: countIneligible,
+      pre_selected: countPassedPreSelected,
+      selected: countPassedSelected,
+      rejected: countRejected,
+      formalization: countPassedFormalization,
+      financed: countPassedFinanced,
+      monitoring: countPassedMonitoring,
+      closed: countPassedClosed
     };
 
     const milestones = [
@@ -159,78 +224,78 @@ const MonitoringPage = () => {
       {
         id: 2,
         name: 'Soumis',
-        status: submittedProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: submittedProjects.length,
+        status: countPassedSoumis > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedSoumis,
         date: 'Continu'
       },
       {
         id: 3,
         name: 'En cours d\'examen',
-        status: underReviewProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: underReviewProjects.length,
+        status: countPassedExamen > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedExamen,
         date: 'Continu'
       },
       {
         id: 4,
         name: 'Eligibles',
-        status: eligibleProjects.length > 0 ? 'completed' as const : 'pending' as const,
-        count: eligibleProjects.length,
+        status: countPassedEligible > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedEligible,
         date: 'Continu'
       },
       {
         id: 5,
         name: 'Ineligibles',
-        status: ineligibleProjects.length > 0 ? 'completed' as const : 'pending' as const,
-        count: ineligibleProjects.length,
+        status: countIneligible > 0 ? 'completed' as const : 'pending' as const,
+        count: countIneligible,
         date: 'Continu'
       },
       {
         id: 6,
         name: 'Pre-selectionnes',
-        status: preSelectedProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: preSelectedProjects.length,
+        status: countPassedPreSelected > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedPreSelected,
         date: 'Continu'
       },
       {
         id: 7,
         name: 'Selectionnes',
-        status: selectedProjects.length > 0 ? 'completed' as const : 'pending' as const,
-        count: selectedProjects.length,
+        status: countPassedSelected > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedSelected,
         date: 'Continu'
       },
       {
         id: 8,
         name: 'Rejetes',
-        status: rejectedProjects.length > 0 ? 'completed' as const : 'pending' as const,
-        count: rejectedProjects.length,
+        status: countRejected > 0 ? 'completed' as const : 'pending' as const,
+        count: countRejected,
         date: 'Continu'
       },
       {
         id: 9,
         name: 'En formalisation',
-        status: formalizationProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: formalizationProjects.length,
+        status: countPassedFormalization > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedFormalization,
         date: 'Continu'
       },
       {
         id: 10,
         name: 'Finances',
-        status: financedProjects.length > 0 ? 'completed' as const : 'pending' as const,
-        count: financedProjects.length,
+        status: countPassedFinanced > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedFinanced,
         date: 'Continu'
       },
       {
         id: 11,
         name: 'En suivi',
-        status: monitoringProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: monitoringProjects.length,
+        status: countPassedMonitoring > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedMonitoring,
         date: 'Continu'
       },
       {
         id: 12,
         name: 'Clotures',
-        status: closedProjects.length > 0 ? 'completed' as const : 'pending' as const,
-        count: closedProjects.length,
+        status: countPassedClosed > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedClosed,
         date: 'Continu'
       }
     ];
