@@ -540,27 +540,25 @@ const PublicSubmissionPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Secteur d'activite <span className="text-red-500">*</span>
+                    <span className="flex items-center">
+                      <Briefcase className="h-4 w-4 mr-2 text-gray-400" />
+                      Secteur d'activite <span className="text-red-500 ml-1">*</span>
+                    </span>
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Briefcase className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <select
-                      value={projectInfo.activitySectorId}
-                      onChange={(e) => handleProjectInfoChange('activitySectorId', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
-                        errors.activitySectorId ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">Selectionnez un secteur</option>
-                      {sectors.filter(s => s.isActive).map(sector => (
-                        <option key={sector.id} value={sector.id}>
-                          {sector.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={projectInfo.activitySectorId}
+                    onChange={(e) => handleProjectInfoChange('activitySectorId', e.target.value)}
+                    className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 px-3 py-2 ${
+                      errors.activitySectorId ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Selectionnez un secteur</option>
+                    {sectors.filter(s => s.isActive).map(sector => (
+                      <option key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </option>
+                    ))}
+                  </select>
                   {errors.activitySectorId && <p className="mt-1 text-sm text-red-600">{errors.activitySectorId}</p>}
                 </div>
 
