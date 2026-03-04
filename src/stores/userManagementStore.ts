@@ -14,9 +14,9 @@ export interface User {
   createdAt: Date;
   lastLogin?: Date;
   authUserId: string;
+  partnerId?: string;
 }
 
-// Fonction utilitaire pour convertir SupabaseUser vers User
 const convertSupabaseUser = (supabaseUser: SupabaseUser): User => ({
   id: supabaseUser.id,
   name: supabaseUser.name,
@@ -26,7 +26,8 @@ const convertSupabaseUser = (supabaseUser: SupabaseUser): User => ({
   isActive: supabaseUser.is_active,
   createdAt: new Date(supabaseUser.created_at),
   lastLogin: supabaseUser.last_login ? new Date(supabaseUser.last_login) : undefined,
-  authUserId: supabaseUser.auth_user_id
+  authUserId: supabaseUser.auth_user_id,
+  partnerId: supabaseUser.partner_id
 });
 
 interface UserManagementState {
@@ -69,23 +70,22 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
   addUser: async (userData) => {
     set({ isLoading: true, error: null });
     try {
-      // First create the auth user with role in metadata
       const authUser = await AuthService.signUp(userData.email, userData.password, {
         name: userData.name,
         role: userData.role,
         organization: userData.organization
       });
-      
-      // Then create the profile user with the auth_user_id
+
       const supabaseUser = await UserService.createUser({
         name: userData.name,
         email: userData.email,
         role: userData.role,
         organization: userData.organization,
         is_active: userData.isActive,
-        auth_user_id: authUser.user?.id
+        auth_user_id: authUser.user?.id,
+        partner_id: (userData as any).partnerId || undefined
       });
-      
+
       const newUser = convertSupabaseUser(supabaseUser);
 
       set(state => ({
@@ -110,10 +110,11 @@ export const useUserManagementStore = create<UserManagementState>((set, get) => 
       if (updates.role) supabaseUpdates.role = updates.role;
       if (updates.organization) supabaseUpdates.organization = updates.organization;
       if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
-      
+      if (updates.partnerId !== undefined) supabaseUpdates.partner_id = updates.partnerId || undefined;
+
       const supabaseUser = await UserService.updateUser(id, supabaseUpdates);
       const updatedUser = convertSupabaseUser(supabaseUser);
-      
+
       set(state => ({
         users: state.users.map(u => u.id === id ? updatedUser : u),
         isLoading: false

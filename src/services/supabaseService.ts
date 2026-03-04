@@ -98,6 +98,7 @@ export interface SupabaseUser {
   created_at: string;
   last_login?: string;
   auth_user_id: string;
+  partner_id?: string;
 }
 
 export interface SupabasePartner {
