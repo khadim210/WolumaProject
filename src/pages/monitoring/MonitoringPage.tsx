@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
 import {
   Card,
   CardHeader,
@@ -26,6 +27,7 @@ import { formatCurrency, formatNumberWithSpaces } from '../../utils/currency';
 const MonitoringPage = () => {
   const { projects, fetchProjects, isLoading } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { users, fetchUsers } = useUserManagementStore();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [selectedProgram, setSelectedProgram] = useState('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -34,7 +36,8 @@ const MonitoringPage = () => {
     fetchProjects();
     fetchPrograms();
     fetchPartners();
-  }, [fetchProjects, fetchPrograms, fetchPartners]);
+    fetchUsers();
+  }, [fetchProjects, fetchPrograms, fetchPartners, fetchUsers]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -401,12 +404,16 @@ const MonitoringPage = () => {
     const activeProjects = filteredProjects.filter(p => ['monitoring', 'financed', 'formalization'].includes(p.status));
     const projectsData = activeProjects.map(p => {
       const program = programs.find(pr => pr.id === p.programId);
+      const submitter = users.find(u => u.id === p.submitterId);
       const daysSinceUpdate = p.updatedAt ? Math.floor((Date.now() - new Date(p.updatedAt).getTime()) / (1000 * 60 * 60 * 24)) : '-';
       const daysSinceSubmission = p.submissionDate ? Math.floor((Date.now() - new Date(p.submissionDate).getTime()) / (1000 * 60 * 60 * 24)) : '-';
 
       return {
         'Titre': p.title,
         'Programme': program?.name || 'N/A',
+        'Porteur': p.submitterName || submitter?.name || 'N/A',
+        'Telephone': p.submitterPhone || 'N/A',
+        'Email': submitter?.email || 'N/A',
         'Statut': getStatusLabel(p.status as any),
         'Budget': formatCurrency(p.budget),
         'Score évaluation': p.totalEvaluationScore ? `${p.totalEvaluationScore}%` : 'N/A',
@@ -445,9 +452,13 @@ const MonitoringPage = () => {
 
     const allProjectsData = filteredProjects.map(p => {
       const program = programs.find(pr => pr.id === p.programId);
+      const submitter = users.find(u => u.id === p.submitterId);
       return {
         'Titre': p.title,
         'Programme': program?.name || 'N/A',
+        'Porteur': p.submitterName || submitter?.name || 'N/A',
+        'Telephone': p.submitterPhone || 'N/A',
+        'Email': submitter?.email || 'N/A',
         'Statut': getStatusLabel(p.status as any),
         'Budget': formatCurrency(p.budget),
         'Score': p.totalEvaluationScore || 'N/A',
@@ -526,9 +537,12 @@ const MonitoringPage = () => {
     const activeProjects = filteredProjects.filter(p => ['monitoring', 'financed', 'formalization'].includes(p.status));
     const projectsTableData = activeProjects.slice(0, 20).map(p => {
       const program = programs.find(pr => pr.id === p.programId);
+      const submitter = users.find(u => u.id === p.submitterId);
       return [
-        p.title.length > 30 ? p.title.substring(0, 27) + '...' : p.title,
-        program?.name || 'N/A',
+        p.title.length > 25 ? p.title.substring(0, 22) + '...' : p.title,
+        p.submitterName || submitter?.name || 'N/A',
+        p.submitterPhone || 'N/A',
+        submitter?.email || 'N/A',
         getStatusLabel(p.status as any),
         formatCurrency(p.budget),
       ];
@@ -536,10 +550,18 @@ const MonitoringPage = () => {
 
     autoTable(doc, {
       startY: yPosition,
-      head: [['Projet', 'Programme', 'Statut', 'Budget']],
+      head: [['Projet', 'Porteur', 'Telephone', 'Email', 'Statut', 'Budget']],
       body: projectsTableData,
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
       headStyles: { fillColor: [41, 128, 185] },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 25 },
+      }
     });
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
