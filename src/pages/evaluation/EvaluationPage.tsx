@@ -596,33 +596,39 @@ const EvaluationPage: React.FC = () => {
       import('jspdf-autotable')
     ]);
 
-    const doc = new jsPDF('l', 'mm', 'a4');
+    const doc = new jsPDF('l', 'mm', 'a3');
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 14;
 
     doc.setFontSize(18);
-    doc.text('Liste des Projets - Etat Evaluation', 14, 15);
+    doc.text('Rapport d\'Evaluation des Projets', margin, 15);
 
     doc.setFontSize(10);
-    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
-    doc.text(`Total: ${submittedProjects.length} projet(s)`, 14, 28);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin, 22);
+    doc.text(`Total: ${submittedProjects.length} projet(s)`, margin, 28);
 
-    const tableData = submittedProjects.map(project => {
+    const summaryData = submittedProjects.map(project => {
       const program = programs.find(p => p.id === project.programId);
       return [
-        project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        project.title.length > 40 ? project.title.substring(0, 37) + '...' : project.title,
         program?.name || 'N/A',
         project.status === 'selected' ? 'Selectionne' :
         project.status === 'pre_selected' ? 'Preselectionne' :
         project.status === 'rejected' ? 'Rejete' :
         project.status === 'eligible' ? 'Eligible' : project.status,
-        getEvaluationState(project),
-        project.evaluatedAt ? new Date(project.evaluatedAt).toLocaleDateString('fr-FR') : 'N/A'
+        project.totalEvaluationScore !== undefined ? `${project.totalEvaluationScore}%` : 'N/A',
+        project.recommendedStatus === 'selected' ? 'Selectionne' :
+        project.recommendedStatus === 'pre_selected' ? 'Preselectionne' :
+        project.recommendedStatus === 'rejected' ? 'Rejete' : 'N/A',
+        project.evaluationDate ? new Date(project.evaluationDate).toLocaleDateString('fr-FR') : 'N/A'
       ];
     });
 
     autoTable(doc, {
       startY: 35,
-      head: [['Titre', 'Programme', 'Statut', 'Etat Evaluation', 'Date Evaluation']],
-      body: tableData,
+      head: [['Titre', 'Programme', 'Statut', 'Score Total', 'Recommandation', 'Date Evaluation']],
+      body: summaryData,
       theme: 'grid',
       headStyles: {
         fillColor: [59, 130, 246],
@@ -632,28 +638,107 @@ const EvaluationPage: React.FC = () => {
       },
       bodyStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 55 },
-        1: { cellWidth: 45 },
+        0: { cellWidth: 70 },
+        1: { cellWidth: 50 },
         2: { cellWidth: 35 },
-        3: { cellWidth: 80 },
-        4: { cellWidth: 30 }
+        3: { cellWidth: 30 },
+        4: { cellWidth: 35 },
+        5: { cellWidth: 35 }
       },
-      margin: { left: 14, right: 14 },
-      didDrawPage: (data) => {
-        const pageCount = doc.getNumberOfPages();
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFontSize(8);
-        doc.text(
-          `Page ${data.pageNumber} sur ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          pageHeight - 10,
-          { align: 'center' }
-        );
-      }
+      margin: { left: margin, right: margin }
     });
 
-    doc.save(`Projets_Evaluation_${new Date().toISOString().split('T')[0]}.pdf`);
-  }, [submittedProjects, programs, getEvaluationState]);
+    let currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    for (const project of submittedProjects) {
+      const program = programs.find(p => p.id === project.programId);
+      if (!program || !project.evaluationScores) continue;
+
+      if (currentY > pageHeight - 80) {
+        doc.addPage();
+        currentY = margin;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Projet: ${project.title}`, margin, currentY);
+      currentY += 6;
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Programme: ${program.name} | Score: ${project.totalEvaluationScore || 0}%`, margin, currentY);
+      currentY += 8;
+
+      const criteriaData = program.evaluationCriteria.map(criterion => {
+        const score = project.evaluationScores?.[criterion.id] || 0;
+        const comment = project.evaluationComments?.[criterion.id] || '';
+        const percentage = Math.round((score / criterion.maxScore) * 100);
+        const truncatedComment = comment.length > 100 ? comment.substring(0, 97) + '...' : comment;
+
+        return [
+          criterion.name,
+          `${criterion.weight}%`,
+          `${score}/${criterion.maxScore}`,
+          `${percentage}%`,
+          truncatedComment
+        ];
+      });
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Critere', 'Poids', 'Score', '%', 'Justification']],
+        body: criteriaData,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [100, 100, 100],
+          textColor: 255,
+          fontSize: 8,
+          fontStyle: 'bold'
+        },
+        bodyStyles: { fontSize: 7 },
+        columnStyles: {
+          0: { cellWidth: 50 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 140 }
+        },
+        margin: { left: margin, right: margin }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+
+      if (project.evaluationNotes) {
+        const notesText = project.evaluationNotes.length > 300
+          ? project.evaluationNotes.substring(0, 297) + '...'
+          : project.evaluationNotes;
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        const lines = doc.splitTextToSize(`Notes: ${notesText}`, pageWidth - 2 * margin);
+        doc.text(lines, margin, currentY);
+        currentY += lines.length * 4 + 10;
+      } else {
+        currentY += 10;
+      }
+    }
+
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Page ${i} sur ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+      doc.text('Woluma-Flow', margin, pageHeight - 10);
+    }
+
+    doc.save(`Evaluations_Detaillees_${new Date().toISOString().split('T')[0]}.pdf`);
+  }, [submittedProjects, programs]);
 
   const handleExportExcel = useCallback(async () => {
     const XLSX = await import('xlsx');
@@ -661,96 +746,87 @@ const EvaluationPage: React.FC = () => {
 
     const summaryData = submittedProjects.map(project => {
       const program = programs.find(p => p.id === project.programId);
-      const evaluationScores = project.evaluationScores || {};
-      const evaluationComments = project.evaluationComments || {};
-
-      let maxScore = 0;
-      let totalScore = 0;
-
-      if (program?.evaluationCriteria) {
-        program.evaluationCriteria.forEach(criterion => {
-          const weight = criterion.weight || 1;
-          const score = evaluationScores[criterion.id] || 0;
-          totalScore += score * weight;
-          maxScore += criterion.maxScore * weight;
-        });
-      }
-
-      const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
 
       return {
         'Titre': project.title,
         'Programme': program?.name || 'N/A',
-        'Statut': project.status === 'selected' ? 'Sélectionné' :
-                  project.status === 'pre_selected' ? 'Présélectionné' :
-                  project.status === 'rejected' ? 'Rejeté' :
-                  project.status === 'eligible' ? 'Éligible' : project.status,
-        'Score Total': Math.round(totalScore),
-        'Score Maximum': Math.round(maxScore),
-        'Pourcentage': `${percentage.toFixed(1)}%`,
-        'Recommandation': project.recommendedStatus || 'N/A',
-        'Évaluateur': project.evaluatedBy || 'N/A',
-        'Date Évaluation': project.evaluationDate ? new Date(project.evaluationDate).toLocaleDateString('fr-FR') : 'N/A',
-        'Notes': project.evaluationNotes || '',
+        'Statut': project.status === 'selected' ? 'Selectionne' :
+                  project.status === 'pre_selected' ? 'Preselectionne' :
+                  project.status === 'rejected' ? 'Rejete' :
+                  project.status === 'eligible' ? 'Eligible' : project.status,
+        'Score Total (%)': project.totalEvaluationScore !== undefined ? project.totalEvaluationScore : 'N/A',
+        'Recommandation': project.recommendedStatus === 'selected' ? 'Selectionne' :
+                          project.recommendedStatus === 'pre_selected' ? 'Preselectionne' :
+                          project.recommendedStatus === 'rejected' ? 'Rejete' : 'N/A',
+        'Date Evaluation': project.evaluationDate ? new Date(project.evaluationDate).toLocaleDateString('fr-FR') : 'N/A',
+        'Notes Globales': project.evaluationNotes || '',
       };
     });
 
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé Évaluations');
+    wsSummary['!cols'] = [
+      { wch: 40 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 80 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resume Evaluations');
 
-    const allCriteria = new Set<string>();
-    submittedProjects.forEach(project => {
+    const detailedData: any[] = [];
+    for (const project of submittedProjects) {
       const program = programs.find(p => p.id === project.programId);
-      program?.evaluationCriteria?.forEach(criterion => {
-        allCriteria.add(criterion.id);
-      });
-    });
+      if (!program || !project.evaluationScores) continue;
 
-    const detailedScoresData = submittedProjects.map(project => {
+      program.evaluationCriteria?.forEach(criterion => {
+        const score = project.evaluationScores?.[criterion.id] || 0;
+        const maxScore = criterion.maxScore;
+        const percentage = Math.round((score / maxScore) * 100);
+        const comment = project.evaluationComments?.[criterion.id] || '';
+
+        detailedData.push({
+          'Projet': project.title,
+          'Programme': program.name,
+          'Critere': criterion.name,
+          'Description Critere': criterion.description || '',
+          'Poids (%)': criterion.weight,
+          'Score': score,
+          'Score Max': maxScore,
+          'Pourcentage': `${percentage}%`,
+          'Contribution au Total': `${Math.round((score / maxScore) * criterion.weight)}%`,
+          'Justification': comment,
+        });
+      });
+    }
+
+    if (detailedData.length > 0) {
+      const wsDetailed = XLSX.utils.json_to_sheet(detailedData);
+      wsDetailed['!cols'] = [
+        { wch: 35 }, { wch: 25 }, { wch: 30 }, { wch: 40 }, { wch: 10 },
+        { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 80 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsDetailed, 'Details par Critere');
+    }
+
+    const scoresMatrixData = submittedProjects.map(project => {
       const program = programs.find(p => p.id === project.programId);
       const row: any = {
-        'Titre': project.title,
+        'Projet': project.title,
         'Programme': program?.name || 'N/A',
+        'Score Total (%)': project.totalEvaluationScore !== undefined ? project.totalEvaluationScore : 'N/A',
       };
 
       program?.evaluationCriteria?.forEach(criterion => {
         const score = project.evaluationScores?.[criterion.id] || 0;
         const maxScore = criterion.maxScore;
-        row[`${criterion.name} (Score)`] = score;
-        row[`${criterion.name} (Max)`] = maxScore;
-        row[`${criterion.name} (Poids)`] = criterion.weight || 1;
+        row[`${criterion.name}`] = `${score}/${maxScore}`;
       });
 
       return row;
     });
 
-    if (detailedScoresData.length > 0) {
-      const wsScores = XLSX.utils.json_to_sheet(detailedScoresData);
-      XLSX.utils.book_append_sheet(wb, wsScores, 'Scores Détaillés');
+    if (scoresMatrixData.length > 0) {
+      const wsMatrix = XLSX.utils.json_to_sheet(scoresMatrixData);
+      XLSX.utils.book_append_sheet(wb, wsMatrix, 'Matrice des Scores');
     }
 
-    const commentsData = [];
-    for (const project of submittedProjects) {
-      const program = programs.find(p => p.id === project.programId);
-
-      program?.evaluationCriteria?.forEach(criterion => {
-        const comment = project.evaluationComments?.[criterion.id];
-        if (comment) {
-          commentsData.push({
-            'Projet': project.title,
-            'Critère': criterion.name,
-            'Commentaire': comment,
-          });
-        }
-      });
-    }
-
-    if (commentsData.length > 0) {
-      const wsComments = XLSX.utils.json_to_sheet(commentsData);
-      XLSX.utils.book_append_sheet(wb, wsComments, 'Commentaires');
-    }
-
-    const criteriaData = [];
+    const criteriaRefData: any[] = [];
     const addedPrograms = new Set<string>();
 
     for (const project of submittedProjects) {
@@ -758,23 +834,26 @@ const EvaluationPage: React.FC = () => {
       if (program && !addedPrograms.has(program.id)) {
         addedPrograms.add(program.id);
         program.evaluationCriteria?.forEach(criterion => {
-          criteriaData.push({
+          criteriaRefData.push({
             'Programme': program.name,
-            'Critère': criterion.name,
+            'Critere': criterion.name,
             'Description': criterion.description || '',
             'Score Maximum': criterion.maxScore,
-            'Poids': criterion.weight || 1,
+            'Poids (%)': criterion.weight,
           });
         });
       }
     }
 
-    if (criteriaData.length > 0) {
-      const wsCriteria = XLSX.utils.json_to_sheet(criteriaData);
-      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Critères d\'Évaluation');
+    if (criteriaRefData.length > 0) {
+      const wsCriteria = XLSX.utils.json_to_sheet(criteriaRefData);
+      wsCriteria['!cols'] = [
+        { wch: 30 }, { wch: 35 }, { wch: 50 }, { wch: 15 }, { wch: 12 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsCriteria, 'Reference Criteres');
     }
 
-    XLSX.writeFile(wb, `Evaluations_Detaillees_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `Evaluations_Completes_${new Date().toISOString().split('T')[0]}.xlsx`);
   }, [submittedProjects, programs]);
 
   return (
