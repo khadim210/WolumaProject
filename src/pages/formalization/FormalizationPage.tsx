@@ -865,6 +865,22 @@ const FormalizationPage: React.FC = () => {
               <div className="md:col-span-2">
                 <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
                 <p className="text-gray-700 text-sm">{currentProject?.projectDescription || currentProject?.description}</p>
+                <div className="flex gap-3 mt-4">
+                  <a
+                    href={`/dashboard/eligibility?project=${currentProject?.id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Rapport d'eligibilite
+                  </a>
+                  <a
+                    href={`/dashboard/evaluation?project=${currentProject?.id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    <Target className="h-4 w-4" />
+                    Rapport d'evaluation
+                  </a>
+                </div>
               </div>
             </div>
           </CardContent>
