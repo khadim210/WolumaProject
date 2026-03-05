@@ -3,6 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import {
@@ -52,6 +53,7 @@ const FormalizationPage: React.FC = () => {
   const { checkPermission } = usePermissions();
   const { projects, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { users, fetchUsers, getUser } = useUserManagementStore();
 
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -74,7 +76,8 @@ const FormalizationPage: React.FC = () => {
     fetchPrograms();
     fetchPartners();
     fetchProjects();
-  }, [fetchPrograms, fetchPartners, fetchProjects]);
+    fetchUsers();
+  }, [fetchPrograms, fetchPartners, fetchProjects, fetchUsers]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -153,6 +156,7 @@ const FormalizationPage: React.FC = () => {
   const currentProject = projects.find(p => p.id === selectedProject);
   const currentProgram = currentProject ? programs.find(p => p.id === currentProject.programId) : null;
   const currentPartner = currentProgram ? partners.find(p => p.id === currentProgram.partnerId) : null;
+  const submitterUser = currentProject ? getUser(currentProject.submitterId) : undefined;
 
   const handleCreateDocumentRequest = async (values: any) => {
     await formalizationService.createDocumentRequest({
@@ -779,7 +783,7 @@ const FormalizationPage: React.FC = () => {
 
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Mail className="h-4 w-4 text-gray-400" />
-                <span>{currentProject?.submitterEmail || 'Non renseigne'}</span>
+                <span>{currentProject?.submitterEmail || submitterUser?.email || 'Non renseigne'}</span>
               </div>
 
               {currentProject?.submitterPhone && (
