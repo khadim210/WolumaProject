@@ -607,3 +607,178 @@ export const generateWolumaEvaluationReport = async (
   const fileName = `Rapport_Woluma_${project.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
   pdf.save(fileName);
 };
+
+export const generateEligibilityReport = async (
+  project: Project,
+  program: Program,
+  partner: Partner | null,
+  sectorName?: string
+): Promise<void> => {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]);
+
+  const pdf = new jsPDF();
+  const pageWidth = pdf.internal.pageSize.width;
+  const pageHeight = pdf.internal.pageSize.height;
+  const margin = 20;
+  const maxWidth = pageWidth - 2 * margin;
+  let yPosition = margin;
+
+  const checkPageBreak = (requiredSpace: number) => {
+    if (yPosition + requiredSpace > pageHeight - margin - 20) {
+      pdf.addPage();
+      yPosition = margin;
+      return true;
+    }
+    return false;
+  };
+
+  const addSection = (title: string) => {
+    checkPageBreak(20);
+    pdf.setFontSize(13);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(title, margin, yPosition);
+    yPosition += 10;
+  };
+
+  const logoBase64 = await loadLogoAsBase64();
+
+  if (logoBase64) {
+    pdf.addImage(logoBase64, 'PNG', margin, yPosition - 15, 35, 35);
+  }
+
+  pdf.setFontSize(18);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('RAPPORT D\'ELIGIBILITE', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  yPosition += 12;
+
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bolditalic');
+  pdf.text('Plateforme Woluma', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  yPosition += 8;
+
+  pdf.setFont('helvetica', 'italic');
+  pdf.setFontSize(9);
+  pdf.text('Solution d\'evaluation et de financement intelligent des PME africaines', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  yPosition += 25;
+
+  addSection('1. Informations du Porteur');
+
+  autoTable(pdf, {
+    startY: yPosition,
+    head: [],
+    body: [
+      ['Nom du porteur', project.submitterName || 'N/A'],
+      ['Email', project.submitterEmail || 'N/A'],
+      ['Telephone', project.submitterPhone || 'N/A'],
+      ['Secteur d\'activite', sectorName || 'N/A']
+    ],
+    theme: 'striped',
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 55 },
+      1: { cellWidth: maxWidth - 55 }
+    },
+    margin: { left: margin, right: margin }
+  });
+
+  yPosition = (pdf as any).lastAutoTable.finalY + 15;
+
+  addSection('2. Informations du Projet');
+
+  autoTable(pdf, {
+    startY: yPosition,
+    head: [],
+    body: [
+      ['Titre du projet', project.title],
+      ['Programme', program.name],
+      ['Partenaire', partner?.name || 'N/A'],
+      ['Statut', project.status],
+      ['Date de soumission', project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('fr-FR') : 'N/A']
+    ],
+    theme: 'striped',
+    styles: { fontSize: 9, cellPadding: 3 },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 55 },
+      1: { cellWidth: maxWidth - 55 }
+    },
+    margin: { left: margin, right: margin }
+  });
+
+  yPosition = (pdf as any).lastAutoTable.finalY + 15;
+
+  if (project.projectDescription || project.description) {
+    addSection('3. Description du Projet');
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    const lines = pdf.splitTextToSize(project.projectDescription || project.description, maxWidth);
+    lines.forEach((line: string) => {
+      checkPageBreak(6);
+      pdf.text(line, margin, yPosition);
+      yPosition += 5;
+    });
+    yPosition += 10;
+  }
+
+  if (project.eligibilityStatus) {
+    addSection('4. Statut d\'Eligibilite');
+
+    const statusLabels: Record<string, string> = {
+      'eligible': 'Eligible',
+      'non_eligible': 'Non Eligible',
+      'pending': 'En attente',
+      'under_review': 'En cours d\'analyse'
+    };
+
+    autoTable(pdf, {
+      startY: yPosition,
+      head: [],
+      body: [
+        ['Statut d\'eligibilite', statusLabels[project.eligibilityStatus] || project.eligibilityStatus],
+        ['Score d\'eligibilite', project.eligibilityScore !== undefined ? `${project.eligibilityScore}%` : 'N/A']
+      ],
+      theme: 'striped',
+      styles: { fontSize: 9, cellPadding: 3 },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 55 },
+        1: { cellWidth: maxWidth - 55 }
+      },
+      margin: { left: margin, right: margin }
+    });
+
+    yPosition = (pdf as any).lastAutoTable.finalY + 15;
+  }
+
+  if (project.eligibilityNotes) {
+    addSection('5. Notes d\'Eligibilite');
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    const lines = pdf.splitTextToSize(project.eligibilityNotes, maxWidth);
+    lines.forEach((line: string) => {
+      checkPageBreak(6);
+      pdf.text(line, margin, yPosition);
+      yPosition += 5;
+    });
+  }
+
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, pageHeight - 18, pageWidth - margin, pageHeight - 18);
+
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Page ${i} / ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    pdf.text('Woluma Platform - Rapport d\'eligibilite', margin, pageHeight - 10);
+    pdf.text(new Date().toLocaleDateString('fr-FR'), pageWidth - margin - 25, pageHeight - 10);
+    pdf.setTextColor(0, 0, 0);
+  }
+
+  const fileName = `Rapport_Eligibilite_${project.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+  pdf.save(fileName);
+};

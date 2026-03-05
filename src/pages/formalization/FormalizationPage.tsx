@@ -4,8 +4,10 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useUserManagementStore } from '../../stores/userManagementStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { generateEligibilityReport, generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
 import {
   FileText,
   GraduationCap,
@@ -54,12 +56,14 @@ const FormalizationPage: React.FC = () => {
   const { projects, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const { users, fetchUsers, getUser } = useUserManagementStore();
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
 
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
   const [selectedSupport, setSelectedSupport] = useState<TechnicalSupport | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
   const [technicalSupports, setTechnicalSupports] = useState<TechnicalSupport[]>([]);
@@ -77,7 +81,8 @@ const FormalizationPage: React.FC = () => {
     fetchPartners();
     fetchProjects();
     fetchUsers();
-  }, [fetchPrograms, fetchPartners, fetchProjects, fetchUsers]);
+    fetchSectors();
+  }, [fetchPrograms, fetchPartners, fetchProjects, fetchUsers, fetchSectors]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -866,20 +871,43 @@ const FormalizationPage: React.FC = () => {
                 <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
                 <p className="text-gray-700 text-sm">{currentProject?.projectDescription || currentProject?.description}</p>
                 <div className="flex gap-3 mt-4">
-                  <a
-                    href={`/dashboard/eligibility?project=${currentProject?.id}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  <button
+                    onClick={async () => {
+                      if (!currentProject) return;
+                      setIsGeneratingPdf(true);
+                      try {
+                        const program = programs.find(p => p.id === currentProject.programId);
+                        const partner = partners.find(p => p.id === program?.partnerId) || null;
+                        const sector = getSector(currentProject.activitySectorId || '');
+                        await generateEligibilityReport(currentProject, program!, partner, sector?.name);
+                      } finally {
+                        setIsGeneratingPdf(false);
+                      }
+                    }}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
                   >
-                    <FileText className="h-4 w-4" />
+                    <Download className="h-4 w-4" />
                     Rapport d'eligibilite
-                  </a>
-                  <a
-                    href={`/dashboard/evaluation?project=${currentProject?.id}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!currentProject) return;
+                      setIsGeneratingPdf(true);
+                      try {
+                        const program = programs.find(p => p.id === currentProject.programId);
+                        const partner = partners.find(p => p.id === program?.partnerId) || null;
+                        await generateWolumaEvaluationReport(currentProject, program!, partner, user?.name);
+                      } finally {
+                        setIsGeneratingPdf(false);
+                      }
+                    }}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
                   >
-                    <Target className="h-4 w-4" />
+                    <Download className="h-4 w-4" />
                     Rapport d'evaluation
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
