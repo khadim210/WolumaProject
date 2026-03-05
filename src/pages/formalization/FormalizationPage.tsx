@@ -777,12 +777,10 @@ const FormalizationPage: React.FC = () => {
                 </div>
               </div>
 
-              {currentProject?.submitterEmail && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span>{currentProject.submitterEmail}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Mail className="h-4 w-4 text-gray-400" />
+                <span>{currentProject?.submitterEmail || 'Non renseigne'}</span>
+              </div>
 
               {currentProject?.submitterPhone && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
