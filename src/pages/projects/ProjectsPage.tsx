@@ -667,7 +667,7 @@ const ProjectsPage: React.FC = () => {
                       </div>
                       
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                        {project.description}
+                        {project.projectDescription || project.description}
                       </p>
                       
                       {program && (

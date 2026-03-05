@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import { CheckCircle, XCircle, FileText, Calendar, User, AlertTriangle, Filter, CheckSquare, Square, Sparkles, RotateCcw, Search, ChevronDown, ChevronUp, Download, FileSpreadsheet, Phone, Briefcase, CreditCard as Edit3, Save, X } from 'lucide-react';
+import logoUrl from '../../assets/logo_couleur.png';
 import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EligibilityPage: React.FC = () => {
@@ -91,7 +92,7 @@ const EligibilityPage: React.FC = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(p =>
         p.title.toLowerCase().includes(term) ||
-        p.description.toLowerCase().includes(term)
+        (p.projectDescription || p.description).toLowerCase().includes(term)
       );
     }
 
@@ -638,7 +639,7 @@ const EligibilityPage: React.FC = () => {
       const matchesStatus = resetStatusFilter === 'all' || p.status === resetStatusFilter;
       const matchesSearch = !resetSearchTerm ||
         p.title.toLowerCase().includes(resetSearchTerm.toLowerCase()) ||
-        p.description.toLowerCase().includes(resetSearchTerm.toLowerCase());
+        (p.projectDescription || p.description).toLowerCase().includes(resetSearchTerm.toLowerCase());
 
       return (p.status === 'eligible' || p.status === 'ineligible') && matchesStatus && matchesSearch;
     });
@@ -745,7 +746,7 @@ const EligibilityPage: React.FC = () => {
         'Email du porteur': project.submitterEmail || 'N/A',
         'Telephone': project.submitterPhone || 'N/A',
         'Secteur d\'activite': sector?.name || 'N/A',
-        'Description': project.description || 'N/A',
+        'Description': project.projectDescription || project.description || 'N/A',
         'Programme': program?.name || 'N/A',
         'Budget': project.budget,
         'Statut': project.status,
@@ -818,12 +819,28 @@ const EligibilityPage: React.FC = () => {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
 
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 8, 25, 25);
+    }
+
     doc.setFontSize(18);
-    doc.text('Liste des Projets - Etat Eligibilite', margin, 20);
+    doc.text('Liste des Projets - Etat Eligibilite', margin + 30, 20);
 
     doc.setFontSize(10);
-    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin, 28);
-    doc.text(`Total: ${filteredProjects.length} projet(s)`, margin, 34);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin + 30, 28);
+    doc.text(`Total: ${filteredProjects.length} projet(s)`, margin, 40);
 
     const summaryData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
@@ -838,7 +855,7 @@ const EligibilityPage: React.FC = () => {
     });
 
     autoTable(doc, {
-      startY: 40,
+      startY: 46,
       head: [['Titre', 'Porteur', 'Secteur', 'Programme', 'Statut']],
       body: summaryData,
       theme: 'grid',
@@ -907,12 +924,8 @@ const EligibilityPage: React.FC = () => {
         ['Statut', project.status],
         ['Budget', project.budget.toLocaleString('fr-FR') + ' FCFA'],
         ['Date de soumission', project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('fr-FR') : 'N/A'],
-        ['Description', project.description || 'N/A']
+        ['Description', project.projectDescription || project.description || 'N/A']
       ];
-
-      if (project.projectDescription) {
-        projetData.push(['Description detaillee', project.projectDescription]);
-      }
 
       autoTable(doc, {
         startY: yPos,
@@ -1292,7 +1305,7 @@ const EligibilityPage: React.FC = () => {
                           >
                             <h3 className="font-semibold text-gray-900 mb-1">{project.title}</h3>
                             <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                              {project.description}
+                              {project.projectDescription || project.description}
                             </p>
                             <div className="flex items-center justify-between text-xs text-gray-500">
                               <span>{program?.name || 'Programme inconnu'}</span>
@@ -1348,7 +1361,7 @@ const EligibilityPage: React.FC = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{selectedProjectData.title}</h3>
-                    <p className="text-gray-600 mt-2">{selectedProjectData.description}</p>
+                    <p className="text-gray-600 mt-2">{selectedProjectData.projectDescription || selectedProjectData.description}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
@@ -1808,7 +1821,7 @@ const EligibilityPage: React.FC = () => {
                             <div className="flex-1">
                               <h3 className="font-semibold text-gray-900">{project.title}</h3>
                               <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                                {project.description}
+                                {project.projectDescription || project.description}
                               </p>
                               <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                                 <span>{program?.name || 'Programme inconnu'}</span>

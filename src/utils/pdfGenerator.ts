@@ -2,6 +2,22 @@ import { Project } from '../stores/projectStore';
 import { Program, Partner } from '../stores/programStore';
 import type { AIEvaluationResponse } from '../services/aiEvaluationService';
 import { formatCurrency } from './currency';
+import logoUrl from '../assets/logo_couleur.png';
+
+const loadLogoAsBase64 = async (): Promise<string | null> => {
+  try {
+    const response = await fetch(logoUrl);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
 
 export const generateEvaluationReport = async (
   project: Project,
@@ -45,14 +61,20 @@ export const generateEvaluationReport = async (
     return false;
   };
 
+  const logoBase64 = await loadLogoAsBase64();
+
   // Header
   pdf.setFillColor(0, 51, 102);
   pdf.rect(0, 0, pageWidth, 40, 'F');
 
+  if (logoBase64) {
+    pdf.addImage(logoBase64, 'PNG', margin, 5, 30, 30);
+  }
+
   pdf.setTextColor(255, 255, 255);
   pdf.setFontSize(20);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2, 20, { align: 'center' });
+  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2 + 15, 20, { align: 'center' });
 
   pdf.setFontSize(10);
   pdf.text('Woluma-Flow - Plateforme d\'Évaluation et de Financement', pageWidth / 2, 32, { align: 'center' });
@@ -102,7 +124,7 @@ export const generateEvaluationReport = async (
 
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
-  yPosition = addJustifiedText(project.description, yPosition, 10);
+  yPosition = addJustifiedText(project.projectDescription || project.description, yPosition, 10);
   yPosition += 10;
 
   // Tags
@@ -314,21 +336,27 @@ export const generateWolumaEvaluationReport = async (
     yPosition += 10;
   };
 
-  // HEADER
+  const logoBase64 = await loadLogoAsBase64();
+
+  // HEADER with logo
+  if (logoBase64) {
+    pdf.addImage(logoBase64, 'PNG', margin, yPosition - 15, 35, 35);
+  }
+
   pdf.setFontSize(18);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2, yPosition, { align: 'center' });
+  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2 + 20, yPosition, { align: 'center' });
   yPosition += 12;
 
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'bolditalic');
-  pdf.text('Plateforme Woluma', pageWidth / 2, yPosition, { align: 'center' });
+  pdf.text('Plateforme Woluma', pageWidth / 2 + 20, yPosition, { align: 'center' });
   yPosition += 8;
 
   pdf.setFont('helvetica', 'italic');
   pdf.setFontSize(9);
-  pdf.text('Solution d\'évaluation et de financement intelligent des PME africaines', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 20;
+  pdf.text('Solution d\'evaluation et de financement intelligent des PME africaines', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  yPosition += 25;
 
   // 1. INFORMATIONS GÉNÉRALES
   addSection('1. Informations Générales du Projet');
@@ -365,7 +393,7 @@ export const generateWolumaEvaluationReport = async (
   addSection('2. Présentation Synthétique du Projet');
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
-  yPosition = addJustifiedText(project.description, yPosition, 10);
+  yPosition = addJustifiedText(project.projectDescription || project.description, yPosition, 10);
   yPosition += 12;
 
   // 3. OBJECTIF

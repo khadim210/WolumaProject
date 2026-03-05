@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas';
 import { FileText, Download, Loader2, Camera, AlertCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import logoUrl from '../../assets/logo_couleur.png';
 
 interface ManualSection {
   title: string;
@@ -552,22 +553,38 @@ const UserManualPage: React.FC = () => {
       const maxWidth = pageWidth - (margin * 2);
       let yPosition = 20;
 
+      let logoBase64: string | null = null;
+      try {
+        const response = await fetch(logoUrl);
+        const blob = await response.blob();
+        logoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+      } catch { /* ignore */ }
+
+      if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', (pageWidth - 50) / 2, 30, 50, 50);
+      }
+
       doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
-      doc.text('MANUEL UTILISATEUR', pageWidth / 2, 80, { align: 'center' });
+      doc.text('MANUEL UTILISATEUR', pageWidth / 2, 100, { align: 'center' });
 
       doc.setFontSize(20);
-      doc.text('Plateforme de Gestion de Projets', pageWidth / 2, 100, { align: 'center' });
+      doc.text('Plateforme de Gestion de Projets', pageWidth / 2, 120, { align: 'center' });
 
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
-      doc.text('Version 1.0', pageWidth / 2, 120, { align: 'center' });
-      doc.text(new Date().toLocaleDateString('fr-FR'), pageWidth / 2, 130, { align: 'center' });
+      doc.text('Version 1.0', pageWidth / 2, 140, { align: 'center' });
+      doc.text(new Date().toLocaleDateString('fr-FR'), pageWidth / 2, 150, { align: 'center' });
 
       doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(59, 130, 246);
-      doc.text('WOLUMA', pageWidth / 2, 160, { align: 'center' });
+      doc.text('WOLUMA', pageWidth / 2, 180, { align: 'center' });
       doc.setTextColor(0, 0, 0);
 
       doc.addPage();

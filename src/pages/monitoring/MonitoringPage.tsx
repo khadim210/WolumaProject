@@ -21,6 +21,7 @@ import {
   Filter
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import logoUrl from '../../assets/logo_couleur.png';
 import { getStatusLabel } from '../../utils/statusTransitions';
 import { formatCurrency, formatNumberWithSpaces } from '../../utils/currency';
 
@@ -479,17 +480,34 @@ const MonitoringPage = () => {
     ]);
 
     const doc = new jsPDF();
+    const margin = 14;
     let yPosition = 15;
 
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 8, 25, 25);
+    }
+
     doc.setFontSize(18);
-    doc.text('Rapport de Suivi des Projets', 14, yPosition);
+    doc.text('Rapport de Suivi des Projets', margin + 30, yPosition);
     yPosition += 7;
 
     doc.setFontSize(10);
-    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, yPosition);
+    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, margin + 30, yPosition);
     yPosition += 5;
-    doc.text(`Période: ${selectedPeriod === 'all' ? 'Toutes les périodes' : selectedPeriod === 'month' ? 'Dernier mois' : selectedPeriod === 'quarter' ? 'Dernier trimestre' : 'Dernière année'}`, 14, yPosition);
-    yPosition += 10;
+    doc.text(`Periode: ${selectedPeriod === 'all' ? 'Toutes les periodes' : selectedPeriod === 'month' ? 'Dernier mois' : selectedPeriod === 'quarter' ? 'Dernier trimestre' : 'Derniere annee'}`, margin + 30, yPosition);
+    yPosition = 40;
 
     doc.setFontSize(14);
     doc.text('Statistiques principales', 14, yPosition);

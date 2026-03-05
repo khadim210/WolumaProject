@@ -33,6 +33,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { aiEvaluationService } from '../../services/aiEvaluationService';
 import { generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
+import logoUrl from '../../assets/logo_couleur.png';
 import { useParametersStore } from '../../stores/parametersStore';
 import { ProjectStatusService } from '../../services/projectStatusService';
 import { getAccessiblePrograms } from '../../hooks/useFilteredProjects';
@@ -140,7 +141,7 @@ const EvaluationPage: React.FC = () => {
 
     const isAccessible = accessiblePrograms.some(p => p.id === project.programId);
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         (project.projectDescription || project.description).toLowerCase().includes(searchTerm.toLowerCase());
     const matchesProgram = programFilter === 'all' || project.programId === programFilter;
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
 
@@ -222,7 +223,7 @@ const EvaluationPage: React.FC = () => {
           const request = {
             projectData: {
               title: project.title,
-              description: project.description,
+              description: project.projectDescription || project.description,
               budget: project.budget,
               timeline: project.timeline,
               tags: project.tags,
@@ -379,7 +380,7 @@ const EvaluationPage: React.FC = () => {
       const request = {
         projectData: {
           title: project.title,
-          description: project.description,
+          description: project.projectDescription || project.description,
           budget: project.budget,
           timeline: project.timeline,
           tags: project.tags,
@@ -572,12 +573,28 @@ const EvaluationPage: React.FC = () => {
     const pageHeight = doc.internal.pageSize.height;
     const margin = 14;
 
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 5, 25, 25);
+    }
+
     doc.setFontSize(18);
-    doc.text('Rapport d\'Evaluation des Projets', margin, 15);
+    doc.text('Rapport d\'Evaluation des Projets', margin + 30, 15);
 
     doc.setFontSize(10);
-    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin, 22);
-    doc.text(`Total: ${submittedProjects.length} projet(s)`, margin, 28);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin + 30, 22);
+    doc.text(`Total: ${submittedProjects.length} projet(s)`, margin, 34);
 
     const summaryData = submittedProjects.map(project => {
       const program = programs.find(p => p.id === project.programId);
@@ -599,7 +616,7 @@ const EvaluationPage: React.FC = () => {
     });
 
     autoTable(doc, {
-      startY: 35,
+      startY: 40,
       head: [['Titre', 'Porteur', 'Email', 'Tel', 'Secteur', 'Programme', 'Statut', 'Score', 'Date']],
       body: summaryData,
       theme: 'grid',
@@ -1096,7 +1113,7 @@ const EvaluationPage: React.FC = () => {
                           >
                             {project.title}
                           </h3>
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.description}</p>
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.projectDescription || project.description}</p>
                           
                           {program && (
                             <div className="mt-2 flex items-center text-sm text-primary-600">
@@ -1244,7 +1261,7 @@ const EvaluationPage: React.FC = () => {
                           
                           <div>
                             <h4 className="text-sm font-medium text-gray-700">Description</h4>
-                            <p className="text-sm text-gray-600 mt-1">{selectedProject.description}</p>
+                            <p className="text-sm text-gray-600 mt-1">{selectedProject.projectDescription || selectedProject.description}</p>
                           </div>
                           
                           <div>

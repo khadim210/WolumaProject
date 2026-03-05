@@ -4,6 +4,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { History, Download, FileSpreadsheet, Filter, Search } from 'lucide-react';
+import logoUrl from '../../assets/logo_couleur.png';
 import { ProjectStatusService, StatusHistoryEntry } from '../../services/projectStatusService';
 import { getStatusLabel } from '../../utils/statusTransitions';
 
@@ -96,12 +97,29 @@ const StatusHistoryPage: React.FC = () => {
     ]);
 
     const doc = new jsPDF();
+    const margin = 14;
+
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 8, 25, 25);
+    }
 
     doc.setFontSize(16);
-    doc.text('Historique des changements de statut', 14, 15);
+    doc.text('Historique des changements de statut', margin + 30, 15);
 
     doc.setFontSize(10);
-    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, 14, 22);
+    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, margin + 30, 22);
 
     const tableData = filteredHistory.map((entry) => [
       entry.projectTitle || 'N/A',
@@ -112,7 +130,7 @@ const StatusHistoryPage: React.FC = () => {
     ]);
 
     autoTable(doc, {
-      startY: 28,
+      startY: 38,
       head: [['Projet', 'Ancien statut', 'Nouveau statut', 'Modifie par', 'Date']],
       body: tableData,
       styles: { fontSize: 8 },

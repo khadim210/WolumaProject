@@ -35,6 +35,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { getAccessiblePrograms } from '../../hooks/useFilteredProjects';
+import logoUrl from '../../assets/logo_couleur.png';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
@@ -123,7 +124,7 @@ const FormalizationPage: React.FC = () => {
 
       const matchesSearch = searchTerm === '' ||
         p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchTerm.toLowerCase());
+        (p.projectDescription || p.description).toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesProgram = programFilter === 'all' || p.programId === programFilter;
 
@@ -277,13 +278,30 @@ const FormalizationPage: React.FC = () => {
     ]);
 
     const doc = new jsPDF('l', 'mm', 'a4');
+    const margin = 14;
+
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 5, 25, 25);
+    }
 
     doc.setFontSize(18);
-    doc.text('Projets en Formalisation - Resume', 14, 15);
+    doc.text('Projets en Formalisation - Resume', margin + 30, 15);
 
     doc.setFontSize(10);
-    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
-    doc.text(`Total: ${selectedProjectsData.length} projet(s)`, 14, 28);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin + 30, 22);
+    doc.text(`Total: ${selectedProjectsData.length} projet(s)`, margin, 34);
 
     const allData = await Promise.all(
       selectedProjectsData.map(async (project) => {
@@ -326,7 +344,7 @@ const FormalizationPage: React.FC = () => {
     });
 
     autoTable(doc, {
-      startY: 35,
+      startY: 40,
       head: [['Projet', 'Programme', 'Documents', 'Accompagnement', 'Plan Financier', 'Progression']],
       body: tableData,
       theme: 'grid',
