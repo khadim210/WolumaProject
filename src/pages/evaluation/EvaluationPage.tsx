@@ -1279,16 +1279,6 @@ const EvaluationPage: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-700">Budget</h4>
-                            <p className="text-sm text-gray-600 mt-1">{selectedProject.budget.toLocaleString()} FCFA</p>
-                          </div>
-                          
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-700">Duree</h4>
-                            <p className="text-sm text-gray-600 mt-1">{selectedProject.timeline}</p>
-                          </div>
-
                           {(selectedProject.submitterPhone || selectedProject.activitySectorId || selectedProject.projectAgeMonths !== undefined) && (
                             <div className="bg-blue-50 p-3 rounded-lg space-y-2">
                               <h4 className="text-sm font-medium text-gray-700">Informations complementaires</h4>
@@ -1311,7 +1301,7 @@ const EvaluationPage: React.FC = () => {
                               {selectedProject.projectAgeMonths !== undefined && selectedProject.projectAgeMonths !== null && (
                                 <div className="flex items-center text-sm">
                                   <Calendar className="h-4 w-4 text-blue-500 mr-2" />
-                                  <span className="text-gray-600">Age:</span>
+                                  <span className="text-gray-600">Duree d'existence:</span>
                                   <span className="ml-2 font-medium text-gray-900">{selectedProject.projectAgeMonths} mois</span>
                                 </div>
                               )}
