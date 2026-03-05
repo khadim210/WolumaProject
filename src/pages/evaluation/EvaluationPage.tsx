@@ -495,12 +495,11 @@ const EvaluationPage: React.FC = () => {
       // Récupérer l'analyse IA stockée si disponible
       const aiAnalysis = aiAnalysisCache[project.id];
 
-      // Utiliser le nouveau générateur de rapport Woluma
       await generateWolumaEvaluationReport(
         project,
         program,
         partner,
-        user?.email || 'Système',
+        user?.name || 'Systeme',
         aiAnalysis
       );
     } catch (error) {
