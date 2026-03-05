@@ -840,13 +840,6 @@ const FormalizationPage: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-1">Budget</h4>
-                <p className="text-gray-900 font-semibold">
-                  {currentProject?.budget?.toLocaleString('fr-FR')} XOF
-                </p>
-              </div>
-
-              <div>
                 <h4 className="text-sm font-medium text-gray-500 mb-1">Date de soumission</h4>
                 <p className="text-gray-900">
                   {currentProject?.submissionDate
