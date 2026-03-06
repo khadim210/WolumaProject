@@ -18,11 +18,12 @@ import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
 import FileLink from '../../components/projects/FileLink';
-import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink, Phone, Briefcase, User, CreditCard as Edit3, Save, X } from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink, Phone, Briefcase, User, CreditCard as Edit3, Save, X, Upload, AlertCircle, FileCheck } from 'lucide-react';
 import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
 import { ProjectStatusService } from '../../services/projectStatusService';
+import { formalizationService, DocumentRequest } from '../../services/formalizationService';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,9 @@ const ProjectDetailPage: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<Record<string, any>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [uploadingRequestId, setUploadingRequestId] = useState<string | null>(null);
   
   useEffect(() => {
     const loadData = async () => {
@@ -57,7 +61,6 @@ const ProjectDetailPage: React.FC = () => {
       ]);
 
       if (id) {
-        // Get project from store after fetching
         const projectData = getProject(id);
         console.log('📊 Project data loaded:', {
           id: projectData?.id,
@@ -66,6 +69,9 @@ const ProjectDetailPage: React.FC = () => {
           totalScore: projectData?.totalEvaluationScore
         });
         setProject(projectData);
+
+        const docRequests = await formalizationService.getDocumentRequestsByProject(id);
+        setDocumentRequests(docRequests);
 
         if (!projectData) {
           console.log('⚠️ Project not found, redirecting...');
@@ -186,6 +192,56 @@ const ProjectDetailPage: React.FC = () => {
       }
     }));
   };
+
+  const handleDocumentUpload = async (requestId: string, file: File) => {
+    if (!user || !id) return;
+
+    setIsUploadingDocument(true);
+    setUploadingRequestId(requestId);
+
+    try {
+      const filePath = await formalizationService.uploadDocument(file, requestId);
+      if (filePath) {
+        await formalizationService.createDocumentSubmission({
+          request_id: requestId,
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          submitted_by: user.email || user.name || 'Soumissionnaire'
+        });
+
+        const updatedRequests = await formalizationService.getDocumentRequestsByProject(id);
+        setDocumentRequests(updatedRequests);
+
+        alert('Document televerse avec succes!');
+      }
+    } catch (error) {
+      console.error('Erreur upload document:', error);
+      alert('Erreur lors du televersement du document');
+    } finally {
+      setIsUploadingDocument(false);
+      setUploadingRequestId(null);
+    }
+  };
+
+  const getDocumentStatusBadge = (status: string) => {
+    const badges: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+      pending: { label: 'En attente', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: <Clock className="h-3.5 w-3.5" /> },
+      submitted: { label: 'Soumis', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: <Upload className="h-3.5 w-3.5" /> },
+      validated: { label: 'Valide', color: 'bg-green-100 text-green-800 border-green-200', icon: <CheckCircle className="h-3.5 w-3.5" /> },
+      rejected: { label: 'Rejete', color: 'bg-red-100 text-red-800 border-red-200', icon: <AlertCircle className="h-3.5 w-3.5" /> }
+    };
+    const badge = badges[status] || badges.pending;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badge.color}`}>
+        {badge.icon}
+        {badge.label}
+      </span>
+    );
+  };
+
+  const pendingDocuments = documentRequests.filter(d => d.status === 'pending');
+  const submittedDocuments = documentRequests.filter(d => d.status !== 'pending');
 
   if (!project) {
     return (
@@ -697,7 +753,7 @@ const ProjectDetailPage: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">NDA signé</span>
+                  <span className="text-sm text-gray-700">NDA signe</span>
                   <span className={`flex items-center ${project.ndaSigned ? 'text-success-600' : 'text-gray-400'}`}>
                     {project.ndaSigned ? (
                       <CheckCircle className="h-5 w-5" />
@@ -706,7 +762,7 @@ const ProjectDetailPage: React.FC = () => {
                     )}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700">Dossier complet</span>
                   <span className={`flex items-center ${project.formalizationCompleted ? 'text-success-600' : 'text-gray-400'}`}>
@@ -717,6 +773,147 @@ const ProjectDetailPage: React.FC = () => {
                     )}
                   </span>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {documentRequests.length > 0 && (
+            <Card className="mb-6 border-l-4 border-l-amber-500">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileCheck className="h-5 w-5 text-amber-600" />
+                    Documents demandes
+                  </CardTitle>
+                  {pendingDocuments.length > 0 && (
+                    <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                      {pendingDocuments.length} en attente
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {pendingDocuments.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">
+                          {pendingDocuments.length} document(s) en attente de soumission
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Veuillez telecharger les documents demandes ci-dessous
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {documentRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className={`border rounded-lg p-4 transition-all ${
+                        request.status === 'pending'
+                          ? 'border-amber-200 bg-white hover:border-amber-300'
+                          : request.status === 'validated'
+                          ? 'border-green-200 bg-green-50'
+                          : request.status === 'rejected'
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 text-sm">
+                            {request.document_name}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Type: {request.document_type === 'legal' ? 'Document legal' :
+                                   request.document_type === 'financial' ? 'Document financier' :
+                                   request.document_type === 'technical' ? 'Document technique' :
+                                   request.document_type === 'administrative' ? 'Document administratif' : 'Autre'}
+                          </p>
+                        </div>
+                        {getDocumentStatusBadge(request.status)}
+                      </div>
+
+                      {request.description && (
+                        <p className="text-sm text-gray-600 mb-3">{request.description}</p>
+                      )}
+
+                      {request.due_date && (
+                        <div className="flex items-center text-xs text-gray-500 mb-3">
+                          <Calendar className="h-3.5 w-3.5 mr-1" />
+                          Date limite: {new Date(request.due_date).toLocaleDateString('fr-FR')}
+                        </div>
+                      )}
+
+                      {request.status === 'pending' && (
+                        <div className="mt-3">
+                          <label className="block">
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleDocumentUpload(request.id, file);
+                                }
+                              }}
+                              disabled={isUploadingDocument}
+                            />
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              className="w-full"
+                              disabled={isUploadingDocument && uploadingRequestId === request.id}
+                              leftIcon={<Upload className="h-4 w-4" />}
+                              onClick={(e) => {
+                                const input = (e.target as HTMLElement).closest('label')?.querySelector('input');
+                                input?.click();
+                              }}
+                            >
+                              {isUploadingDocument && uploadingRequestId === request.id
+                                ? 'Televersement...'
+                                : 'Telecharger le document'}
+                            </Button>
+                          </label>
+                        </div>
+                      )}
+
+                      {request.status === 'validated' && (
+                        <div className="mt-2 flex items-center text-sm text-green-700">
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
+                          Document valide par l'equipe
+                        </div>
+                      )}
+
+                      {request.status === 'rejected' && request.notes && (
+                        <div className="mt-2 p-2 bg-red-100 rounded text-sm text-red-700">
+                          <span className="font-medium">Raison du rejet:</span> {request.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {submittedDocuments.length > 0 && pendingDocuments.length > 0 && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Progression</span>
+                      <span className="font-medium text-gray-900">
+                        {submittedDocuments.length}/{documentRequests.length} soumis
+                      </span>
+                    </div>
+                    <div className="mt-2 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all"
+                        style={{ width: `${(submittedDocuments.length / documentRequests.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
