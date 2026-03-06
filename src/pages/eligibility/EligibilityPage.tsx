@@ -1409,7 +1409,7 @@ const EligibilityPage: React.FC = () => {
                         <div className="flex items-center text-sm">
                           <Calendar className="h-4 w-4 text-blue-500 mr-2" />
                           <div>
-                            <span className="text-gray-600">Age du projet:</span>
+                            <span className="text-gray-600">Duree d'existence:</span>
                             <span className="ml-2 font-medium text-gray-900">{selectedProjectData.projectAgeMonths} mois</span>
                           </div>
                         </div>
@@ -1954,7 +1954,7 @@ const EligibilityPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Age du projet (mois)
+                    Duree d'existence du projet (mois)
                   </label>
                   <input
                     type="number"

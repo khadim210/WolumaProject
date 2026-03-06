@@ -402,7 +402,7 @@ const ProjectDetailPage: React.FC = () => {
                       <div className="flex items-center bg-gray-50 p-3 rounded-lg">
                         <Calendar className="h-5 w-5 text-blue-500 mr-3" />
                         <div>
-                          <div className="text-sm text-gray-500">Age du projet</div>
+                          <div className="text-sm text-gray-500">Duree d'existence du projet</div>
                           <div className="font-medium">
                             {project.projectAgeMonths} mois
                           </div>
@@ -413,34 +413,11 @@ const ProjectDetailPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center">
-                  <DollarSign className="h-5 w-5 text-gray-400 mr-2" />
-                  <div>
-                    <div className="text-sm text-gray-500">Budget</div>
-                    <div className="font-medium">
-                      {(() => {
-                        const program = programs.find(p => p.id === project.programId);
-                        return formatCurrency(project.budget, program?.currency || 'XOF');
-                      })()}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Clock className="h-5 w-5 text-gray-400 mr-2" />
-                  <div>
-                    <div className="text-sm text-gray-500">Duree</div>
-                    <div className="font-medium">{project.timeline}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-                  <div>
-                    <div className="text-sm text-gray-500">Cree le</div>
-                    <div className="font-medium">{project.createdAt.toLocaleDateString()}</div>
-                  </div>
+              <div className="flex items-center">
+                <Calendar className="h-5 w-5 text-gray-400 mr-2" />
+                <div>
+                  <div className="text-sm text-gray-500">Cree le</div>
+                  <div className="font-medium">{project.createdAt.toLocaleDateString()}</div>
                 </div>
               </div>
               
@@ -969,18 +946,6 @@ const ProjectDetailPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Budget (FCFA)
-                  </label>
-                  <input
-                    type="number"
-                    value={editFormData.budget || ''}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, budget: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nom du soumetteur
                   </label>
                   <input
@@ -1005,7 +970,7 @@ const ProjectDetailPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Age du projet (mois)
+                    Duree d'existence du projet (mois)
                   </label>
                   <input
                     type="number"
