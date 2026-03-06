@@ -5,6 +5,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, Project, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useActivitySectorStore } from '../../stores/activitySectorStore';
+import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import {
   Card,
   CardHeader,
@@ -44,6 +45,7 @@ const EvaluationPage: React.FC = () => {
   const { projects, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const { sectors, fetchSectors, getSector } = useActivitySectorStore();
+  const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
   const { parameters, loadParameters } = useParametersStore();
   const navigate = useNavigate();
   
@@ -80,8 +82,9 @@ const EvaluationPage: React.FC = () => {
     fetchPrograms();
     fetchPartners();
     fetchSectors();
+    fetchTemplates();
     loadParameters();
-  }, [fetchPrograms, fetchPartners, fetchSectors, loadParameters]);
+  }, [fetchPrograms, fetchPartners, fetchSectors, fetchTemplates, loadParameters]);
 
   useEffect(() => {
     if (parameters.enableAiEvaluation) {
@@ -1390,7 +1393,17 @@ const EvaluationPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {activeTab === 'submission' && (
+                      {activeTab === 'submission' && (() => {
+                        const formTemplate = program.formTemplateId ? getTemplate(program.formTemplateId) : null;
+                        const getFieldLabel = (fieldName: string): string => {
+                          if (formTemplate && formTemplate.fields) {
+                            const field = formTemplate.fields.find(f => f.name === fieldName);
+                            if (field) return field.label;
+                          }
+                          return fieldName.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+                        };
+
+                        return (
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center">
@@ -1405,12 +1418,14 @@ const EvaluationPage: React.FC = () => {
                             {selectedProject.formData && Object.keys(selectedProject.formData).length > 0 ? (
                               <div className="space-y-4">
                                 {Object.entries(selectedProject.formData).map(([key, value]) => {
+                                  const fieldLabel = getFieldLabel(key);
+
                                   if (Array.isArray(value) && value.length > 0 && value[0]?.name && value[0]?.path) {
                                     return (
                                       <div key={key} className="border border-gray-200 rounded-lg p-4">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
                                           <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                                          {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                                          {fieldLabel}
                                         </h4>
                                         <div className="space-y-2">
                                           {value.map((file: any, idx: number) => (
@@ -1426,7 +1441,7 @@ const EvaluationPage: React.FC = () => {
                                       <div key={key} className="border border-gray-200 rounded-lg p-4">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
                                           <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                                          {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                                          {fieldLabel}
                                         </h4>
                                         <FileLink file={value} />
                                       </div>
@@ -1440,7 +1455,7 @@ const EvaluationPage: React.FC = () => {
                                   return (
                                     <div key={key} className="border border-gray-200 rounded-lg p-4">
                                       <h4 className="text-sm font-medium text-gray-700 mb-2">
-                                        {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                                        {fieldLabel}
                                       </h4>
                                       <div className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md whitespace-pre-wrap">
                                         {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
@@ -1471,7 +1486,8 @@ const EvaluationPage: React.FC = () => {
                             )}
                           </CardContent>
                         </Card>
-                      )}
+                        );
+                      })()}
 
                       {activeTab === 'evaluation' && (
                       <Card>
