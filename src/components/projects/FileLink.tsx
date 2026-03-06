@@ -7,41 +7,45 @@ interface FileLinkProps {
 }
 
 const FileLink: React.FC<FileLinkProps> = ({ file }) => {
-  const [fileUrl, setFileUrl] = useState<string>(file.url);
-  const [isLoading, setIsLoading] = useState<boolean>(!file.url);
+  const [fileUrl, setFileUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadFileUrl = async () => {
-      if (!file.url || file.url === '') {
-        setIsLoading(true);
-        setError(null);
+      if (!file.path) {
+        setError('Chemin du fichier manquant');
+        setIsLoading(false);
+        return;
+      }
 
-        try {
-          const url = await getFileUrl(file.path);
-          setFileUrl(url);
-        } catch (err) {
-          console.error('Error loading file URL:', err);
-          setError('Impossible de charger le fichier');
-        } finally {
-          setIsLoading(false);
-        }
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const url = await getFileUrl(file.path);
+        setFileUrl(url);
+      } catch (err) {
+        console.error('Error loading file URL:', err);
+        setError('Impossible de charger le fichier');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadFileUrl();
-  }, [file.path, file.url]);
+  }, [file.path]);
 
   const handleClick = async (e: React.MouseEvent) => {
-    // Regenerate URL if it might be expired (older than 50 minutes)
-    if (fileUrl && !isLoading) {
-      try {
-        const freshUrl = await getFileUrl(file.path);
-        window.open(freshUrl, '_blank', 'noopener,noreferrer');
-        e.preventDefault();
-      } catch (err) {
-        console.error('Error refreshing file URL:', err);
-      }
+    e.preventDefault();
+    if (isLoading) return;
+
+    try {
+      const freshUrl = await getFileUrl(file.path);
+      window.open(freshUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Error refreshing file URL:', err);
+      setError('Erreur lors de l\'ouverture du fichier');
     }
   };
 
