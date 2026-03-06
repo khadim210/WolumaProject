@@ -620,7 +620,7 @@ const MonitoringPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Suivi des Projets</h1>
           <p className="text-sm text-gray-600 mt-1">
@@ -628,7 +628,7 @@ const MonitoringPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             size="sm"

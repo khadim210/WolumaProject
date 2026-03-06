@@ -857,9 +857,9 @@ const EvaluationPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Évaluation des Projets</h1>
-        <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Evaluation des Projets</h1>
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
             onClick={handleExportExcel}

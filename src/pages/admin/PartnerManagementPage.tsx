@@ -160,10 +160,10 @@ const PartnerManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des partenaires</h1>
-          <p className="text-gray-600">Créez et gérez les partenaires de financement</p>
+          <p className="text-gray-600">Creez et gerez les partenaires de financement</p>
         </div>
         <Button
           onClick={() => {

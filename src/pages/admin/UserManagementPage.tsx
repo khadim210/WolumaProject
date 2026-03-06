@@ -231,12 +231,12 @@ const UserManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des utilisateurs</h1>
-          <p className="mt-1 text-gray-600">Gérez les utilisateurs et leurs privilèges</p>
+          <p className="mt-1 text-gray-600">Gerez les utilisateurs et leurs privileges</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="secondary"
             leftIcon={<Shield className="h-4 w-4" />}

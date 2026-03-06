@@ -162,12 +162,12 @@ const ParametersPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Paramètres système</h1>
-          <p className="mt-1 text-gray-600">Configurez les paramètres de l'application</p>
+          <h1 className="text-2xl font-bold text-gray-900">Parametres systeme</h1>
+          <p className="mt-1 text-gray-600">Configurez les parametres de l'application</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
             onClick={handleReset}
