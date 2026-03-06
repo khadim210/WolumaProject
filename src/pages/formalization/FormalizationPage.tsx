@@ -43,6 +43,7 @@ import DocumentRequestModal from '../../components/formalization/DocumentRequest
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
 import { formalizationService } from '../../services/formalizationService';
+import { EmailService } from '../../services/emailService';
 import type {
   DocumentRequest,
   TechnicalSupport,
@@ -164,10 +165,36 @@ const FormalizationPage: React.FC = () => {
   const submitterUser = currentProject ? getUser(currentProject.submitterId) : undefined;
 
   const handleCreateDocumentRequest = async (values: any) => {
-    await formalizationService.createDocumentRequest({
+    const result = await formalizationService.createDocumentRequest({
       ...values,
       requested_by: user.id
     });
+
+    if (result && currentProject) {
+      const submitterEmail = currentProject.submitterEmail || submitterUser?.email;
+      const submitterName = currentProject.submitterName || submitterUser?.name || 'Porteur de projet';
+
+      if (submitterEmail) {
+        const documentTypeLabels: Record<string, string> = {
+          'legal': 'Document legal',
+          'financial': 'Document financier',
+          'technical': 'Document technique',
+          'administrative': 'Document administratif',
+          'other': 'Autre'
+        };
+
+        await EmailService.sendDocumentRequestNotification(
+          submitterEmail,
+          submitterName,
+          currentProject.title,
+          values.document_name,
+          documentTypeLabels[values.document_type] || values.document_type,
+          values.description,
+          values.due_date
+        );
+      }
+    }
+
     loadProjectData(selectedProject);
   };
 
