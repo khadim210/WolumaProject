@@ -234,8 +234,15 @@ const FormalizationPage: React.FC = () => {
   };
 
   const handleDeleteSupport = async (id: string) => {
-    if (confirm('Confirmer la suppression ?')) {
+    if (confirm('Confirmer la suppression de cet accompagnement ?')) {
       await formalizationService.deleteTechnicalSupport(id);
+      loadProjectData(selectedProject);
+    }
+  };
+
+  const handleDeleteDocumentRequest = async (id: string) => {
+    if (confirm('Confirmer la suppression de cette demande de document ?')) {
+      await formalizationService.deleteDocumentRequest(id);
       loadProjectData(selectedProject);
     }
   };
@@ -1018,6 +1025,14 @@ const FormalizationPage: React.FC = () => {
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Valider
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteDocumentRequest(request.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
