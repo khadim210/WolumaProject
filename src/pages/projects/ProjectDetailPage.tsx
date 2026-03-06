@@ -6,6 +6,7 @@ import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useActivitySectorStore } from '../../stores/activitySectorStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
 import {
   Card,
   CardHeader,
@@ -32,7 +33,8 @@ const ProjectDetailPage: React.FC = () => {
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
   const { sectors, fetchSectors, getSector } = useActivitySectorStore();
-  
+  const { users, fetchUsers, getUser } = useUserManagementStore();
+
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
@@ -50,7 +52,8 @@ const ProjectDetailPage: React.FC = () => {
         fetchPartners(),
         fetchTemplates(),
         fetchProjects(),
-        fetchSectors()
+        fetchSectors(),
+        fetchUsers()
       ]);
 
       if (id) {
@@ -559,7 +562,7 @@ const ProjectDetailPage: React.FC = () => {
                     })}</span>
                     {project.evaluatedBy && (
                       <span className="ml-4 text-primary-600">
-                        • Évaluateur ID: {project.evaluatedBy}
+                        • Évaluateur: {getUser(project.evaluatedBy)?.name || 'Inconnu'}
                       </span>
                     )}
                   </div>
