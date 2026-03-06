@@ -36,6 +36,8 @@ const EligibilityPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
 
   useEffect(() => {
     fetchProjects();
@@ -98,6 +100,16 @@ const EligibilityPage: React.FC = () => {
 
     return filtered;
   }, [projects, statusFilter, programFilter, dateFilter, searchTerm]);
+
+  const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
+  const paginatedProjects = filteredProjects.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, programFilter, dateFilter, searchTerm]);
 
   const handleSelectProject = (projectId: string) => {
     setSelectedProject(projectId);
@@ -1278,7 +1290,7 @@ const EligibilityPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredProjects.map(project => {
+                  {paginatedProjects.map(project => {
                     const program = getProgram(project.programId);
                     const isSelected = selectedProjects.has(project.id);
                     const isCurrentProject = selectedProject === project.id;
@@ -1322,6 +1334,33 @@ const EligibilityPage: React.FC = () => {
                       </div>
                     );
                   })}
+
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between pt-4 border-t">
+                      <p className="text-xs text-gray-500">
+                        {(currentPage - 1) * projectsPerPage + 1}-{Math.min(currentPage * projectsPerPage, filteredProjects.length)} sur {filteredProjects.length}
+                      </p>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-2 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
+                        >
+                          Prec.
+                        </button>
+                        <span className="px-2 py-1 text-xs">
+                          {currentPage}/{totalPages}
+                        </span>
+                        <button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-2 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
+                        >
+                          Suiv.
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

@@ -38,7 +38,9 @@ const ProjectsPage: React.FC = () => {
   const [selectedProgramForExport, setSelectedProgramForExport] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
-  
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
+
   useEffect(() => {
     console.log('📁 ProjectsPage: Fetching all data...');
     fetchProjects();
@@ -87,9 +89,19 @@ const ProjectsPage: React.FC = () => {
     }
   }, [partnerFilter, programFilter, filteredPrograms]);
   
-  const sortedProjects = [...filteredProjects].sort((a, b) => 
+  const sortedProjects = [...filteredProjects].sort((a, b) =>
     b.updatedAt.getTime() - a.updatedAt.getTime()
   );
+
+  const totalPages = Math.ceil(sortedProjects.length / projectsPerPage);
+  const paginatedProjects = sortedProjects.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, partnerFilter, programFilter]);
   
 
   
@@ -646,9 +658,9 @@ const ProjectsPage: React.FC = () => {
         </Card>
       )}
 
-      {sortedProjects.length > 0 ? (
+      {paginatedProjects.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
-          {sortedProjects.map(project => {
+          {paginatedProjects.map(project => {
             const program = programs.find(p => p.id === project.programId);
             const partner = program ? partners.find(p => p.id === program.partnerId) : null;
             
@@ -748,22 +760,108 @@ const ProjectsPage: React.FC = () => {
               </Card>
             );
           })}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between bg-white px-4 py-3 rounded-lg shadow">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Precedent
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Suivant
+                </button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Affichage de <span className="font-medium">{(currentPage - 1) * projectsPerPage + 1}</span> a{' '}
+                    <span className="font-medium">{Math.min(currentPage * projectsPerPage, sortedProjects.length)}</span> sur{' '}
+                    <span className="font-medium">{sortedProjects.length}</span> resultats
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &laquo;
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &lsaquo;
+                    </button>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            currentPage === pageNum
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &rsaquo;
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &raquo;
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <div className="text-gray-500">
             {searchTerm || statusFilter !== 'all' || partnerFilter !== 'all' || programFilter !== 'all'
-              ? "Aucun projet ne correspond à vos critères de recherche"
+              ? "Aucun projet ne correspond à vos criteres de recherche"
               : "Aucun projet n'est disponible pour le moment"}
           </div>
-          
+
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create" className="mt-4 inline-block">
               <Button
                 variant="primary"
                 leftIcon={<FolderPlus className="h-4 w-4" />}
               >
-                {user?.role === 'submitter' ? 'Créer votre première soumission' : 'Créer votre premier projet'}
+                {user?.role === 'submitter' ? 'Creer votre premiere soumission' : 'Creer votre premier projet'}
               </Button>
             </Link>
           )}

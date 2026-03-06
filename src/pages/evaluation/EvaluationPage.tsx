@@ -67,6 +67,8 @@ const EvaluationPage: React.FC = () => {
   const [aiAnalysisCache, setAiAnalysisCache] = useState<Record<string, any>>({});
   const [includeFileContents, setIncludeFileContents] = useState(true);
   const [activeTab, setActiveTab] = useState<'evaluation' | 'submission'>('evaluation');
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
 
   if (!user || !checkPermission('evaluation.evaluate')) {
     return (
@@ -178,7 +180,17 @@ const EvaluationPage: React.FC = () => {
            matchesStatus &&
            matchesDate;
   });
-  
+
+  const totalPages = Math.ceil(submittedProjects.length / projectsPerPage);
+  const paginatedProjects = submittedProjects.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, programFilter, statusFilter, dateFilter]);
+
   const handleSelectProjectForEvaluation = (project: Project) => {
     setSelectedProject(project);
     setIsEvaluating(true);
@@ -1070,22 +1082,22 @@ const EvaluationPage: React.FC = () => {
           )}
           
           <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Projets à évaluer</h2>
-            
-            {submittedProjects.length > 0 ? (
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Projets a evaluer ({submittedProjects.length})</h2>
+
+            {paginatedProjects.length > 0 ? (
               <div className="space-y-4">
-                {submittedProjects.map(project => {
+                {paginatedProjects.map(project => {
                   const program = programs.find(p => p.id === project.programId);
                   const partner = program ? partners.find(p => p.id === program.partnerId) : null;
                   const isSelected = selectedProjects.includes(project.id);
                   const isEvaluated = project.evaluationScores && project.evaluatedBy;
-                  
+
                   return (
-                    <div 
-                      key={project.id} 
+                    <div
+                      key={project.id}
                       className={`border rounded-md p-4 transition-colors ${
-                        isSelected 
-                          ? 'border-secondary-300 bg-secondary-50' 
+                        isSelected
+                          ? 'border-secondary-300 bg-secondary-50'
                           : isEvaluated
                           ? 'border-success-300 bg-success-50'
                           : 'border-gray-200 hover:bg-gray-50'
@@ -1108,16 +1120,16 @@ const EvaluationPage: React.FC = () => {
                             className="h-4 w-4 text-secondary-600 border-gray-300 rounded focus:ring-secondary-500"
                           />
                         </div>
-                        
+
                         <div>
-                          <h3 
+                          <h3
                             className="text-md font-medium text-gray-900 cursor-pointer hover:text-primary-600"
                             onClick={() => handleSelectProjectForEvaluation(project)}
                           >
                             {project.title}
                           </h3>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.projectDescription || project.description}</p>
-                          
+
                           {program && (
                             <div className="mt-2 flex items-center text-sm text-primary-600">
                               <Target className="h-4 w-4 mr-1" />
@@ -1125,18 +1137,18 @@ const EvaluationPage: React.FC = () => {
                               <span className="ml-1">{program.name}</span>
                               {partner && (
                                 <>
-                                  <span className="mx-2">•</span>
+                                  <span className="mx-2">-</span>
                                   <span className="text-gray-600">{partner.name}</span>
                                 </>
                               )}
                             </div>
                           )}
-                          
+
                           <div className="mt-2 flex items-center text-sm text-gray-500">
-                            <span>Budget: {project.budget.toLocaleString()} FCFA • </span>
-                            <span>Durée: {project.timeline}</span>
+                            <span>Budget: {project.budget.toLocaleString()} FCFA - </span>
+                            <span>Duree: {project.timeline}</span>
                           </div>
-                          
+
                           <div className="mt-3 flex flex-wrap gap-2">
                             {project.tags.map(tag => (
                               <span key={tag} className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
@@ -1144,25 +1156,25 @@ const EvaluationPage: React.FC = () => {
                               </span>
                             ))}
                           </div>
-                          
+
                           <div className="mt-3 text-xs text-gray-500">
                             Soumis le {project.submissionDate?.toLocaleDateString()}
                           </div>
-                          
+
                           {isEvaluated && (
                             <div className="mt-2 p-2 bg-success-100 border border-success-200 rounded-md">
                               <div className="text-xs text-success-800 font-medium">
-                                ✅ Évalué le {project.evaluationDate?.toLocaleDateString()}
+                                Evalue le {project.evaluationDate?.toLocaleDateString()}
                               </div>
                               <div className="text-xs text-success-700">
-                                Score: {project.totalEvaluationScore}% • 
-                                Recommandation: {project.recommendedStatus === 'selected' ? 'Sélectionné' : 
-                                                project.recommendedStatus === 'pre_selected' ? 'Présélectionné' : 'Rejeté'}
+                                Score: {project.totalEvaluationScore}% -
+                                Recommandation: {project.recommendedStatus === 'selected' ? 'Selectionne' :
+                                                project.recommendedStatus === 'pre_selected' ? 'Preselectionne' : 'Rejete'}
                               </div>
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex flex-col items-end ml-auto">
                           <div className="flex items-center space-x-2">
                             <ProjectStatusBadge status={project.status} />
@@ -1173,7 +1185,7 @@ const EvaluationPage: React.FC = () => {
                                 onClick={() => handleSelectProjectForEvaluation(project)}
                                 disabled={isBulkEvaluating}
                               >
-                                Évaluer
+                                Evaluer
                               </Button>
                             ) : (
                               <div className="flex space-x-2">
@@ -1183,14 +1195,14 @@ const EvaluationPage: React.FC = () => {
                                   onClick={() => handleGenerateReport(project)}
                                   disabled={isGeneratingReport}
                                 >
-                                  📄 Rapport PDF
+                                  Rapport PDF
                                 </Button>
                                 <Button
                                   variant="success"
                                   size="sm"
                                   onClick={() => handleSubmitEvaluatedProject(project)}
                                 >
-                                  ✅ Soumettre
+                                  Soumettre
                                 </Button>
                               </div>
                             )}
@@ -1198,7 +1210,7 @@ const EvaluationPage: React.FC = () => {
                           {program && (
                             <div className="mt-2 text-xs text-gray-500 flex items-center">
                               <Award className="h-3 w-3 mr-1" />
-                              {program.evaluationCriteria.length} critères
+                              {program.evaluationCriteria.length} criteres
                             </div>
                           )}
                         </div>
@@ -1206,10 +1218,51 @@ const EvaluationPage: React.FC = () => {
                     </div>
                   );
                 })}
+
+                {totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between pt-4 border-t">
+                    <p className="text-sm text-gray-700">
+                      Affichage de {(currentPage - 1) * projectsPerPage + 1} a {Math.min(currentPage * projectsPerPage, submittedProjects.length)} sur {submittedProjects.length} resultats
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                      >
+                        &laquo;
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                      >
+                        Precedent
+                      </button>
+                      <span className="px-3 py-1 text-sm bg-blue-50 border border-blue-200 rounded">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                      >
+                        Suivant
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                      >
+                        &raquo;
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                Aucun projet à évaluer pour le moment
+                Aucun projet a evaluer pour le moment
               </div>
             )}
           </div>

@@ -76,6 +76,8 @@ const FormalizationPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
 
   useEffect(() => {
     fetchPrograms();
@@ -158,6 +160,16 @@ const FormalizationPage: React.FC = () => {
       return matchesSearch && matchesProgram && matchesDate;
     });
   }, [projects, accessiblePrograms, searchTerm, programFilter, dateFilter]);
+
+  const totalPages = Math.ceil(selectedProjectsData.length / projectsPerPage);
+  const paginatedProjects = selectedProjectsData.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, programFilter, dateFilter]);
 
   const currentProject = projects.find(p => p.id === selectedProject);
   const currentProgram = currentProject ? programs.find(p => p.id === currentProject.programId) : null;
@@ -690,7 +702,7 @@ const FormalizationPage: React.FC = () => {
               Projets disponibles ({selectedProjectsData.length})
             </h2>
             <div className="grid gap-4">
-              {selectedProjectsData.map(project => {
+              {paginatedProjects.map(project => {
                 const program = programs.find(p => p.id === project.programId);
                 const partner = program ? partners.find(p => p.id === program.partnerId) : null;
                 const isFormalized = project.status === 'selected';
@@ -753,6 +765,47 @@ const FormalizationPage: React.FC = () => {
                 );
               })}
             </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between pt-4 border-t">
+                <p className="text-sm text-gray-700">
+                  Affichage de {(currentPage - 1) * projectsPerPage + 1} a {Math.min(currentPage * projectsPerPage, selectedProjectsData.length)} sur {selectedProjectsData.length} resultats
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    &laquo;
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Precedent
+                  </button>
+                  <span className="px-3 py-1 text-sm bg-blue-50 border border-blue-200 rounded">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Suivant
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    &raquo;
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
