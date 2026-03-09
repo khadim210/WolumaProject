@@ -124,6 +124,9 @@ export interface SupabaseProgram {
   start_date: string;
   end_date: string;
   is_active: boolean;
+  is_locked?: boolean;
+  locked_at?: string;
+  locked_by?: string;
   created_at: string;
   manager_id?: string;
   selection_criteria: any[];
