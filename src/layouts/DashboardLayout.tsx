@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { usePermissions } from '../hooks/usePermissions';
 import {
@@ -10,6 +10,7 @@ import {
   BarChart3,
   LogOut,
   ChevronDown,
+  ChevronRight,
   Menu,
   X,
   User,
@@ -20,9 +21,13 @@ import {
   Building,
   ClipboardCheck,
   History,
-  BookOpen
+  BookOpen,
+  Briefcase,
+  Sliders,
+  Building2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import logoImage from '../assets/logo_couleur.png';
 
 interface NavItemProps {
   to: string;
@@ -37,13 +42,80 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => {
       to={to}
       className={({ isActive }) => `
         flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors
-        ${isActive 
-          ? 'bg-primary-700 text-white shadow-md' 
+        ${isActive
+          ? 'bg-primary-700 text-white shadow-md'
           : 'text-gray-300 hover:bg-primary-700 hover:text-white'}
       `}
       onClick={onClick}
     >
       <span className="mr-3 h-5 w-5">{icon}</span>
+      {label}
+    </NavLink>
+  );
+};
+
+interface NavSubMenuProps {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+  paths: string[];
+  defaultOpen?: boolean;
+}
+
+const NavSubMenu: React.FC<NavSubMenuProps> = ({ icon, label, children, paths, defaultOpen = false }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const location = useLocation();
+
+  const isActiveParent = paths.some(path => location.pathname.startsWith(path));
+
+  React.useEffect(() => {
+    if (isActiveParent) {
+      setIsOpen(true);
+    }
+  }, [isActiveParent]);
+
+  return (
+    <div>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+          isActiveParent
+            ? 'bg-primary-700/50 text-white'
+            : 'text-gray-300 hover:bg-primary-700 hover:text-white'
+        }`}
+      >
+        <div className="flex items-center">
+          <span className="mr-3 h-5 w-5">{icon}</span>
+          {label}
+        </div>
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4" />
+        ) : (
+          <ChevronRight className="h-4 w-4" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="mt-1 ml-4 pl-4 border-l border-accent-400/30 space-y-1">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SubNavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) => `
+        flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+        ${isActive
+          ? 'bg-primary-700 text-white shadow-md'
+          : 'text-gray-300 hover:bg-primary-700/70 hover:text-white'}
+      `}
+      onClick={onClick}
+    >
+      <span className="mr-2 h-4 w-4">{icon}</span>
       {label}
     </NavLink>
   );
@@ -85,7 +157,7 @@ const DashboardLayout: React.FC = () => {
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center px-4 mb-8">
               <img 
-                src="/logo_couleur.png" 
+                src={logoImage} 
                 alt="Woluma" 
                 className="h-8 w-auto filter brightness-0 invert"
               />
@@ -95,14 +167,29 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('dashboard.view') && (
                 <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" onClick={() => setSidebarOpen(false)} />
               )}
+
+              {(checkPermission('parameters.edit') || checkPermission('form_templates.view')) && (
+                <NavSubMenu icon={<Building2 />} label="Organisation" paths={['/dashboard/programs', '/dashboard/partners', '/dashboard/form-templates']}>
+                  {checkPermission('parameters.edit') && (
+                    <SubNavItem to="/dashboard/programs" icon={<Target />} label="Programmes" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  {checkPermission('parameters.edit') && (
+                    <SubNavItem to="/dashboard/partners" icon={<Building />} label="Partenaires" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  {checkPermission('form_templates.view') && (
+                    <SubNavItem to="/dashboard/form-templates" icon={<FileInput />} label="Formulaires" onClick={() => setSidebarOpen(false)} />
+                  )}
+                </NavSubMenu>
+              )}
+
               {checkPermission('projects.view') && (
                 <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" onClick={() => setSidebarOpen(false)} />
               )}
               {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
-                <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" onClick={() => setSidebarOpen(false)} />
+                <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Eligibilite" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('evaluation.view') && (
-                <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" onClick={() => setSidebarOpen(false)} />
+                <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Evaluation" onClick={() => setSidebarOpen(false)} />
               )}
               {checkPermission('formalization.view') && (
                 <NavItem to="/dashboard/formalization" icon={<FileText />} label="Formalisation" onClick={() => setSidebarOpen(false)} />
@@ -113,28 +200,22 @@ const DashboardLayout: React.FC = () => {
               {checkPermission('statistics.view') && (
                 <NavItem to="/dashboard/statistics" icon={<BarChart3 />} label="Statistiques" onClick={() => setSidebarOpen(false)} />
               )}
-              {checkPermission('form_templates.view') && (
-                <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" />
-              )}
-              {checkPermission('form_templates.view') && (
-                <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
-              )}
-              {checkPermission('parameters.edit') && (
-                <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
-              )}
-              {checkPermission('parameters.edit') && (
-                <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" onClick={() => setSidebarOpen(false)} />
-              )}
-              {checkPermission('users.view') && (
-                <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" onClick={() => setSidebarOpen(false)} />
-              )}
+
               {checkPermission('parameters.view') && (
-                <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" onClick={() => setSidebarOpen(false)} />
+                <NavSubMenu icon={<Settings />} label="Parametres" paths={['/dashboard/parameters', '/dashboard/activity-sectors', '/dashboard/users', '/dashboard/status-history', '/dashboard/user-manual']}>
+                  <SubNavItem to="/dashboard/parameters" icon={<Sliders />} label="Configuration" onClick={() => setSidebarOpen(false)} />
+                  {checkPermission('parameters.edit') && (
+                    <SubNavItem to="/dashboard/activity-sectors" icon={<Briefcase />} label="Secteurs d'activite" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  {checkPermission('users.view') && (
+                    <SubNavItem to="/dashboard/users" icon={<Users />} label="Utilisateurs" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  {checkPermission('status_history.view') && (
+                    <SubNavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" onClick={() => setSidebarOpen(false)} />
+                  )}
+                  <SubNavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" onClick={() => setSidebarOpen(false)} />
+                </NavSubMenu>
               )}
-              {checkPermission('status_history.view') && (
-                <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" onClick={() => setSidebarOpen(false)} />
-              )}
-              <NavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" onClick={() => setSidebarOpen(false)} />
             </nav>
           </div>
           
@@ -164,7 +245,7 @@ const DashboardLayout: React.FC = () => {
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
               <div className="flex items-center flex-shrink-0 px-4 mb-8">
                 <img 
-                  src="/logo_couleur.png" 
+                  src={logoImage} 
                   alt="Woluma" 
                   className="h-8 w-auto"
                 />
@@ -173,23 +254,29 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('dashboard.view') && (
                   <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Tableau de bord" />
                 )}
-                {checkPermission('form_templates.view') && (
-                  <NavItem to="/dashboard/form-templates" icon={<FileInput />} label="Modèles de formulaires" onClick={() => setSidebarOpen(false)} />
+
+                {(checkPermission('parameters.edit') || checkPermission('form_templates.view')) && (
+                  <NavSubMenu icon={<Building2 />} label="Organisation" paths={['/dashboard/programs', '/dashboard/partners', '/dashboard/form-templates']}>
+                    {checkPermission('parameters.edit') && (
+                      <SubNavItem to="/dashboard/programs" icon={<Target />} label="Programmes" />
+                    )}
+                    {checkPermission('parameters.edit') && (
+                      <SubNavItem to="/dashboard/partners" icon={<Building />} label="Partenaires" />
+                    )}
+                    {checkPermission('form_templates.view') && (
+                      <SubNavItem to="/dashboard/form-templates" icon={<FileInput />} label="Formulaires" />
+                    )}
+                  </NavSubMenu>
                 )}
-                {checkPermission('parameters.edit') && (
-                  <NavItem to="/dashboard/programs" icon={<Target />} label="Gestion des programmes" onClick={() => setSidebarOpen(false)} />
-                )}
-                {checkPermission('parameters.edit') && (
-                  <NavItem to="/dashboard/partners" icon={<Building />} label="Gestion des partenaires" />
-                )}
+
                 {checkPermission('projects.view') && (
                   <NavItem to="/dashboard/projects" icon={<FolderKanban />} label="Soumissions" />
                 )}
                 {(checkPermission('evaluation.view') || checkPermission('parameters.edit')) && (
-                  <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Éligibilité" />
+                  <NavItem to="/dashboard/eligibility" icon={<ClipboardCheck />} label="Eligibilite" />
                 )}
                 {checkPermission('evaluation.view') && (
-                  <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Évaluation" />
+                  <NavItem to="/dashboard/evaluation" icon={<ListChecks />} label="Evaluation" />
                 )}
                 {checkPermission('formalization.view') && (
                   <NavItem to="/dashboard/formalization" icon={<FileText />} label="Formalisation" />
@@ -197,16 +284,22 @@ const DashboardLayout: React.FC = () => {
                 {checkPermission('monitoring.view') && (
                   <NavItem to="/dashboard/monitoring" icon={<BarChart3 />} label="Suivi" />
                 )}
-                {checkPermission('users.view') && (
-                  <NavItem to="/dashboard/users" icon={<Users />} label="Gestion des utilisateurs" />
-                )}
+
                 {checkPermission('parameters.view') && (
-                  <NavItem to="/dashboard/parameters" icon={<Settings />} label="Paramètres" />
+                  <NavSubMenu icon={<Settings />} label="Parametres" paths={['/dashboard/parameters', '/dashboard/activity-sectors', '/dashboard/users', '/dashboard/status-history', '/dashboard/user-manual']}>
+                    <SubNavItem to="/dashboard/parameters" icon={<Sliders />} label="Configuration" />
+                    {checkPermission('parameters.edit') && (
+                      <SubNavItem to="/dashboard/activity-sectors" icon={<Briefcase />} label="Secteurs d'activite" />
+                    )}
+                    {checkPermission('users.view') && (
+                      <SubNavItem to="/dashboard/users" icon={<Users />} label="Utilisateurs" />
+                    )}
+                    {checkPermission('status_history.view') && (
+                      <SubNavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" />
+                    )}
+                    <SubNavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" />
+                  </NavSubMenu>
                 )}
-                {checkPermission('status_history.view') && (
-                  <NavItem to="/dashboard/status-history" icon={<History />} label="Historique des statuts" />
-                )}
-                <NavItem to="/dashboard/user-manual" icon={<BookOpen />} label="Manuel Utilisateur" />
               </nav>
             </div>
             

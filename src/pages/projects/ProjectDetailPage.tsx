@@ -5,6 +5,8 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
 import {
   Card,
   CardHeader,
@@ -16,11 +18,12 @@ import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
 import ProcessDiagram from '../../components/workflow/ProcessDiagram';
 import FileLink from '../../components/projects/FileLink';
-import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, DollarSign, CreditCard as Edit, ArrowLeft, Send, CheckCircle, AlertTriangle, FileText, Download, ExternalLink, Phone, Briefcase, User, CreditCard as Edit3, Save, X, Upload, AlertCircle, FileCheck } from 'lucide-react';
 import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
 import { ProjectStatusService } from '../../services/projectStatusService';
+import { formalizationService, DocumentRequest } from '../../services/formalizationService';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,26 +33,34 @@ const ProjectDetailPage: React.FC = () => {
   const { projects, getProject, updateProject, fetchProjects } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
   const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
-  
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
+  const { users, fetchUsers, getUser } = useUserManagementStore();
+
   const [project, setProject] = useState(id ? getProject(id) : undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<Record<string, any>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [uploadingRequestId, setUploadingRequestId] = useState<string | null>(null);
   
   useEffect(() => {
     const loadData = async () => {
       console.log('📄 ProjectDetailPage: Fetching fresh data from Supabase...');
 
-      // Fetch fresh data from Supabase
       await Promise.all([
         fetchPrograms(),
         fetchPartners(),
         fetchTemplates(),
-        fetchProjects() // ✅ Reload projects from database
+        fetchProjects(),
+        fetchSectors(),
+        fetchUsers()
       ]);
 
       if (id) {
-        // Get project from store after fetching
         const projectData = getProject(id);
         console.log('📊 Project data loaded:', {
           id: projectData?.id,
@@ -58,6 +69,9 @@ const ProjectDetailPage: React.FC = () => {
           totalScore: projectData?.totalEvaluationScore
         });
         setProject(projectData);
+
+        const docRequests = await formalizationService.getDocumentRequestsByProject(id);
+        setDocumentRequests(docRequests);
 
         if (!projectData) {
           console.log('⚠️ Project not found, redirecting...');
@@ -106,12 +120,12 @@ const ProjectDetailPage: React.FC = () => {
   
   const handleGeneratePdfReport = async () => {
     if (!project) return;
-    
+
     setIsGeneratingPdf(true);
     try {
       const program = programs.find(p => p.id === project.programId);
       const partner = program ? partners.find(p => p.id === program.partnerId) : null;
-      
+
       if (program) {
         await generateEvaluationReport(project, program, partner);
       }
@@ -121,7 +135,114 @@ const ProjectDetailPage: React.FC = () => {
       setIsGeneratingPdf(false);
     }
   };
-  
+
+  const handleOpenEditModal = () => {
+    if (!project) return;
+    setEditFormData({
+      title: project.title || '',
+      description: project.description || '',
+      budget: project.budget || 0,
+      submitterPhone: project.submitterPhone || '',
+      submitterName: project.submitterName || '',
+      projectDescription: project.projectDescription || '',
+      projectAgeMonths: project.projectAgeMonths || '',
+      activitySectorId: project.activitySectorId || '',
+      formData: project.formData || {}
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveProjectEdit = async () => {
+    if (!project || !id) return;
+
+    setIsProcessing(true);
+    try {
+      const updatedProject = await updateProject(id, {
+        title: editFormData.title,
+        description: editFormData.description,
+        budget: Number(editFormData.budget),
+        submitterPhone: editFormData.submitterPhone || undefined,
+        submitterName: editFormData.submitterName || undefined,
+        projectDescription: editFormData.projectDescription || undefined,
+        projectAgeMonths: editFormData.projectAgeMonths ? Number(editFormData.projectAgeMonths) : undefined,
+        activitySectorId: editFormData.activitySectorId || undefined,
+        formData: editFormData.formData
+      });
+
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
+      await fetchProjects();
+      setShowEditModal(false);
+      alert('Projet mis a jour avec succes!');
+    } catch (error) {
+      console.error('Erreur mise a jour projet:', error);
+      alert('Erreur lors de la mise a jour du projet.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFormDataFieldChange = (fieldKey: string, value: any) => {
+    setEditFormData(prev => ({
+      ...prev,
+      formData: {
+        ...prev.formData,
+        [fieldKey]: value
+      }
+    }));
+  };
+
+  const handleDocumentUpload = async (requestId: string, file: File) => {
+    if (!user || !id) return;
+
+    setIsUploadingDocument(true);
+    setUploadingRequestId(requestId);
+
+    try {
+      const filePath = await formalizationService.uploadDocument(file, requestId);
+      if (filePath) {
+        await formalizationService.createDocumentSubmission({
+          request_id: requestId,
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          submitted_by: user.email || user.name || 'Soumissionnaire'
+        });
+
+        const updatedRequests = await formalizationService.getDocumentRequestsByProject(id);
+        setDocumentRequests(updatedRequests);
+
+        alert('Document televerse avec succes!');
+      }
+    } catch (error) {
+      console.error('Erreur upload document:', error);
+      alert('Erreur lors du televersement du document');
+    } finally {
+      setIsUploadingDocument(false);
+      setUploadingRequestId(null);
+    }
+  };
+
+  const getDocumentStatusBadge = (status: string) => {
+    const badges: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+      pending: { label: 'En attente', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: <Clock className="h-3.5 w-3.5" /> },
+      submitted: { label: 'Soumis', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: <Upload className="h-3.5 w-3.5" /> },
+      validated: { label: 'Valide', color: 'bg-green-100 text-green-800 border-green-200', icon: <CheckCircle className="h-3.5 w-3.5" /> },
+      rejected: { label: 'Rejete', color: 'bg-red-100 text-red-800 border-red-200', icon: <AlertCircle className="h-3.5 w-3.5" /> }
+    };
+    const badge = badges[status] || badges.pending;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badge.color}`}>
+        {badge.icon}
+        {badge.label}
+      </span>
+    );
+  };
+
+  const pendingDocuments = documentRequests.filter(d => d.status === 'pending');
+  const submittedDocuments = documentRequests.filter(d => d.status !== 'pending');
+
   if (!project) {
     return (
       <div className="text-center py-12">
@@ -223,43 +344,80 @@ const ProjectDetailPage: React.FC = () => {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Détails du projet</CardTitle>
-                <ProjectStatusBadge status={project.status} />
+                <div className="flex items-center gap-3">
+                  <ProjectStatusBadge status={project.status} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenEditModal}
+                    leftIcon={<Edit3 className="h-4 w-4" />}
+                  >
+                    Modifier
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Description</h3>
-                <p className="text-gray-700">{project.description}</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center">
-                  <DollarSign className="h-5 w-5 text-gray-400 mr-2" />
-                  <div>
-                    <div className="text-sm text-gray-500">Budget</div>
-                    <div className="font-medium">
-                      {(() => {
-                        const program = programs.find(p => p.id === project.programId);
-                        return formatCurrency(project.budget, program?.currency || 'XOF');
-                      })()}
+                <h3 className="text-sm font-medium text-primary-600 mb-2">Description</h3>
+                <p className="text-gray-700 whitespace-pre-wrap">
+                  {project.projectDescription || project.description}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-4">
+                  {project.submitterName && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <User className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-gray-500">Porteur:</span>
+                      <span className="ml-1 font-medium text-gray-900">{project.submitterName}</span>
                     </div>
+                  )}
+                  {project.activitySectorId && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-gray-500">Secteur:</span>
+                      <span className="ml-1 font-medium text-gray-900">
+                        {getSector(project.activitySectorId)?.name || 'Non defini'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {(project.submitterPhone || project.projectAgeMonths) && (
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Informations Complementaires</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {project.submitterPhone && (
+                      <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+                        <Phone className="h-5 w-5 text-blue-500 mr-3" />
+                        <div>
+                          <div className="text-sm text-gray-500">Telephone</div>
+                          <div className="font-medium">{project.submitterPhone}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {project.projectAgeMonths !== undefined && project.projectAgeMonths !== null && (
+                      <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+                        <Calendar className="h-5 w-5 text-blue-500 mr-3" />
+                        <div>
+                          <div className="text-sm text-gray-500">Duree d'existence du projet</div>
+                          <div className="font-medium">
+                            {project.projectAgeMonths} mois
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                
-                <div className="flex items-center">
-                  <Clock className="h-5 w-5 text-gray-400 mr-2" />
-                  <div>
-                    <div className="text-sm text-gray-500">Durée</div>
-                    <div className="font-medium">{project.timeline}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center">
-                  <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-                  <div>
-                    <div className="text-sm text-gray-500">Créé le</div>
-                    <div className="font-medium">{project.createdAt.toLocaleDateString()}</div>
-                  </div>
+              )}
+
+              <div className="flex items-center">
+                <Calendar className="h-5 w-5 text-gray-400 mr-2" />
+                <div>
+                  <div className="text-sm text-gray-500">Cree le</div>
+                  <div className="font-medium">{project.createdAt.toLocaleDateString()}</div>
                 </div>
               </div>
               
@@ -302,10 +460,10 @@ const ProjectDetailPage: React.FC = () => {
                     </p>
                     <div className="space-y-4">
                       {template.fields.map(field => {
-                        const value = project.formData?.[field.name];
+                        const value = project.formData?.[field.id] ?? project.formData?.[field.name];
 
                         return (
-                          <div key={field.id} className="bg-gray-50 p-4 rounded-lg">
+                          <div key={field.id} className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               {field.label}
                               {field.required && <span className="text-error-500 ml-1">*</span>}
@@ -315,11 +473,14 @@ const ProjectDetailPage: React.FC = () => {
                             )}
                             {value === undefined || value === null || value === '' ? (
                               <p className="text-sm text-gray-400 italic">Non renseigné</p>
-                            ) : field.type === 'file' && Array.isArray(value) ? (
+                            ) : field.type === 'file' || (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && 'path' in value[0]) ? (
                               <div className="space-y-2">
-                                {(value as UploadedFile[]).map((file, idx) => (
-                                  <FileLink key={idx} file={file} />
-                                ))}
+                                {(Array.isArray(value) ? value : [value]).map((file, idx) => {
+                                  if (typeof file === 'object' && file !== null && 'name' in file && 'path' in file) {
+                                    return <FileLink key={idx} file={file as UploadedFile} />;
+                                  }
+                                  return <p key={idx} className="text-sm text-gray-400 italic">Fichier non disponible</p>;
+                                })}
                               </div>
                             ) : field.type === 'textarea' ? (
                               <p className="text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
@@ -434,7 +595,7 @@ const ProjectDetailPage: React.FC = () => {
                     })}</span>
                     {project.evaluatedBy && (
                       <span className="ml-4 text-primary-600">
-                        • Évaluateur ID: {project.evaluatedBy}
+                        • Évaluateur: {getUser(project.evaluatedBy)?.name || 'Inconnu'}
                       </span>
                     )}
                   </div>
@@ -569,7 +730,7 @@ const ProjectDetailPage: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">NDA signé</span>
+                  <span className="text-sm text-gray-700">NDA signe</span>
                   <span className={`flex items-center ${project.ndaSigned ? 'text-success-600' : 'text-gray-400'}`}>
                     {project.ndaSigned ? (
                       <CheckCircle className="h-5 w-5" />
@@ -578,7 +739,7 @@ const ProjectDetailPage: React.FC = () => {
                     )}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700">Dossier complet</span>
                   <span className={`flex items-center ${project.formalizationCompleted ? 'text-success-600' : 'text-gray-400'}`}>
@@ -592,8 +753,333 @@ const ProjectDetailPage: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          {documentRequests.length > 0 && (
+            <Card className="mb-6 border-l-4 border-l-amber-500">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileCheck className="h-5 w-5 text-amber-600" />
+                    Documents demandes
+                  </CardTitle>
+                  {pendingDocuments.length > 0 && (
+                    <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                      {pendingDocuments.length} en attente
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {pendingDocuments.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">
+                          {pendingDocuments.length} document(s) en attente de soumission
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Veuillez telecharger les documents demandes ci-dessous
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {documentRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className={`border rounded-lg p-4 transition-all ${
+                        request.status === 'pending'
+                          ? 'border-amber-200 bg-white hover:border-amber-300'
+                          : request.status === 'validated'
+                          ? 'border-green-200 bg-green-50'
+                          : request.status === 'rejected'
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 text-sm">
+                            {request.document_name}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Type: {request.document_type === 'legal' ? 'Document legal' :
+                                   request.document_type === 'financial' ? 'Document financier' :
+                                   request.document_type === 'technical' ? 'Document technique' :
+                                   request.document_type === 'administrative' ? 'Document administratif' : 'Autre'}
+                          </p>
+                        </div>
+                        {getDocumentStatusBadge(request.status)}
+                      </div>
+
+                      {request.description && (
+                        <p className="text-sm text-gray-600 mb-3">{request.description}</p>
+                      )}
+
+                      {request.due_date && (
+                        <div className="flex items-center text-xs text-gray-500 mb-3">
+                          <Calendar className="h-3.5 w-3.5 mr-1" />
+                          Date limite: {new Date(request.due_date).toLocaleDateString('fr-FR')}
+                        </div>
+                      )}
+
+                      {request.status === 'pending' && (
+                        <div className="mt-3">
+                          <label className="block">
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleDocumentUpload(request.id, file);
+                                }
+                              }}
+                              disabled={isUploadingDocument}
+                            />
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              className="w-full"
+                              disabled={isUploadingDocument && uploadingRequestId === request.id}
+                              leftIcon={<Upload className="h-4 w-4" />}
+                              onClick={(e) => {
+                                const input = (e.target as HTMLElement).closest('label')?.querySelector('input');
+                                input?.click();
+                              }}
+                            >
+                              {isUploadingDocument && uploadingRequestId === request.id
+                                ? 'Televersement...'
+                                : 'Telecharger le document'}
+                            </Button>
+                          </label>
+                        </div>
+                      )}
+
+                      {request.status === 'validated' && (
+                        <div className="mt-2 flex items-center text-sm text-green-700">
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
+                          Document valide par l'equipe
+                        </div>
+                      )}
+
+                      {request.status === 'rejected' && request.notes && (
+                        <div className="mt-2 p-2 bg-red-100 rounded text-sm text-red-700">
+                          <span className="font-medium">Raison du rejet:</span> {request.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {submittedDocuments.length > 0 && pendingDocuments.length > 0 && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Progression</span>
+                      <span className="font-medium text-gray-900">
+                        {submittedDocuments.length}/{documentRequests.length} soumis
+                      </span>
+                    </div>
+                    <div className="mt-2 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all"
+                        style={{ width: `${(submittedDocuments.length / documentRequests.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+
+      {showEditModal && project && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <Edit3 className="h-6 w-6 mr-2 text-blue-600" />
+                  Modifier le projet
+                </h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Modifiez les informations du projet "{project.title}"
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Titre du projet
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.title || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description courte
+                  </label>
+                  <textarea
+                    value={editFormData.description || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom du soumetteur
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.submitterName || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, submitterName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telephone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editFormData.submitterPhone || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, submitterPhone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duree d'existence du projet (mois)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.projectAgeMonths || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, projectAgeMonths: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Secteur d'activite
+                  </label>
+                  <select
+                    value={editFormData.activitySectorId || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, activitySectorId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Selectionner un secteur</option>
+                    {sectors.map(sector => (
+                      <option key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description detaillee du projet
+                  </label>
+                  <textarea
+                    value={editFormData.projectDescription || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {editFormData.formData && Object.keys(editFormData.formData).length > 0 && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                    Donnees du formulaire
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(editFormData.formData).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {key}
+                        </label>
+                        {typeof value === 'boolean' ? (
+                          <select
+                            value={value ? 'true' : 'false'}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value === 'true')}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                          </select>
+                        ) : typeof value === 'number' ? (
+                          <input
+                            type="number"
+                            value={value}
+                            onChange={(e) => handleFormDataFieldChange(key, Number(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : typeof value === 'string' && value.length > 100 ? (
+                          <textarea
+                            value={value as string}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={String(value || '')}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveProjectEdit}
+                isLoading={isProcessing}
+                leftIcon={<Save className="h-4 w-4" />}
+              >
+                Enregistrer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

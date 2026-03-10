@@ -11,7 +11,7 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Plus, CreditCard as Edit, Trash2, Save, Building, Mail, Phone, MapPin, Users, Search, Filter } from 'lucide-react';
+import { Plus, CreditCard as Edit, Trash2, Save, Building, Mail, Phone, MapPin, Users, Search, Filter, User } from 'lucide-react';
 
 const partnerSchema = Yup.object().shape({
   name: Yup.string().required('Le nom du partenaire est requis'),
@@ -19,7 +19,8 @@ const partnerSchema = Yup.object().shape({
   contactEmail: Yup.string().email('Email invalide').required('Email de contact requis'),
   contactPhone: Yup.string(),
   address: Yup.string(),
-  assignedManagerId: Yup.string()
+  assignedManagerId: Yup.string(),
+  assignedUserId: Yup.string()
 });
 
 interface PartnerFormValues {
@@ -29,6 +30,7 @@ interface PartnerFormValues {
   contactPhone: string;
   address: string;
   assignedManagerId: string;
+  assignedUserId: string;
   isActive: boolean;
 }
 
@@ -43,7 +45,7 @@ const PartnerManagementPage: React.FC = () => {
     deletePartner 
   } = useProgramStore();
   
-  const { users, fetchUsers } = useUserManagementStore();
+  const { users, fetchUsers, updateUser } = useUserManagementStore();
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
@@ -51,22 +53,13 @@ const PartnerManagementPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  // Filtrer les managers
   const managers = users.filter(user => user.role === 'manager' && user.isActive);
+  const partnerUsers = users.filter(user => user.role === 'partner' && user.isActive);
 
   useEffect(() => {
     fetchPartners();
     fetchUsers();
-    console.log('🏢 PartnerManagementPage mounted');
-    console.log('🏢 Initial partners state:', partners);
-    console.log('🏢 Initial loading state:', isLoading);
-    console.log('🏢 Initial error state:', error);
   }, [fetchPartners, fetchUsers]);
-
-  // Debug: Log partners to see if they're being fetched
-  console.log('🏢 Partners in component:', partners);
-  console.log('🏢 Is loading:', isLoading);
-  console.log('🏢 Error:', error);
 
   const filteredPartners = partners.filter(partner => {
     const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -81,7 +74,6 @@ const PartnerManagementPage: React.FC = () => {
 
   const handleCreatePartner = async (values: PartnerFormValues, { resetForm, setSubmitting }: any) => {
     try {
-      console.log('🏢 Creating partner with values:', values);
       const result = await addPartner({
         name: values.name,
         description: values.description,
@@ -91,13 +83,18 @@ const PartnerManagementPage: React.FC = () => {
         isActive: values.isActive,
         assignedManagerId: values.assignedManagerId || undefined
       });
-      console.log('🏢 Partner created successfully:', result);
+
+      if (values.assignedUserId && result) {
+        await updateUser(values.assignedUserId, { partnerId: result.id });
+      }
+
       resetForm();
       setShowCreateModal(false);
+      fetchUsers();
     } catch (error: any) {
-      console.error('Erreur lors de la création du partenaire:', error);
+      console.error('Erreur lors de la creation du partenaire:', error);
       const errorMessage = error?.message || 'Erreur inconnue';
-      alert(`Erreur lors de la création du partenaire: ${errorMessage}`);
+      alert(`Erreur lors de la creation du partenaire: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
@@ -107,8 +104,6 @@ const PartnerManagementPage: React.FC = () => {
     if (!editingPartner) return;
 
     try {
-      console.log('📝 PartnerManagementPage - handleUpdatePartner called with values:', values);
-
       await updatePartner(editingPartner.id, {
         name: values.name,
         description: values.description,
@@ -119,10 +114,21 @@ const PartnerManagementPage: React.FC = () => {
         assignedManagerId: values.assignedManagerId || undefined
       });
 
-      console.log('✅ PartnerManagementPage - Partner updated successfully');
+      const currentAssignedUser = getAssignedUserForPartner(editingPartner.id);
+      const newAssignedUserId = values.assignedUserId;
+
+      if (currentAssignedUser && currentAssignedUser.id !== newAssignedUserId) {
+        await updateUser(currentAssignedUser.id, { partnerId: undefined });
+      }
+
+      if (newAssignedUserId && (!currentAssignedUser || currentAssignedUser.id !== newAssignedUserId)) {
+        await updateUser(newAssignedUserId, { partnerId: editingPartner.id });
+      }
+
       setEditingPartner(null);
+      fetchUsers();
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du partenaire:', error);
+      console.error('Erreur lors de la mise a jour du partenaire:', error);
     } finally {
       setSubmitting(false);
     }
@@ -138,17 +144,26 @@ const PartnerManagementPage: React.FC = () => {
   };
 
   const getManagerName = (managerId?: string) => {
-    if (!managerId) return 'Aucun manager assigné';
+    if (!managerId) return 'Aucun manager assigne';
     const manager = managers.find(m => m.id === managerId);
     return manager ? manager.name : 'Manager introuvable';
   };
 
+  const getAssignedUserForPartner = (partnerId: string) => {
+    return partnerUsers.find(u => u.partnerId === partnerId);
+  };
+
+  const getAssignedUserName = (partnerId: string) => {
+    const user = getAssignedUserForPartner(partnerId);
+    return user ? user.name : 'Aucun utilisateur assigne';
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des partenaires</h1>
-          <p className="text-gray-600">Créez et gérez les partenaires de financement</p>
+          <p className="text-gray-600">Creez et gerez les partenaires de financement</p>
         </div>
         <Button
           onClick={() => {
@@ -242,6 +257,11 @@ const PartnerManagementPage: React.FC = () => {
                   <Users className="h-4 w-4 mr-2" />
                   <span>{getManagerName(partner.assignedManagerId)}</span>
                 </div>
+
+                <div className="flex items-center text-sm text-gray-600">
+                  <User className="h-4 w-4 mr-2" />
+                  <span>{getAssignedUserName(partner.id)}</span>
+                </div>
               </div>
 
               <div className="flex space-x-2">
@@ -317,15 +337,14 @@ const PartnerManagementPage: React.FC = () => {
                   contactPhone: editingPartner?.contactPhone || '',
                   address: editingPartner?.address || '',
                   assignedManagerId: editingPartner?.assignedManagerId || '',
+                  assignedUserId: editingPartner ? (getAssignedUserForPartner(editingPartner.id)?.id || '') : '',
                   isActive: editingPartner?.isActive ?? true,
                 }}
                 validationSchema={partnerSchema}
                 onSubmit={editingPartner ? handleUpdatePartner : handleCreatePartner}
                 enableReinitialize
               >
-                {({ isSubmitting, values }) => {
-                  console.log('📋 Current Formik values:', values);
-                  return (
+                {({ isSubmitting, values }) => (
                   <Form className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -398,14 +417,14 @@ const PartnerManagementPage: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Manager assigné
+                        Manager assigne
                       </label>
                       <Field
                         as="select"
                         name="assignedManagerId"
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       >
-                        <option value="">Aucun manager assigné</option>
+                        <option value="">Aucun manager assigne</option>
                         {managers.map(manager => (
                           <option key={manager.id} value={manager.id}>
                             {manager.name}
@@ -413,6 +432,28 @@ const PartnerManagementPage: React.FC = () => {
                         ))}
                       </Field>
                       <ErrorMessage name="assignedManagerId" component="div" className="mt-1 text-sm text-error-600" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Compte utilisateur associe
+                      </label>
+                      <Field
+                        as="select"
+                        name="assignedUserId"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      >
+                        <option value="">Aucun utilisateur assigne</option>
+                        {partnerUsers.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.name} ({user.email})
+                          </option>
+                        ))}
+                      </Field>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Selectionnez un utilisateur avec le role "Partenaire" a associer a ce compte partenaire
+                      </p>
+                      <ErrorMessage name="assignedUserId" component="div" className="mt-1 text-sm text-error-600" />
                     </div>
 
                     <div>
@@ -447,8 +488,7 @@ const PartnerManagementPage: React.FC = () => {
                       </Button>
                     </div>
                   </Form>
-                  );
-                }}
+                )}
               </Formik>
             </div>
           </div>

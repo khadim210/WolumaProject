@@ -239,11 +239,11 @@ const StatisticsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Statistiques</h1>
-        
-        <div className="flex gap-4">
-          <div className="relative w-64">
+
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4 w-full lg:w-auto">
+          <div className="relative w-full sm:w-64">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <Filter className="h-5 w-5 text-gray-400" />
             </div>
@@ -261,7 +261,7 @@ const StatisticsPage = () => {
             </select>
           </div>
           
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <Filter className="h-5 w-5 text-gray-400" />
             </div>
@@ -278,11 +278,11 @@ const StatisticsPage = () => {
               ))}
             </select>
           </div>
-          
+
           <select
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="block w-full sm:w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="month">Dernier mois</option>
             <option value="quarter">Dernier trimestre</option>

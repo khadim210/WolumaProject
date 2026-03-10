@@ -141,6 +141,20 @@ class FormalizationService {
     return true;
   }
 
+  async deleteDocumentRequest(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('document_requests')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting document request:', error);
+      return false;
+    }
+
+    return true;
+  }
+
   async uploadDocument(file: File, requestId: string): Promise<string | null> {
     const fileName = `${requestId}/${Date.now()}_${file.name}`;
 

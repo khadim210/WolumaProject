@@ -155,4 +155,42 @@ export class EmailService {
       `,
     });
   }
+
+  static async sendDocumentRequestNotification(
+    to: string,
+    submitterName: string,
+    projectName: string,
+    documentName: string,
+    documentType: string,
+    description: string,
+    dueDate?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const dueDateText = dueDate
+      ? `<p><strong>Date limite :</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>`
+      : '';
+
+    return this.sendNotification({
+      to,
+      subject: `Demande de document : ${documentName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Nouvelle demande de document</h2>
+          <p>Bonjour ${submitterName},</p>
+          <p>Une nouvelle demande de document a été créée pour votre projet.</p>
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Projet :</strong> ${projectName}</p>
+            <p><strong>Document demandé :</strong> ${documentName}</p>
+            <p><strong>Type :</strong> ${documentType}</p>
+            <p><strong>Description :</strong> ${description}</p>
+            ${dueDateText}
+          </div>
+          <p>Veuillez vous connecter à votre espace pour soumettre le document demandé.</p>
+          <hr style="border: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 14px;">
+            Cet email a été envoyé automatiquement. Merci de ne pas y répondre.
+          </p>
+        </div>
+      `,
+    });
+  }
 }

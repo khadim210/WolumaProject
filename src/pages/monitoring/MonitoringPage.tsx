@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
 import {
   Card,
   CardHeader,
@@ -16,22 +17,28 @@ import {
   Calendar,
   RefreshCw,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Filter
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import logoUrl from '../../assets/logo_couleur.png';
 import { getStatusLabel } from '../../utils/statusTransitions';
 import { formatCurrency, formatNumberWithSpaces } from '../../utils/currency';
 
 const MonitoringPage = () => {
   const { projects, fetchProjects, isLoading } = useProjectStore();
-  const { programs, fetchPrograms } = useProgramStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { users, fetchUsers } = useUserManagementStore();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
+  const [selectedProgram, setSelectedProgram] = useState('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   useEffect(() => {
     fetchProjects();
     fetchPrograms();
-  }, [fetchProjects, fetchPrograms]);
+    fetchPartners();
+    fetchUsers();
+  }, [fetchProjects, fetchPrograms, fetchPartners, fetchUsers]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -39,12 +46,23 @@ const MonitoringPage = () => {
     const interval = setInterval(() => {
       fetchProjects();
       fetchPrograms();
+      fetchPartners();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchProjects, fetchPrograms]);
+  }, [autoRefresh, fetchProjects, fetchPrograms, fetchPartners]);
 
   const filteredProjects = useMemo(() => {
+    let filtered = projects;
+
+    if (selectedProgram !== 'all') {
+      filtered = filtered.filter(p => p.programId === selectedProgram);
+    }
+
+    if (selectedPeriod === 'all') {
+      return filtered;
+    }
+
     const now = new Date();
     const filterDate = new Date();
 
@@ -59,17 +77,93 @@ const MonitoringPage = () => {
         filterDate.setFullYear(now.getFullYear() - 1);
         break;
       default:
-        return projects;
+        return filtered;
     }
 
-    return projects.filter(p => new Date(p.createdAt) >= filterDate);
-  }, [projects, selectedPeriod]);
+    return filtered.filter(p => new Date(p.createdAt) >= filterDate);
+  }, [projects, selectedPeriod, selectedProgram]);
 
   const statistics = useMemo(() => {
-    const monitoringProjects = filteredProjects.filter(p => p.status === 'monitoring');
-    const financedProjects = filteredProjects.filter(p => p.status === 'financed');
+    const statusOrder = [
+      'draft',
+      'submitted',
+      'under_review',
+      'eligible',
+      'ineligible',
+      'pre_selected',
+      'selected',
+      'rejected',
+      'formalization',
+      'financed',
+      'monitoring',
+      'closed'
+    ];
+
+    const getStatusIndex = (status: string) => {
+      const index = statusOrder.indexOf(status);
+      return index === -1 ? -1 : index;
+    };
+
+    const hasPassedStatus = (projectStatus: string, targetStatus: string) => {
+      const projectIndex = getStatusIndex(projectStatus);
+      const targetIndex = getStatusIndex(targetStatus);
+      if (projectIndex === -1 || targetIndex === -1) return false;
+
+      if (targetStatus === 'ineligible') {
+        return projectStatus === 'ineligible';
+      }
+      if (targetStatus === 'rejected') {
+        return projectStatus === 'rejected';
+      }
+
+      if (projectStatus === 'ineligible') {
+        return targetIndex <= getStatusIndex('under_review');
+      }
+      if (projectStatus === 'rejected') {
+        return targetIndex <= getStatusIndex('pre_selected');
+      }
+
+      return projectIndex >= targetIndex;
+    };
+
+    const countPassedSoumis = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'submitted')
+    ).length;
+    const countPassedExamen = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'under_review')
+    ).length;
+    const countPassedEligible = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'eligible')
+    ).length;
+    const countIneligible = filteredProjects.filter(p =>
+      p.status === 'ineligible'
+    ).length;
+    const countPassedPreSelected = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'pre_selected')
+    ).length;
+    const countPassedSelected = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'selected')
+    ).length;
+    const countRejected = filteredProjects.filter(p =>
+      p.status === 'rejected'
+    ).length;
+    const countPassedFormalization = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'formalization')
+    ).length;
+    const countPassedFinanced = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'financed')
+    ).length;
+    const countPassedMonitoring = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'monitoring')
+    ).length;
+    const countPassedClosed = filteredProjects.filter(p =>
+      hasPassedStatus(p.status, 'closed')
+    ).length;
+
+    const draftProjects = filteredProjects.filter(p => p.status === 'draft');
+
     const activeProjects = filteredProjects.filter(p =>
-      ['monitoring', 'financed', 'formalization'].includes(p.status)
+      ['monitoring', 'financed', 'formalization', 'selected'].includes(p.status)
     );
 
     const totalBudget = activeProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
@@ -85,14 +179,14 @@ const MonitoringPage = () => {
       .slice(0, 10)
       .map(p => {
         let type = 'report';
-        let description = `Projet "${p.title}" mis à jour`;
+        let description = `Projet "${p.title}" mis a jour`;
 
         if (p.status === 'financed' && p.submittedAt) {
           const submittedDate = new Date(p.submittedAt);
           const updatedDate = new Date(p.updatedAt);
           if (updatedDate.getTime() - submittedDate.getTime() < 86400000) {
             type = 'milestone';
-            description = `Projet "${p.title}" a été financé`;
+            description = `Projet "${p.title}" a ete finance`;
           }
         } else if (p.status === 'monitoring') {
           type = 'meeting';
@@ -109,46 +203,103 @@ const MonitoringPage = () => {
       });
 
     const statusDistribution = {
-      monitoring: monitoringProjects.length,
-      financed: financedProjects.length,
-      formalization: filteredProjects.filter(p => p.status === 'formalization').length,
-      closed: filteredProjects.filter(p => p.status === 'closed').length
+      draft: draftProjects.length,
+      submitted: countPassedSoumis,
+      under_review: countPassedExamen,
+      eligible: countPassedEligible,
+      ineligible: countIneligible,
+      pre_selected: countPassedPreSelected,
+      selected: countPassedSelected,
+      rejected: countRejected,
+      formalization: countPassedFormalization,
+      financed: countPassedFinanced,
+      monitoring: countPassedMonitoring,
+      closed: countPassedClosed
     };
 
     const milestones = [
       {
         id: 1,
-        name: 'Projets soumis',
-        status: 'completed' as const,
-        count: filteredProjects.filter(p => p.status !== 'draft').length,
+        name: 'Brouillons',
+        status: draftProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
+        count: draftProjects.length,
         date: 'Continu'
       },
       {
         id: 2,
-        name: 'Projets éligibles',
-        status: 'completed' as const,
-        count: filteredProjects.filter(p => p.status === 'eligible').length,
+        name: 'Soumis',
+        status: countPassedSoumis > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedSoumis,
         date: 'Continu'
       },
       {
         id: 3,
-        name: 'Projets sélectionnés',
-        status: activeProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: filteredProjects.filter(p => ['selected', 'pre_selected'].includes(p.status)).length,
+        name: 'En cours d\'examen',
+        status: countPassedExamen > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedExamen,
         date: 'Continu'
       },
       {
         id: 4,
-        name: 'Projets financés',
-        status: financedProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: financedProjects.length,
+        name: 'Eligibles',
+        status: countPassedEligible > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedEligible,
         date: 'Continu'
       },
       {
         id: 5,
-        name: 'Projets en suivi',
-        status: monitoringProjects.length > 0 ? 'in_progress' as const : 'pending' as const,
-        count: monitoringProjects.length,
+        name: 'Ineligibles',
+        status: countIneligible > 0 ? 'completed' as const : 'pending' as const,
+        count: countIneligible,
+        date: 'Continu'
+      },
+      {
+        id: 6,
+        name: 'Pre-selectionnes',
+        status: countPassedPreSelected > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedPreSelected,
+        date: 'Continu'
+      },
+      {
+        id: 7,
+        name: 'Selectionnes',
+        status: countPassedSelected > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedSelected,
+        date: 'Continu'
+      },
+      {
+        id: 8,
+        name: 'Rejetes',
+        status: countRejected > 0 ? 'completed' as const : 'pending' as const,
+        count: countRejected,
+        date: 'Continu'
+      },
+      {
+        id: 9,
+        name: 'En formalisation',
+        status: countPassedFormalization > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedFormalization,
+        date: 'Continu'
+      },
+      {
+        id: 10,
+        name: 'Finances',
+        status: countPassedFinanced > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedFinanced,
+        date: 'Continu'
+      },
+      {
+        id: 11,
+        name: 'En suivi',
+        status: countPassedMonitoring > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedMonitoring,
+        date: 'Continu'
+      },
+      {
+        id: 12,
+        name: 'Clotures',
+        status: countPassedClosed > 0 ? 'completed' as const : 'pending' as const,
+        count: countPassedClosed,
         date: 'Continu'
       }
     ];
@@ -254,12 +405,16 @@ const MonitoringPage = () => {
     const activeProjects = filteredProjects.filter(p => ['monitoring', 'financed', 'formalization'].includes(p.status));
     const projectsData = activeProjects.map(p => {
       const program = programs.find(pr => pr.id === p.programId);
+      const submitter = users.find(u => u.id === p.submitterId);
       const daysSinceUpdate = p.updatedAt ? Math.floor((Date.now() - new Date(p.updatedAt).getTime()) / (1000 * 60 * 60 * 24)) : '-';
       const daysSinceSubmission = p.submissionDate ? Math.floor((Date.now() - new Date(p.submissionDate).getTime()) / (1000 * 60 * 60 * 24)) : '-';
 
       return {
         'Titre': p.title,
         'Programme': program?.name || 'N/A',
+        'Porteur': p.submitterName || submitter?.name || 'N/A',
+        'Telephone': p.submitterPhone || 'N/A',
+        'Email': submitter?.email || 'N/A',
         'Statut': getStatusLabel(p.status as any),
         'Budget': formatCurrency(p.budget),
         'Score évaluation': p.totalEvaluationScore ? `${p.totalEvaluationScore}%` : 'N/A',
@@ -298,9 +453,13 @@ const MonitoringPage = () => {
 
     const allProjectsData = filteredProjects.map(p => {
       const program = programs.find(pr => pr.id === p.programId);
+      const submitter = users.find(u => u.id === p.submitterId);
       return {
         'Titre': p.title,
         'Programme': program?.name || 'N/A',
+        'Porteur': p.submitterName || submitter?.name || 'N/A',
+        'Telephone': p.submitterPhone || 'N/A',
+        'Email': submitter?.email || 'N/A',
         'Statut': getStatusLabel(p.status as any),
         'Budget': formatCurrency(p.budget),
         'Score': p.totalEvaluationScore || 'N/A',
@@ -321,17 +480,34 @@ const MonitoringPage = () => {
     ]);
 
     const doc = new jsPDF();
+    const margin = 14;
     let yPosition = 15;
 
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 8, 25, 25);
+    }
+
     doc.setFontSize(18);
-    doc.text('Rapport de Suivi des Projets', 14, yPosition);
+    doc.text('Rapport de Suivi des Projets', margin + 30, yPosition);
     yPosition += 7;
 
     doc.setFontSize(10);
-    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, yPosition);
+    doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, margin + 30, yPosition);
     yPosition += 5;
-    doc.text(`Période: ${selectedPeriod === 'all' ? 'Toutes les périodes' : selectedPeriod === 'month' ? 'Dernier mois' : selectedPeriod === 'quarter' ? 'Dernier trimestre' : 'Dernière année'}`, 14, yPosition);
-    yPosition += 10;
+    doc.text(`Periode: ${selectedPeriod === 'all' ? 'Toutes les periodes' : selectedPeriod === 'month' ? 'Dernier mois' : selectedPeriod === 'quarter' ? 'Dernier trimestre' : 'Derniere annee'}`, margin + 30, yPosition);
+    yPosition = 40;
 
     doc.setFontSize(14);
     doc.text('Statistiques principales', 14, yPosition);
@@ -379,9 +555,12 @@ const MonitoringPage = () => {
     const activeProjects = filteredProjects.filter(p => ['monitoring', 'financed', 'formalization'].includes(p.status));
     const projectsTableData = activeProjects.slice(0, 20).map(p => {
       const program = programs.find(pr => pr.id === p.programId);
+      const submitter = users.find(u => u.id === p.submitterId);
       return [
-        p.title.length > 30 ? p.title.substring(0, 27) + '...' : p.title,
-        program?.name || 'N/A',
+        p.title.length > 25 ? p.title.substring(0, 22) + '...' : p.title,
+        p.submitterName || submitter?.name || 'N/A',
+        p.submitterPhone || 'N/A',
+        submitter?.email || 'N/A',
         getStatusLabel(p.status as any),
         formatCurrency(p.budget),
       ];
@@ -389,10 +568,18 @@ const MonitoringPage = () => {
 
     autoTable(doc, {
       startY: yPosition,
-      head: [['Projet', 'Programme', 'Statut', 'Budget']],
+      head: [['Projet', 'Porteur', 'Telephone', 'Email', 'Statut', 'Budget']],
       body: projectsTableData,
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
       headStyles: { fillColor: [41, 128, 185] },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 25 },
+      }
     });
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
@@ -433,15 +620,15 @@ const MonitoringPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Suivi des Projets</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Statistiques mises à jour automatiquement toutes les 30 secondes
+            Statistiques mises a jour automatiquement toutes les 30 secondes
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             size="sm"
@@ -479,19 +666,73 @@ const MonitoringPage = () => {
             />
             <span>Auto-actualisation</span>
           </label>
-
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-          >
-            <option value="all">Toutes les périodes</option>
-            <option value="month">Dernier mois</option>
-            <option value="quarter">Dernier trimestre</option>
-            <option value="year">Dernière année</option>
-          </select>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-gray-500" />
+            <CardTitle>Filtres</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Programme
+              </label>
+              <select
+                value={selectedProgram}
+                onChange={(e) => setSelectedProgram(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              >
+                <option value="all">Tous les programmes</option>
+                {programs.map(program => {
+                  const partner = partners.find(p => p.id === program.partnerId);
+                  return (
+                    <option key={program.id} value={program.id}>
+                      {program.name} {partner ? `(${partner.name})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Periode
+              </label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              >
+                <option value="all">Toutes les periodes</option>
+                <option value="month">Dernier mois</option>
+                <option value="quarter">Dernier trimestre</option>
+                <option value="year">Derniere annee</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-between items-center">
+            <p className="text-sm text-gray-500">
+              {filteredProjects.length} projet(s) correspondant aux filtres
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedProgram('all');
+                setSelectedPeriod('all');
+              }}
+            >
+              Reinitialiser les filtres
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>

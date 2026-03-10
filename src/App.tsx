@@ -1,7 +1,7 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
-import { MigrationService } from './services/supabaseService';
+import { MigrationService, supabase } from './services/supabaseService';
 
 // Layouts
 import AuthLayout from './layouts/AuthLayout';
@@ -33,9 +33,7 @@ import ProgramManagementPage from './pages/admin/ProgramManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 import StatusHistoryPage from './pages/admin/StatusHistoryPage';
 import UserManualPage from './pages/admin/UserManualPage';
-
-// Public Pages
-import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
+import ActivitySectorsPage from './pages/admin/ActivitySectorsPage';
 
 // Public Pages
 import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
@@ -43,105 +41,137 @@ import PublicSubmissionPage from './pages/public/PublicSubmissionPage';
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuthStore();
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
+  return <>{children}</>;
+};
+
+// Auth Session Listener Component
+const AuthSessionListener = ({ children }: { children: React.ReactNode }) => {
+  const { logout, isAuthenticated } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const isPublicSubmissionPage = location.pathname.startsWith('/submit/');
+
+      if (isPublicSubmissionPage) {
+        return;
+      }
+
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+        if (isAuthenticated) {
+          logout();
+          navigate('/login', { replace: true });
+        }
+      }
+
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        logout();
+        navigate('/login', { replace: true });
+      }
+    });
+
+    const checkSession = async () => {
+      const isPublicSubmissionPage = location.pathname.startsWith('/submit/');
+      if (isPublicSubmissionPage) return;
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        if (isAuthenticated && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/register')) {
+          logout();
+          navigate('/login', { replace: true });
+        }
+      }
+    };
+
+    if (isAuthenticated) {
+      checkSession();
+    }
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [logout, isAuthenticated, location.pathname, navigate]);
+
   return <>{children}</>;
 };
 
 function App() {
-  // Initialiser Supabase au démarrage de l'application
   React.useEffect(() => {
     const initializeSupabase = async () => {
       try {
-        console.log('🚀 Initializing Supabase...');
-        console.log('🚀 Environment check:', {
-          hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
-          hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-          hasServiceKey: !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-          demoMode: import.meta.env.VITE_DEMO_MODE
-        });
-        
-        // Check if Supabase is properly configured
         const hasSupabaseConfig = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (hasSupabaseConfig) {
-          console.log('✅ Supabase configuration found');
-          console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
 
-          // Seed data only once per browser using localStorage
+        if (hasSupabaseConfig) {
           const hasSeeded = localStorage.getItem('app_data_seeded');
           if (!hasSeeded && import.meta.env.MODE === 'development') {
-            console.log('🌱 First run in development - seeding data...');
             await MigrationService.seedData();
             localStorage.setItem('app_data_seeded', 'true');
-            console.log('✅ Data seeded successfully');
-          } else if (hasSeeded) {
-            console.log('✅ Data already seeded, skipping...');
-          } else {
-            console.log('📦 Production mode - skipping automatic seed');
           }
-
-          console.log('✅ Supabase initialized successfully');
-        } else {
-          console.log('⚠️ Supabase not configured, running in demo mode');
-          console.log('💡 Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable Supabase');
         }
       } catch (error) {
-        console.error('❌ Supabase initialization error:', error);
-        console.log('💡 The app will continue to work in demo mode');
+        console.error('Supabase initialization error:', error);
       }
     };
-    
+
     initializeSupabase();
   }, []);
   
   return (
     <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/submit/:programId" element={<PublicSubmissionPage />} />
+      <AuthSessionListener>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/submit/:programId" element={<PublicSubmissionPage />} />
 
-        {/* Auth Routes */}
-        <Route path="/" element={<AuthLayout />}>
-          <Route index element={<Navigate to="/login" replace />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-        </Route>
+          {/* Auth Routes */}
+          <Route path="/" element={<AuthLayout />}>
+            <Route index element={<Navigate to="/login" replace />} />
+            <Route path="login" element={<LoginPage />} />
+            <Route path="register" element={<RegisterPage />} />
+          </Route>
 
-        {/* Dashboard Routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<DashboardPage />} />
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="projects/create" element={<CreateProjectPage />} />
-          <Route path="projects/:id" element={<ProjectDetailPage />} />
-          <Route path="projects/:id/edit" element={<EditProjectPage />} />
-          <Route path="eligibility" element={<EligibilityPage />} />
-          <Route path="evaluation" element={<EvaluationPage />} />
-          <Route path="formalization" element={<FormalizationPage />} />
-          <Route path="monitoring" element={<MonitoringPage />} />
-          <Route path="statistics" element={<StatisticsPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="form-templates" element={<FormTemplatesPage />} />
-          <Route path="form-templates/create" element={<FormBuilderPage />} />
-          <Route path="form-templates/:id/edit" element={<FormBuilderPage />} />
-          <Route path="programs" element={<ProgramManagementPage />} />
-          <Route path="partners" element={<PartnerManagementPage />} />
-          <Route path="users" element={<UserManagementPage />} />
-          <Route path="parameters" element={<ParametersPage />} />
-          <Route path="status-history" element={<StatusHistoryPage />} />
-          <Route path="user-manual" element={<UserManualPage />} />
-        </Route>
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<DashboardPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects/create" element={<CreateProjectPage />} />
+            <Route path="projects/:id" element={<ProjectDetailPage />} />
+            <Route path="projects/:id/edit" element={<EditProjectPage />} />
+            <Route path="eligibility" element={<EligibilityPage />} />
+            <Route path="evaluation" element={<EvaluationPage />} />
+            <Route path="formalization" element={<FormalizationPage />} />
+            <Route path="monitoring" element={<MonitoringPage />} />
+            <Route path="statistics" element={<StatisticsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="form-templates" element={<FormTemplatesPage />} />
+            <Route path="form-templates/create" element={<FormBuilderPage />} />
+            <Route path="form-templates/:id/edit" element={<FormBuilderPage />} />
+            <Route path="programs" element={<ProgramManagementPage />} />
+            <Route path="partners" element={<PartnerManagementPage />} />
+            <Route path="users" element={<UserManagementPage />} />
+            <Route path="parameters" element={<ParametersPage />} />
+            <Route path="activity-sectors" element={<ActivitySectorsPage />} />
+            <Route path="status-history" element={<StatusHistoryPage />} />
+            <Route path="user-manual" element={<UserManualPage />} />
+          </Route>
         
         {/* Fallback Route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthSessionListener>
     </Router>
   );
 }

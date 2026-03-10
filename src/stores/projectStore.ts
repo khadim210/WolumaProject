@@ -25,33 +25,35 @@ export interface Project {
   budget: number;
   timeline: string;
   submitterId: string;
-  programId: string; // Projet soumis pour un programme spécifique
+  programId: string;
   createdAt: Date;
   updatedAt: Date;
   submissionDate?: Date;
-  evaluationScores?: Record<string, number>; // Scores par critère d'évaluation
-  evaluationComments?: Record<string, string>; // Commentaires par critère d'évaluation
+  evaluationScores?: Record<string, number>;
+  evaluationComments?: Record<string, string>;
   totalEvaluationScore?: number;
   evaluationNotes?: string;
   evaluatedBy?: string;
   evaluationDate?: Date;
+  evaluatedAt?: Date;
   eligibilityNotes?: string;
   eligibilityCheckedBy?: string;
-  eligibilityCheckedAt?: string;
-  submittedAt?: string;
+  eligibilityCheckedAt?: Date;
+  submittedAt?: Date;
   formalizationCompleted?: boolean;
   ndaSigned?: boolean;
   tags: string[];
-  formData?: Record<string, any>; // Données du formulaire soumis
-  recommendedStatus?: ProjectStatus; // Status recommandé après évaluation
-  manuallySubmitted?: boolean; // Indique si le projet a été soumis manuellement après évaluation
-  eligibilityNotes?: string; // Notes sur la vérification d'éligibilité
-  eligibilityCheckedBy?: string; // ID de l'utilisateur qui a vérifié l'éligibilité
-  eligibilityCheckedAt?: Date; // Date de vérification d'éligibilité
-  submittedAt?: Date; // Date de soumission du projet
+  formData?: Record<string, any>;
+  recommendedStatus?: ProjectStatus;
+  manuallySubmitted?: boolean;
+  projectDescription?: string;
+  projectAgeMonths?: number;
+  activitySectorId?: string;
+  submitterPhone?: string;
+  submitterName?: string;
+  submitterEmail?: string;
 }
 
-// Fonction utilitaire pour convertir SupabaseProject vers Project
 const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   id: supabaseProject.id,
   title: supabaseProject.title,
@@ -72,18 +74,20 @@ const convertSupabaseProject = (supabaseProject: SupabaseProject): Project => ({
   evaluationDate: supabaseProject.evaluation_date ? new Date(supabaseProject.evaluation_date) : undefined,
   eligibilityNotes: supabaseProject.eligibility_notes,
   eligibilityCheckedBy: supabaseProject.eligibility_checked_by,
-  eligibilityCheckedAt: supabaseProject.eligibility_checked_at,
-  submittedAt: supabaseProject.submitted_at,
+  eligibilityCheckedAt: supabaseProject.eligibility_checked_at ? new Date(supabaseProject.eligibility_checked_at) : undefined,
+  submittedAt: supabaseProject.submitted_at ? new Date(supabaseProject.submitted_at) : undefined,
   formalizationCompleted: supabaseProject.formalization_completed,
   ndaSigned: supabaseProject.nda_signed,
   tags: supabaseProject.tags,
   formData: supabaseProject.form_data,
   recommendedStatus: supabaseProject.recommended_status as ProjectStatus,
   manuallySubmitted: supabaseProject.manually_submitted,
-  eligibilityNotes: supabaseProject.eligibility_notes,
-  eligibilityCheckedBy: supabaseProject.eligibility_checked_by,
-  eligibilityCheckedAt: supabaseProject.eligibility_checked_at ? new Date(supabaseProject.eligibility_checked_at) : undefined,
-  submittedAt: supabaseProject.submitted_at ? new Date(supabaseProject.submitted_at) : undefined
+  projectDescription: supabaseProject.project_description,
+  projectAgeMonths: supabaseProject.project_age_months,
+  activitySectorId: supabaseProject.activity_sector_id,
+  submitterPhone: supabaseProject.submitter_phone,
+  submitterName: supabaseProject.submitter_name,
+  submitterEmail: supabaseProject.submitter_email
 });
 
 interface ProjectState {
@@ -145,7 +149,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         tags: projectData.tags,
         form_data: projectData.formData,
         recommended_status: projectData.recommendedStatus,
-        manually_submitted: projectData.manuallySubmitted || false
+        manually_submitted: projectData.manuallySubmitted || false,
+        project_description: projectData.projectDescription,
+        project_age_months: projectData.projectAgeMonths,
+        activity_sector_id: projectData.activitySectorId,
+        submitter_phone: projectData.submitterPhone,
+        submitter_name: projectData.submitterName,
+        submitter_email: projectData.submitterEmail
       });
       
       const newProject = convertSupabaseProject(supabaseProject);
@@ -186,7 +196,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (updates.formData) supabaseUpdates.form_data = updates.formData;
       if (updates.recommendedStatus) supabaseUpdates.recommended_status = updates.recommendedStatus;
       if (updates.manuallySubmitted !== undefined) supabaseUpdates.manually_submitted = updates.manuallySubmitted;
-      
+      if (updates.eligibilityNotes !== undefined) supabaseUpdates.eligibility_notes = updates.eligibilityNotes;
+      if (updates.eligibilityCheckedBy !== undefined) supabaseUpdates.eligibility_checked_by = updates.eligibilityCheckedBy;
+      if (updates.eligibilityCheckedAt !== undefined) supabaseUpdates.eligibility_checked_at = updates.eligibilityCheckedAt;
+      if (updates.projectDescription !== undefined) supabaseUpdates.project_description = updates.projectDescription;
+      if (updates.projectAgeMonths !== undefined) supabaseUpdates.project_age_months = updates.projectAgeMonths;
+      if (updates.activitySectorId !== undefined) supabaseUpdates.activity_sector_id = updates.activitySectorId;
+      if (updates.submitterPhone !== undefined) supabaseUpdates.submitter_phone = updates.submitterPhone;
+      if (updates.submitterName !== undefined) supabaseUpdates.submitter_name = updates.submitterName;
+      if (updates.submitterEmail !== undefined) supabaseUpdates.submitter_email = updates.submitterEmail;
+
       const supabaseProject = await ProjectService.updateProject(id, supabaseUpdates);
       const updatedProject = convertSupabaseProject(supabaseProject);
       

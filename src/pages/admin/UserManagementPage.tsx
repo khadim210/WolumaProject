@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUserManagementStore, User, UserRole } from '../../stores/userManagementStore';
+import { useProgramStore } from '../../stores/programStore';
 import RoleManagementModal from '../../components/admin/RoleManagementModal';
 import PartnerAssignmentModal from '../../components/admin/PartnerAssignmentModal';
 import { 
@@ -11,22 +12,7 @@ import {
   CardFooter
 } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import {
-  Users,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Filter,
-  Shield,
-  Mail,
-  Building,
-  Calendar,
-  MoreVertical,
-  UserCheck,
-  UserX,
-  Lock
-} from 'lucide-react';
+import { Users, Plus, CreditCard as Edit, Trash2, Search, Filter, Shield, Mail, Building, Calendar, MoreVertical, UserCheck, UserX, Lock } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 
@@ -60,6 +46,7 @@ interface UserFormValues {
   organization: string;
   isActive: boolean;
   password?: string;
+  partnerId?: string;
 }
 
 const UserManagementPage: React.FC = () => {
@@ -75,6 +62,7 @@ const UserManagementPage: React.FC = () => {
     toggleUserStatus,
     updateUserPassword
   } = useUserManagementStore();
+  const { partners, fetchPartners } = useProgramStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -92,7 +80,8 @@ const UserManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchPartners();
+  }, [fetchUsers, fetchPartners]);
 
   // Debug: Log users to see if they're being fetched
   console.log('Users in component:', users);
@@ -121,11 +110,12 @@ const UserManagementPage: React.FC = () => {
         role: values.role,
         organization: values.organization,
         isActive: values.isActive,
-      });
+        partnerId: values.role === 'partner' ? values.partnerId : undefined,
+      } as any);
       resetForm();
       setShowCreateModal(false);
     } catch (error) {
-      setCreateUserError(error instanceof Error ? error.message : 'Une erreur est survenue lors de la création de l\'utilisateur');
+      setCreateUserError(error instanceof Error ? error.message : 'Une erreur est survenue lors de la creation de l\'utilisateur');
       console.error('Error creating user:', error);
     } finally {
       setSubmitting(false);
@@ -134,7 +124,7 @@ const UserManagementPage: React.FC = () => {
 
   const handleUpdateUser = async (values: UserFormValues, { setSubmitting }: any) => {
     if (!editingUser) return;
-    
+
     try {
       await updateUser(editingUser.id, {
         name: values.name,
@@ -142,6 +132,7 @@ const UserManagementPage: React.FC = () => {
         role: values.role,
         organization: values.organization,
         isActive: values.isActive,
+        partnerId: values.role === 'partner' ? values.partnerId : undefined,
       });
       setEditingUser(null);
     } catch (error) {
@@ -222,6 +213,12 @@ const UserManagementPage: React.FC = () => {
     return colors[role];
   };
 
+  const getPartnerName = (partnerId?: string) => {
+    if (!partnerId) return null;
+    const partner = partners.find(p => p.id === partnerId);
+    return partner?.name || null;
+  };
+
   if (currentUser?.role !== 'admin') {
     return (
       <div className="text-center py-12">
@@ -234,12 +231,12 @@ const UserManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des utilisateurs</h1>
-          <p className="mt-1 text-gray-600">Gérez les utilisateurs et leurs privilèges</p>
+          <p className="mt-1 text-gray-600">Gerez les utilisateurs et leurs privileges</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="secondary"
             leftIcon={<Shield className="h-4 w-4" />}
@@ -383,12 +380,18 @@ const UserManagementPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 flex items-center">
+                      <div className="text-sm text-gray-900">
                         {user.organization && (
-                          <>
+                          <div className="flex items-center">
                             <Building className="h-3 w-3 mr-1 text-gray-400" />
                             {user.organization}
-                          </>
+                          </div>
+                        )}
+                        {user.role === 'partner' && user.partnerId && (
+                          <div className="flex items-center mt-1 text-xs text-primary-600">
+                            <Users className="h-3 w-3 mr-1" />
+                            {getPartnerName(user.partnerId)}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -463,6 +466,7 @@ const UserManagementPage: React.FC = () => {
                   role: 'submitter' as UserRole,
                   organization: '',
                   isActive: true,
+                  partnerId: '',
                 }}
                 validationSchema={createUserSchema}
                 onSubmit={handleCreateUser}
@@ -526,6 +530,27 @@ const UserManagementPage: React.FC = () => {
                       </div>
                     )}
 
+                    {values.role === 'partner' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Compte partenaire associe</label>
+                        <Field
+                          as="select"
+                          name="partnerId"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        >
+                          <option value="">-- Selectionner un partenaire --</option>
+                          {partners.filter(p => p.isActive).map(partner => (
+                            <option key={partner.id} value={partner.id}>
+                              {partner.name}
+                            </option>
+                          ))}
+                        </Field>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Associez cet utilisateur a un compte partenaire pour lui donner acces aux programmes correspondants
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <label className="flex items-center">
                         <Field
@@ -577,6 +602,7 @@ const UserManagementPage: React.FC = () => {
                   role: editingUser.role,
                   organization: editingUser.organization || '',
                   isActive: editingUser.isActive,
+                  partnerId: editingUser.partnerId || '',
                 }}
                 validationSchema={userSchema}
                 onSubmit={handleUpdateUser}
@@ -627,6 +653,27 @@ const UserManagementPage: React.FC = () => {
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         />
                         <ErrorMessage name="organization" component="div" className="mt-1 text-sm text-error-600" />
+                      </div>
+                    )}
+
+                    {values.role === 'partner' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Compte partenaire associe</label>
+                        <Field
+                          as="select"
+                          name="partnerId"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        >
+                          <option value="">-- Selectionner un partenaire --</option>
+                          {partners.filter(p => p.isActive).map(partner => (
+                            <option key={partner.id} value={partner.id}>
+                              {partner.name}
+                            </option>
+                          ))}
+                        </Field>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Associez cet utilisateur a un compte partenaire pour lui donner acces aux programmes correspondants
+                        </p>
                       </div>
                     )}
 

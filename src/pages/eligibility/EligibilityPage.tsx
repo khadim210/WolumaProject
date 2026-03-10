@@ -2,33 +2,21 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
+import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ProjectStatusBadge from '../../components/projects/ProjectStatusBadge';
-import {
-  CheckCircle,
-  XCircle,
-  FileText,
-  Calendar,
-  User,
-  AlertTriangle,
-  Filter,
-  CheckSquare,
-  Square,
-  Sparkles,
-  RotateCcw,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Download,
-  FileSpreadsheet
-} from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Calendar, User, AlertTriangle, Filter, CheckSquare, Square, Sparkles, RotateCcw, Search, ChevronDown, ChevronUp, Download, FileSpreadsheet, Phone, Briefcase, CreditCard as Edit3, Save, X } from 'lucide-react';
+import logoUrl from '../../assets/logo_couleur.png';
 import { ProjectStatusService } from '../../services/projectStatusService';
 
 const EligibilityPage: React.FC = () => {
   const { user } = useAuthStore();
   const { projects, fetchProjects, updateProject } = useProjectStore();
   const { programs, fetchPrograms } = useProgramStore();
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
+  const { templates, fetchTemplates, getTemplate } = useFormTemplateStore();
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
@@ -40,17 +28,23 @@ const EligibilityPage: React.FC = () => {
   const [resetSearchTerm, setResetSearchTerm] = useState('');
   const [isFormDataExpanded, setIsFormDataExpanded] = useState(false);
   const [resetStatusFilter, setResetStatusFilter] = useState<string>('eligible');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<Record<string, any>>({});
 
   // Filtres
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
 
   useEffect(() => {
     fetchProjects();
     fetchPrograms();
-  }, [fetchProjects, fetchPrograms]);
+    fetchSectors();
+    fetchTemplates();
+  }, [fetchProjects, fetchPrograms, fetchSectors, fetchTemplates]);
 
   const getProgram = (programId: string) => {
     return programs.find(p => p.id === programId);
@@ -100,12 +94,22 @@ const EligibilityPage: React.FC = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(p =>
         p.title.toLowerCase().includes(term) ||
-        p.description.toLowerCase().includes(term)
+        (p.projectDescription || p.description).toLowerCase().includes(term)
       );
     }
 
     return filtered;
   }, [projects, statusFilter, programFilter, dateFilter, searchTerm]);
+
+  const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
+  const paginatedProjects = filteredProjects.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, programFilter, dateFilter, searchTerm]);
 
   const handleSelectProject = (projectId: string) => {
     setSelectedProject(projectId);
@@ -406,54 +410,207 @@ const EligibilityPage: React.FC = () => {
     }
   };
 
+  const evaluateFieldCriteria = (
+    formData: Record<string, unknown> | undefined,
+    fieldCriteria: Array<{
+      fieldId?: string;
+      fieldName?: string;
+      fieldLabel?: string;
+      conditions?: { operator: string; value: string; value2?: string };
+      isEligibilityCriteria?: boolean;
+    }>
+  ): { passed: number; failed: number; results: Array<{ field: string; passed: boolean; reason: string }> } => {
+    if (!formData || fieldCriteria.length === 0) {
+      return { passed: 0, failed: 0, results: [] };
+    }
+
+    const results: Array<{ field: string; passed: boolean; reason: string }> = [];
+    let passed = 0;
+    let failed = 0;
+
+    for (const criterion of fieldCriteria) {
+      const fieldKey = criterion.fieldId || criterion.fieldName || '';
+      const fieldValue = formData[fieldKey];
+      const fieldLabel = criterion.fieldLabel || criterion.fieldName || fieldKey;
+
+      if (!criterion.conditions) {
+        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+          passed++;
+          results.push({ field: fieldLabel, passed: true, reason: 'Champ renseigne' });
+        } else {
+          failed++;
+          results.push({ field: fieldLabel, passed: false, reason: 'Champ non renseigne' });
+        }
+        continue;
+      }
+
+      const { operator, value, value2 } = criterion.conditions;
+      const numericFieldValue = typeof fieldValue === 'string' ? parseFloat(fieldValue) : (fieldValue as number);
+      const numericValue = parseFloat(value);
+      const numericValue2 = value2 ? parseFloat(value2) : undefined;
+
+      let criterionPassed = false;
+      let reason = '';
+
+      switch (operator) {
+        case 'equals':
+        case '=':
+          criterionPassed = String(fieldValue).toLowerCase() === String(value).toLowerCase();
+          reason = criterionPassed ? `Valeur egale a "${value}"` : `Valeur "${fieldValue}" differente de "${value}"`;
+          break;
+        case 'not_equals':
+        case '!=':
+          criterionPassed = String(fieldValue).toLowerCase() !== String(value).toLowerCase();
+          reason = criterionPassed ? `Valeur differente de "${value}"` : `Valeur egale a "${value}"`;
+          break;
+        case 'greater_than':
+        case '>':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue > numericValue;
+          reason = criterionPassed ? `${numericFieldValue} > ${numericValue}` : `${numericFieldValue} <= ${numericValue}`;
+          break;
+        case 'greater_than_or_equal':
+        case '>=':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue >= numericValue;
+          reason = criterionPassed ? `${numericFieldValue} >= ${numericValue}` : `${numericFieldValue} < ${numericValue}`;
+          break;
+        case 'less_than':
+        case '<':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue < numericValue;
+          reason = criterionPassed ? `${numericFieldValue} < ${numericValue}` : `${numericFieldValue} >= ${numericValue}`;
+          break;
+        case 'less_than_or_equal':
+        case '<=':
+          criterionPassed = !isNaN(numericFieldValue) && numericFieldValue <= numericValue;
+          reason = criterionPassed ? `${numericFieldValue} <= ${numericValue}` : `${numericFieldValue} > ${numericValue}`;
+          break;
+        case 'between':
+          if (numericValue2 !== undefined) {
+            criterionPassed = !isNaN(numericFieldValue) && numericFieldValue >= numericValue && numericFieldValue <= numericValue2;
+            reason = criterionPassed ? `${numericFieldValue} entre ${numericValue} et ${numericValue2}` : `${numericFieldValue} hors de [${numericValue}, ${numericValue2}]`;
+          }
+          break;
+        case 'contains':
+          criterionPassed = String(fieldValue).toLowerCase().includes(String(value).toLowerCase());
+          reason = criterionPassed ? `Contient "${value}"` : `Ne contient pas "${value}"`;
+          break;
+        case 'not_empty':
+          criterionPassed = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+          reason = criterionPassed ? 'Champ renseigne' : 'Champ vide';
+          break;
+        default:
+          criterionPassed = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+          reason = criterionPassed ? 'Champ renseigne' : 'Champ non renseigne';
+      }
+
+      if (criterionPassed) {
+        passed++;
+      } else {
+        failed++;
+      }
+      results.push({ field: fieldLabel, passed: criterionPassed, reason });
+    }
+
+    return { passed, failed, results };
+  };
+
   const handleAutoEvaluate = async () => {
     if (selectedProjects.size === 0) {
-      alert('Veuillez sélectionner au moins un projet.');
+      alert('Veuillez selectionner au moins un projet.');
       return;
     }
 
-    if (!window.confirm(`Voulez-vous évaluer automatiquement l'éligibilité de ${selectedProjects.size} projet(s) ?`)) {
+    if (!window.confirm(`Voulez-vous evaluer automatiquement l'eligibilite de ${selectedProjects.size} projet(s) ?`)) {
       return;
     }
 
     setIsProcessing(true);
     let successCount = 0;
     let failCount = 0;
+    const evaluationDetails: string[] = [];
 
     try {
       for (const projectId of Array.from(selectedProjects)) {
         try {
           const project = projects.find(p => p.id === projectId);
-          if (!project) continue;
-
-          const program = getProgram(project.programId);
-          if (!program || !program.eligibilityCriteria) {
+          if (!project) {
             failCount++;
+            evaluationDetails.push(`${projectId}: Projet non trouve`);
             continue;
           }
 
-          const criteriaList = program.eligibilityCriteria.split('\n').filter(c => c.trim());
-          const isEligible = criteriaList.length > 0;
+          const program = getProgram(project.programId);
+          if (!program) {
+            failCount++;
+            evaluationDetails.push(`${project.title}: Programme non trouve`);
+            continue;
+          }
+
+          const textualCriteria = program.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
+          const allFieldCriteria = program.fieldEligibilityCriteria || [];
+          const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
+          const totalCriteria = textualCriteria.length + fieldCriteria.length;
+
+          if (totalCriteria === 0) {
+            failCount++;
+            evaluationDetails.push(`${project.title}: Aucun critere d'eligibilite defini`);
+            continue;
+          }
+
+          const fieldEvaluation = evaluateFieldCriteria(
+            project.formData as Record<string, unknown> | undefined,
+            fieldCriteria
+          );
+
+          const fieldCriteriaPassed = fieldEvaluation.failed === 0;
+          const isEligible = fieldCriteriaPassed;
+
+          let notes = `=== EVALUATION AUTOMATIQUE D'ELIGIBILITE ===\n`;
+          notes += `Date: ${new Date().toLocaleString('fr-FR')}\n`;
+          notes += `Decision: ${isEligible ? 'ELIGIBLE' : 'NON ELIGIBLE'}\n\n`;
+
+          if (textualCriteria.length > 0) {
+            notes += `--- CRITERES TEXTUELS (${textualCriteria.length}) ---\n`;
+            notes += `Note: Les criteres textuels necessitent une verification manuelle.\n`;
+            textualCriteria.forEach((c, i) => {
+              notes += `${i + 1}. ${c}\n`;
+            });
+            notes += `\n`;
+          }
+
+          if (fieldCriteria.length > 0) {
+            notes += `--- CRITERES DE CHAMPS (${fieldCriteria.length}) ---\n`;
+            notes += `Valides: ${fieldEvaluation.passed}/${fieldCriteria.length}\n`;
+            if (fieldEvaluation.failed > 0) {
+              notes += `Echoues: ${fieldEvaluation.failed}\n`;
+            }
+            notes += `\n`;
+            fieldEvaluation.results.forEach(r => {
+              const status = r.passed ? 'OK' : 'ECHEC';
+              notes += `[${status}] ${r.field}: ${r.reason}\n`;
+            });
+          }
 
           await updateProject(projectId, {
             status: isEligible ? 'eligible' : 'ineligible',
-            eligibilityNotes: `Évaluation automatique: ${criteriaList.length} critère(s) vérifié(s) automatiquement.`,
+            eligibilityNotes: notes,
             eligibilityCheckedBy: user!.id,
             eligibilityCheckedAt: new Date().toISOString()
           });
 
           successCount++;
+          evaluationDetails.push(`${project.title}: ${isEligible ? 'Eligible' : 'Non eligible'}`);
         } catch (error) {
-          console.error(`Erreur évaluation projet ${projectId}:`, error);
+          console.error(`Erreur evaluation projet ${projectId}:`, error);
           failCount++;
         }
       }
 
-      alert(`Évaluation terminée!\n✓ ${successCount} projet(s) évalué(s)\n✗ ${failCount} erreur(s)`);
+      await fetchProjects();
+      alert(`Evaluation terminee!\n${successCount} projet(s) evalue(s)\n${failCount} erreur(s)`);
       setSelectedProjects(new Set());
     } catch (error) {
-      console.error('Erreur évaluation automatique:', error);
-      alert('Erreur lors de l\'évaluation automatique.');
+      console.error('Erreur evaluation automatique:', error);
+      alert('Erreur lors de l\'evaluation automatique.');
     } finally {
       setIsProcessing(false);
     }
@@ -494,10 +651,64 @@ const EligibilityPage: React.FC = () => {
       const matchesStatus = resetStatusFilter === 'all' || p.status === resetStatusFilter;
       const matchesSearch = !resetSearchTerm ||
         p.title.toLowerCase().includes(resetSearchTerm.toLowerCase()) ||
-        p.description.toLowerCase().includes(resetSearchTerm.toLowerCase());
+        (p.projectDescription || p.description).toLowerCase().includes(resetSearchTerm.toLowerCase());
 
       return (p.status === 'eligible' || p.status === 'ineligible') && matchesStatus && matchesSearch;
     });
+  };
+
+  const handleOpenEditModal = () => {
+    if (!selectedProjectData) return;
+    setEditFormData({
+      title: selectedProjectData.title || '',
+      description: selectedProjectData.description || '',
+      budget: selectedProjectData.budget || 0,
+      submitterPhone: selectedProjectData.submitterPhone || '',
+      submitterName: selectedProjectData.submitterName || '',
+      projectDescription: selectedProjectData.projectDescription || '',
+      projectAgeMonths: selectedProjectData.projectAgeMonths || '',
+      activitySectorId: selectedProjectData.activitySectorId || '',
+      formData: selectedProjectData.formData || {}
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveProjectEdit = async () => {
+    if (!selectedProject || !selectedProjectData) return;
+
+    setIsProcessing(true);
+    try {
+      await updateProject(selectedProject, {
+        title: editFormData.title,
+        description: editFormData.description,
+        budget: Number(editFormData.budget),
+        submitterPhone: editFormData.submitterPhone || undefined,
+        submitterName: editFormData.submitterName || undefined,
+        projectDescription: editFormData.projectDescription || undefined,
+        projectAgeMonths: editFormData.projectAgeMonths ? Number(editFormData.projectAgeMonths) : undefined,
+        activitySectorId: editFormData.activitySectorId || undefined,
+        formData: editFormData.formData
+      });
+
+      await fetchProjects();
+      setShowEditModal(false);
+      alert('Projet mis a jour avec succes!');
+    } catch (error) {
+      console.error('Erreur mise a jour projet:', error);
+      alert('Erreur lors de la mise a jour du projet.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFormDataFieldChange = (fieldKey: string, value: any) => {
+    setEditFormData(prev => ({
+      ...prev,
+      formData: {
+        ...prev.formData,
+        [fieldKey]: value
+      }
+    }));
   };
 
   const getEligibilityStatus = (project: any) => {
@@ -528,6 +739,7 @@ const EligibilityPage: React.FC = () => {
 
     const exportData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
+      const sector = getSector(project.activitySectorId || '');
       const textualCriteria = program?.eligibilityCriteria?.split('\n').filter(c => c.trim()) || [];
       const allFieldCriteria = program?.fieldEligibilityCriteria || [];
       const fieldCriteria = allFieldCriteria.filter(fc => fc.isEligibilityCriteria === true);
@@ -542,7 +754,11 @@ const EligibilityPage: React.FC = () => {
 
       return {
         'Titre': project.title,
-        'Description': project.description || 'N/A',
+        'Nom du porteur': project.submitterName || 'N/A',
+        'Email du porteur': project.submitterEmail || 'N/A',
+        'Telephone': project.submitterPhone || 'N/A',
+        'Secteur d\'activite': sector?.name || 'N/A',
+        'Description': project.projectDescription || project.description || 'N/A',
         'Programme': program?.name || 'N/A',
         'Budget': project.budget,
         'Statut': project.status,
@@ -559,7 +775,8 @@ const EligibilityPage: React.FC = () => {
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws['!cols'] = [
-      { wch: 30 }, { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
+      { wch: 30 }, { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 25 },
+      { wch: 40 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
       { wch: 40 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 50 }
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Projets');
@@ -609,30 +826,50 @@ const EligibilityPage: React.FC = () => {
       import('jspdf-autotable')
     ]);
 
-    const doc = new jsPDF('l', 'mm', 'a4');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 8, 25, 25);
+    }
 
     doc.setFontSize(18);
-    doc.text('Liste des Projets - Etat Eligibilite', 14, 15);
+    doc.text('Liste des Projets - Etat Eligibilite', margin + 30, 20);
 
     doc.setFontSize(10);
-    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
-    doc.text(`Total: ${filteredProjects.length} projet(s)`, 14, 28);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin + 30, 28);
+    doc.text(`Total: ${filteredProjects.length} projet(s)`, margin, 40);
 
-    const tableData = filteredProjects.map(project => {
+    const summaryData = filteredProjects.map(project => {
       const program = getProgram(project.programId);
+      const sector = getSector(project.activitySectorId || '');
       return [
         project.title.length > 30 ? project.title.substring(0, 27) + '...' : project.title,
+        project.submitterName || 'N/A',
+        sector?.name || 'N/A',
         program?.name || 'N/A',
-        project.status,
-        getEligibilityStatus(project),
-        new Date(project.submittedAt || project.createdAt).toLocaleDateString('fr-FR')
+        project.status
       ];
     });
 
     autoTable(doc, {
-      startY: 35,
-      head: [['Titre', 'Programme', 'Statut', 'Etat Eligibilite', 'Date Soumission']],
-      body: tableData,
+      startY: 46,
+      head: [['Titre', 'Porteur', 'Secteur', 'Programme', 'Statut']],
+      body: summaryData,
       theme: 'grid',
       headStyles: {
         fillColor: [59, 130, 246],
@@ -641,28 +878,162 @@ const EligibilityPage: React.FC = () => {
         fontStyle: 'bold'
       },
       bodyStyles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 60 },
-        1: { cellWidth: 45 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 70 },
-        4: { cellWidth: 35 }
-      },
-      margin: { left: 14, right: 14 },
-      didDrawPage: (data) => {
-        const pageCount = doc.getNumberOfPages();
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFontSize(8);
-        doc.text(
-          `Page ${data.pageNumber} sur ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          pageHeight - 10,
-          { align: 'center' }
-        );
+      margin: { left: margin, right: margin }
+    });
+
+    filteredProjects.forEach((project, index) => {
+      doc.addPage();
+      const program = getProgram(project.programId);
+      const sector = getSector(project.activitySectorId || '');
+      const template = program?.formTemplateId ? getTemplate(program.formTemplateId) : null;
+
+      let yPos = 20;
+
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, pageWidth, 12, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.text(`Projet ${index + 1}/${filteredProjects.length}: ${project.title}`, margin, 8);
+
+      doc.setTextColor(0, 0, 0);
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informations du Porteur', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      const porteurData = [
+        ['Nom du porteur', project.submitterName || 'N/A'],
+        ['Email', project.submitterEmail || 'N/A'],
+        ['Telephone', project.submitterPhone || 'N/A'],
+        ['Secteur d\'activite', sector?.name || 'N/A']
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: porteurData,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { cellWidth: 130 }
+        },
+        margin: { left: margin, right: margin }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informations du Projet', margin, yPos);
+      yPos += 8;
+
+      const projetData = [
+        ['Programme', program?.name || 'N/A'],
+        ['Statut', project.status],
+        ['Budget', project.budget.toLocaleString('fr-FR') + ' FCFA'],
+        ['Date de soumission', project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('fr-FR') : 'N/A'],
+        ['Description', project.projectDescription || project.description || 'N/A']
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: projetData,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { cellWidth: 130 }
+        },
+        margin: { left: margin, right: margin }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      if (template && template.fields && template.fields.length > 0 && project.formData) {
+        if (yPos > pageHeight - 40) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Formulaire de Soumission', margin, yPos);
+        yPos += 8;
+
+        const formDataRows: [string, string][] = [];
+
+        template.fields.forEach(field => {
+          const value = project.formData?.[field.id] ?? project.formData?.[field.name];
+          let displayValue = 'Non renseigne';
+
+          if (value !== undefined && value !== null && value !== '') {
+            if (field.type === 'file') {
+              if (Array.isArray(value)) {
+                displayValue = value.map((f: any) => f.name || 'Fichier').join(', ');
+              } else if (typeof value === 'object' && value.name) {
+                displayValue = value.name;
+              }
+            } else if (field.type === 'checkbox') {
+              displayValue = value ? 'Oui' : 'Non';
+            } else if (field.type === 'multiple_select' && Array.isArray(value)) {
+              displayValue = value.join(', ');
+            } else if (field.type === 'date' && value) {
+              displayValue = new Date(value).toLocaleDateString('fr-FR');
+            } else {
+              displayValue = String(value);
+            }
+          }
+
+          if (displayValue.length > 100) {
+            displayValue = displayValue.substring(0, 97) + '...';
+          }
+
+          formDataRows.push([field.label || field.name, displayValue]);
+        });
+
+        autoTable(doc, {
+          startY: yPos,
+          body: formDataRows,
+          theme: 'striped',
+          styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 60 },
+            1: { cellWidth: 120 }
+          },
+          margin: { left: margin, right: margin },
+          didDrawPage: () => {
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+              `Page ${doc.getNumberOfPages()}`,
+              pageWidth / 2,
+              pageHeight - 10,
+              { align: 'center' }
+            );
+            doc.setTextColor(0, 0, 0);
+          }
+        });
       }
     });
 
-    doc.save(`Projets_Eligibilite_${new Date().toISOString().split('T')[0]}.pdf`);
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Page ${i} sur ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+    }
+
+    doc.save(`Projets_Eligibilite_Complet_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null;
@@ -919,7 +1290,7 @@ const EligibilityPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredProjects.map(project => {
+                  {paginatedProjects.map(project => {
                     const program = getProgram(project.programId);
                     const isSelected = selectedProjects.has(project.id);
                     const isCurrentProject = selectedProject === project.id;
@@ -946,7 +1317,7 @@ const EligibilityPage: React.FC = () => {
                           >
                             <h3 className="font-semibold text-gray-900 mb-1">{project.title}</h3>
                             <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                              {project.description}
+                              {project.projectDescription || project.description}
                             </p>
                             <div className="flex items-center justify-between text-xs text-gray-500">
                               <span>{program?.name || 'Programme inconnu'}</span>
@@ -963,6 +1334,33 @@ const EligibilityPage: React.FC = () => {
                       </div>
                     );
                   })}
+
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between pt-4 border-t">
+                      <p className="text-xs text-gray-500">
+                        {(currentPage - 1) * projectsPerPage + 1}-{Math.min(currentPage * projectsPerPage, filteredProjects.length)} sur {filteredProjects.length}
+                      </p>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-2 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
+                        >
+                          Prec.
+                        </button>
+                        <span className="px-2 py-1 text-xs">
+                          {currentPage}/{totalPages}
+                        </span>
+                        <button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-2 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
+                        >
+                          Suiv.
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -984,12 +1382,25 @@ const EligibilityPage: React.FC = () => {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Détails du Projet</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Détails du Projet</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <ProjectStatusBadge status={selectedProjectData.status} />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenEditModal}
+                        leftIcon={<Edit3 className="h-4 w-4" />}
+                      >
+                        Modifier
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{selectedProjectData.title}</h3>
-                    <p className="text-gray-600 mt-2">{selectedProjectData.description}</p>
+                    <p className="text-gray-600 mt-2">{selectedProjectData.projectDescription || selectedProjectData.description}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
@@ -1010,6 +1421,49 @@ const EligibilityPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {(selectedProjectData.submitterPhone || selectedProjectData.activitySectorId || selectedProjectData.projectAgeMonths) && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t bg-blue-50 p-3 rounded-lg">
+                      {selectedProjectData.submitterPhone && (
+                        <div className="flex items-center text-sm">
+                          <Phone className="h-4 w-4 text-blue-500 mr-2" />
+                          <div>
+                            <span className="text-gray-600">Telephone:</span>
+                            <span className="ml-2 font-medium text-gray-900">{selectedProjectData.submitterPhone}</span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedProjectData.activitySectorId && (
+                        <div className="flex items-center text-sm">
+                          <Briefcase className="h-4 w-4 text-blue-500 mr-2" />
+                          <div>
+                            <span className="text-gray-600">Secteur:</span>
+                            <span className="ml-2 font-medium text-gray-900">
+                              {getSector(selectedProjectData.activitySectorId)?.name || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedProjectData.projectAgeMonths !== undefined && selectedProjectData.projectAgeMonths !== null && (
+                        <div className="flex items-center text-sm">
+                          <Calendar className="h-4 w-4 text-blue-500 mr-2" />
+                          <div>
+                            <span className="text-gray-600">Duree d'existence:</span>
+                            <span className="ml-2 font-medium text-gray-900">{selectedProjectData.projectAgeMonths} mois</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedProjectData.projectDescription && (
+                    <div className="pt-4 border-t">
+                      <h4 className="font-medium text-gray-900 mb-2">Description du projet</h4>
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
+                        {selectedProjectData.projectDescription}
+                      </p>
+                    </div>
+                  )}
 
                   {selectedProjectData.formData && (
                     <div className="pt-4 border-t">
@@ -1090,30 +1544,138 @@ const EligibilityPage: React.FC = () => {
                       {fieldCriteria.length > 0 && (
                         <div className="space-y-3">
                           <h4 className="text-sm font-medium text-gray-700">
-                            Critères basés sur les champs du formulaire ({fieldCriteria.length})
+                            Criteres bases sur les champs du formulaire ({fieldCriteria.length})
                           </h4>
-                          {fieldCriteria.map((criterion, index) => (
-                            <label
-                              key={`field-${index}`}
-                              className="flex items-start p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checkedCriteria[`field-${index}`] || false}
-                                onChange={(e) => handleFieldCriteriaCheck(`field-${index}`, e.target.checked)}
-                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                              />
-                              <span className="ml-3 text-gray-700">
-                                <span className="font-medium">{criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}</span>
-                                {criterion.conditions && (
-                                  <span className="text-gray-600">
-                                    {' '}- {criterion.conditions.operator} {criterion.conditions.value}
-                                    {criterion.conditions.value2 && ` et ${criterion.conditions.value2}`}
-                                  </span>
-                                )}
-                              </span>
-                            </label>
-                          ))}
+                          {fieldCriteria.map((criterion, index) => {
+                            const fieldKey = criterion.fieldId || criterion.fieldName || '';
+                            const formData = selectedProjectData?.formData as Record<string, unknown> | undefined;
+                            const fieldValue = formData?.[fieldKey];
+                            const displayValue = fieldValue !== undefined && fieldValue !== null && fieldValue !== ''
+                              ? String(fieldValue)
+                              : '(non renseigne)';
+
+                            const getOperatorLabel = (op: string) => {
+                              const labels: Record<string, string> = {
+                                'equals': 'doit etre egal a',
+                                '=': 'doit etre egal a',
+                                'not_equals': 'doit etre different de',
+                                '!=': 'doit etre different de',
+                                'greater_than': 'doit etre superieur a',
+                                '>': 'doit etre superieur a',
+                                'greater_than_or_equal': 'doit etre superieur ou egal a',
+                                '>=': 'doit etre superieur ou egal a',
+                                'less_than': 'doit etre inferieur a',
+                                '<': 'doit etre inferieur a',
+                                'less_than_or_equal': 'doit etre inferieur ou egal a',
+                                '<=': 'doit etre inferieur ou egal a',
+                                'between': 'doit etre compris entre',
+                                'contains': 'doit contenir',
+                                'not_empty': 'doit etre renseigne',
+                                'in': 'in'
+                              };
+                              return labels[op] || op;
+                            };
+
+                            let meetsCondition = false;
+                            if (criterion.conditions && fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                              const { operator, value, value2 } = criterion.conditions;
+                              const numericFieldValue = typeof fieldValue === 'string' ? parseFloat(fieldValue) : (fieldValue as number);
+                              const numericValue = parseFloat(value);
+                              const numericValue2 = value2 ? parseFloat(value2) : undefined;
+
+                              switch (operator) {
+                                case 'equals':
+                                case '=':
+                                  meetsCondition = String(fieldValue).toLowerCase() === String(value).toLowerCase();
+                                  break;
+                                case 'not_equals':
+                                case '!=':
+                                  meetsCondition = String(fieldValue).toLowerCase() !== String(value).toLowerCase();
+                                  break;
+                                case 'greater_than':
+                                case '>':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue > numericValue;
+                                  break;
+                                case 'greater_than_or_equal':
+                                case '>=':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue >= numericValue;
+                                  break;
+                                case 'less_than':
+                                case '<':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue < numericValue;
+                                  break;
+                                case 'less_than_or_equal':
+                                case '<=':
+                                  meetsCondition = !isNaN(numericFieldValue) && numericFieldValue <= numericValue;
+                                  break;
+                                case 'between':
+                                  if (numericValue2 !== undefined) {
+                                    meetsCondition = !isNaN(numericFieldValue) && numericFieldValue >= numericValue && numericFieldValue <= numericValue2;
+                                  }
+                                  break;
+                                case 'contains':
+                                  meetsCondition = String(fieldValue).toLowerCase().includes(String(value).toLowerCase());
+                                  break;
+                                case 'not_empty':
+                                  meetsCondition = true;
+                                  break;
+                                case 'in':
+                                  const allowedValues = value.split(',').map(v => v.trim().toLowerCase());
+                                  meetsCondition = allowedValues.includes(String(fieldValue).toLowerCase());
+                                  break;
+                                default:
+                                  meetsCondition = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+                              }
+                            } else if (!criterion.conditions && fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                              meetsCondition = true;
+                            }
+
+                            return (
+                              <label
+                                key={`field-${index}`}
+                                className={`flex items-start p-3 rounded-lg border cursor-pointer transition-colors ${
+                                  meetsCondition
+                                    ? 'border-green-300 bg-green-50 hover:bg-green-100'
+                                    : 'border-red-300 bg-red-50 hover:bg-red-100'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checkedCriteria[`field-${index}`] || false}
+                                  onChange={(e) => handleFieldCriteriaCheck(`field-${index}`, e.target.checked)}
+                                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-gray-900">
+                                      {criterion.fieldLabel || criterion.fieldName || `Champ ${index + 1}`}
+                                    </span>
+                                    {meetsCondition ? (
+                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 text-red-600" />
+                                    )}
+                                  </div>
+                                  {criterion.conditions && (
+                                    <div className="text-sm text-gray-600 mt-1">
+                                      <span className="italic">{getOperatorLabel(criterion.conditions.operator)}</span>
+                                      {' '}<span className="font-medium">{criterion.conditions.value}</span>
+                                      {criterion.conditions.value2 && (
+                                        <span> et <span className="font-medium">{criterion.conditions.value2}</span></span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className={`text-sm mt-1 px-2 py-1 rounded inline-block ${
+                                    meetsCondition
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    <span className="font-medium">Valeur actuelle:</span> {displayValue}
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1298,7 +1860,7 @@ const EligibilityPage: React.FC = () => {
                             <div className="flex-1">
                               <h3 className="font-semibold text-gray-900">{project.title}</h3>
                               <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                                {project.description}
+                                {project.projectDescription || project.description}
                               </p>
                               <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                                 <span>{program?.name || 'Programme inconnu'}</span>
@@ -1340,6 +1902,202 @@ const EligibilityPage: React.FC = () => {
                 onClick={() => setShowResetModal(false)}
               >
                 Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && selectedProjectData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                  <Edit3 className="h-6 w-6 mr-2 text-blue-600" />
+                  Modifier le projet
+                </h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Modifiez les informations du projet "{selectedProjectData.title}"
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Titre du projet
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.title || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description courte
+                  </label>
+                  <textarea
+                    value={editFormData.description || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Budget (FCFA)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.budget || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, budget: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom du soumetteur
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.submitterName || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, submitterName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telephone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editFormData.submitterPhone || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, submitterPhone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duree d'existence du projet (mois)
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.projectAgeMonths || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, projectAgeMonths: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Secteur d'activite
+                  </label>
+                  <select
+                    value={editFormData.activitySectorId || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, activitySectorId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Selectionner un secteur</option>
+                    {sectors.map(sector => (
+                      <option key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description detaillee du projet
+                  </label>
+                  <textarea
+                    value={editFormData.projectDescription || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {editFormData.formData && Object.keys(editFormData.formData).length > 0 && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                    Donnees du formulaire
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(editFormData.formData).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {key}
+                        </label>
+                        {typeof value === 'boolean' ? (
+                          <select
+                            value={value ? 'true' : 'false'}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value === 'true')}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                          </select>
+                        ) : typeof value === 'number' ? (
+                          <input
+                            type="number"
+                            value={value}
+                            onChange={(e) => handleFormDataFieldChange(key, Number(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : typeof value === 'string' && value.length > 100 ? (
+                          <textarea
+                            value={value as string}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={String(value || '')}
+                            onChange={(e) => handleFormDataFieldChange(key, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveProjectEdit}
+                isLoading={isProcessing}
+                leftIcon={<Save className="h-4 w-4" />}
+              >
+                Enregistrer
               </Button>
             </div>
           </div>

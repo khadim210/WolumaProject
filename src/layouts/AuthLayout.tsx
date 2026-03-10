@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import logoImage from '../assets/logo_couleur.png';
 
 const AuthLayout: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
@@ -13,9 +14,9 @@ const AuthLayout: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-6">
-          <img 
-            src="/logo_couleur.png" 
-            alt="Woluma" 
+          <img
+            src={logoImage}
+            alt="Woluma"
             className="h-20 w-auto"
           />
         </div>

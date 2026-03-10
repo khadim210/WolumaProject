@@ -1,25 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Save,
-  Settings,
-  CheckCircle,
-  ListChecks,
-  Bot,
-  GripVertical,
-  Users,
-  Calendar,
-  Target,
-  FileText,
-  Lock,
-  Unlock,
-  Copy,
-  AlertTriangle
-} from 'lucide-react';
+import { Plus, CreditCard as Edit, Trash2, Save, Settings, CheckCircle, ListChecks, Bot, GripVertical, Users, Calendar, Target, FileText, Lock, Unlock, Copy, AlertTriangle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -216,12 +198,12 @@ const ProgramManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des programmes</h1>
-          <p className="text-gray-600">Créez et gérez les programmes de financement</p>
+          <p className="text-gray-600">Creez et gerez les programmes de financement</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {duplicateGroups.length > 0 && (
             <Button
               variant="warning"

@@ -5,6 +5,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore, ProjectStatus } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import {
   Card,
   CardHeader,
@@ -22,6 +24,8 @@ const ProjectsPage: React.FC = () => {
   const { checkPermission } = usePermissions();
   const { addProject, fetchProjects, filterProjectsByUser, deleteProject } = useProjectStore();
   const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { users, fetchUsers } = useUserManagementStore();
+  const { sectors, fetchSectors } = useActivitySectorStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
@@ -34,13 +38,17 @@ const ProjectsPage: React.FC = () => {
   const [selectedProgramForExport, setSelectedProgramForExport] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
-  
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
+
   useEffect(() => {
     console.log('📁 ProjectsPage: Fetching all data...');
     fetchProjects();
     fetchPrograms();
     fetchPartners();
-  }, [fetchProjects, fetchPrograms, fetchPartners]);
+    fetchUsers();
+    fetchSectors();
+  }, [fetchProjects, fetchPrograms, fetchPartners, fetchUsers, fetchSectors]);
   
   const userProjects = user ? filterProjectsByUser(user) : [];
 
@@ -81,9 +89,19 @@ const ProjectsPage: React.FC = () => {
     }
   }, [partnerFilter, programFilter, filteredPrograms]);
   
-  const sortedProjects = [...filteredProjects].sort((a, b) => 
+  const sortedProjects = [...filteredProjects].sort((a, b) =>
     b.updatedAt.getTime() - a.updatedAt.getTime()
   );
+
+  const totalPages = Math.ceil(sortedProjects.length / projectsPerPage);
+  const paginatedProjects = sortedProjects.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, partnerFilter, programFilter]);
   
 
   
@@ -134,6 +152,10 @@ const ProjectsPage: React.FC = () => {
           // Traitement des tags
           const tags = rowData.Tags ? String(rowData.Tags).split(',').map((tag: string) => tag.trim()).filter(Boolean) : ['import'];
 
+          // Traitement du secteur d'activite
+          const sectorName = rowData['Secteur d\'activite'] || rowData['Secteur d\'activité'] || rowData['Secteur'];
+          const matchedSector = sectorName ? sectors.find(s => s.name.toLowerCase() === String(sectorName).toLowerCase().trim()) : undefined;
+
           // Créer le projet
           await addProject({
             title: String(rowData.Titre).trim(),
@@ -142,6 +164,9 @@ const ProjectsPage: React.FC = () => {
             budget: budget,
             timeline: String(rowData.Durée).trim(),
             submitterId: user.id,
+            submitterName: rowData['Nom du porteur'] ? String(rowData['Nom du porteur']).trim() : user.name,
+            submitterPhone: rowData['Telephone du porteur'] || rowData['Téléphone du porteur'] ? String(rowData['Telephone du porteur'] || rowData['Téléphone du porteur']).trim() : undefined,
+            activitySectorId: matchedSector?.id,
             programId: selectedProgramForImport,
             tags: tags,
           });
@@ -166,7 +191,7 @@ const ProjectsPage: React.FC = () => {
       setIsImporting(false);
       event.target.value = '';
     }
-  }, [selectedProgramForImport, user, accessiblePrograms, addProject]);
+  }, [selectedProgramForImport, user, accessiblePrograms, addProject, sectors]);
 
   const handleDeleteProject = async (projectId: string) => {
     setDeletingProjectId(projectId);
@@ -192,8 +217,11 @@ const ProjectsPage: React.FC = () => {
       {
         'Titre': 'Exemple de projet',
         'Description': 'Description detaillee du projet avec ses objectifs et son impact potentiel',
+        'Nom du porteur': 'Jean Dupont',
+        'Telephone du porteur': '+221 77 123 45 67',
+        'Secteur d\'activite': 'Numerique / Tech',
         'Budget': 150000,
-        'Duree': '18 mois',
+        'Durée': '18 mois',
         'Tags': 'innovation, technologie, impact'
       }
     ];
@@ -203,7 +231,7 @@ const ProjectsPage: React.FC = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Modele');
 
     const colWidths = Object.keys(templateData[0]).map(key => ({
-      wch: Math.max(key.length, 20)
+      wch: Math.max(key.length, 25)
     }));
     worksheet['!cols'] = colWidths;
 
@@ -223,8 +251,8 @@ const ProjectsPage: React.FC = () => {
     }
 
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
-    await exportSubmissionsToExcel({ projects: programProjects, program });
-  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
+    await exportSubmissionsToExcel({ projects: programProjects, program, users, sectors });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects, users, sectors]);
 
   const handleExportPDF = useCallback(async () => {
     if (!selectedProgramForExport) {
@@ -239,8 +267,8 @@ const ProjectsPage: React.FC = () => {
     }
 
     const programProjects = userProjects.filter(p => p.programId === selectedProgramForExport);
-    await exportSubmissionsToPDF({ projects: programProjects, program });
-  }, [selectedProgramForExport, accessiblePrograms, userProjects]);
+    await exportSubmissionsToPDF({ projects: programProjects, program, users, sectors });
+  }, [selectedProgramForExport, accessiblePrograms, userProjects, users, sectors]);
 
   const handleQuickExportExcel = useCallback(async () => {
     if (programFilter === 'all') {
@@ -259,8 +287,8 @@ const ProjectsPage: React.FC = () => {
       alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
       return;
     }
-    await exportSubmissionsToExcel({ projects: programProjects, program });
-  }, [programFilter, accessiblePrograms, filteredProjects]);
+    await exportSubmissionsToExcel({ projects: programProjects, program, users, sectors });
+  }, [programFilter, accessiblePrograms, filteredProjects, users, sectors]);
 
   const handleQuickExportPDF = useCallback(async () => {
     if (programFilter === 'all') {
@@ -279,8 +307,8 @@ const ProjectsPage: React.FC = () => {
       alert('Aucune soumission a exporter pour ce programme avec les filtres actuels');
       return;
     }
-    await exportSubmissionsToPDF({ projects: programProjects, program });
-  }, [programFilter, accessiblePrograms, filteredProjects]);
+    await exportSubmissionsToPDF({ projects: programProjects, program, users, sectors });
+  }, [programFilter, accessiblePrograms, filteredProjects, users, sectors]);
   
   const getStatusLabel = (status: ProjectStatus): string => {
     const labels: Record<ProjectStatus, string> = {
@@ -302,10 +330,10 @@ const ProjectsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Soumissions</h1>
 
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           {/* Export Button with Dropdown */}
           {userProjects.length > 0 && (
             <Menu as="div" className="relative inline-block text-left">
@@ -531,12 +559,12 @@ const ProjectsPage: React.FC = () => {
             
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                <p>Format attendu: Titre, Description, Budget, Durée, Tags (optionnel)</p>
+                <p>Format attendu: Titre, Description, Nom du porteur, Telephone, Secteur d'activite, Budget, Duree, Tags</p>
                 <button
                   onClick={downloadTemplate}
                   className="text-secondary-600 hover:text-secondary-700 underline"
                 >
-                  Télécharger le modèle Excel
+                  Telecharger le modele Excel
                 </button>
               </div>
               
@@ -630,9 +658,9 @@ const ProjectsPage: React.FC = () => {
         </Card>
       )}
 
-      {sortedProjects.length > 0 ? (
+      {paginatedProjects.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
-          {sortedProjects.map(project => {
+          {paginatedProjects.map(project => {
             const program = programs.find(p => p.id === project.programId);
             const partner = program ? partners.find(p => p.id === program.partnerId) : null;
             
@@ -651,7 +679,7 @@ const ProjectsPage: React.FC = () => {
                       </div>
                       
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                        {project.description}
+                        {project.projectDescription || project.description}
                       </p>
                       
                       {program && (
@@ -732,22 +760,108 @@ const ProjectsPage: React.FC = () => {
               </Card>
             );
           })}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between bg-white px-4 py-3 rounded-lg shadow">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Precedent
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Suivant
+                </button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Affichage de <span className="font-medium">{(currentPage - 1) * projectsPerPage + 1}</span> a{' '}
+                    <span className="font-medium">{Math.min(currentPage * projectsPerPage, sortedProjects.length)}</span> sur{' '}
+                    <span className="font-medium">{sortedProjects.length}</span> resultats
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &laquo;
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &lsaquo;
+                    </button>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            currentPage === pageNum
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &rsaquo;
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      &raquo;
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <div className="text-gray-500">
             {searchTerm || statusFilter !== 'all' || partnerFilter !== 'all' || programFilter !== 'all'
-              ? "Aucun projet ne correspond à vos critères de recherche"
+              ? "Aucun projet ne correspond à vos criteres de recherche"
               : "Aucun projet n'est disponible pour le moment"}
           </div>
-          
+
           {checkPermission('projects.create') && (
             <Link to="/dashboard/projects/create" className="mt-4 inline-block">
               <Button
                 variant="primary"
                 leftIcon={<FolderPlus className="h-4 w-4" />}
               >
-                {user?.role === 'submitter' ? 'Créer votre première soumission' : 'Créer votre premier projet'}
+                {user?.role === 'submitter' ? 'Creer votre premiere soumission' : 'Creer votre premier projet'}
               </Button>
             </Link>
           )}

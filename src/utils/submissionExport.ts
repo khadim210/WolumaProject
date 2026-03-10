@@ -1,9 +1,13 @@
 import type { Project } from '../stores/projectStore';
 import type { Program } from '../stores/programStore';
+import type { User } from '../stores/userManagementStore';
+import type { ActivitySector } from '../stores/activitySectorStore';
 
 interface SubmissionExportData {
   projects: Project[];
   program: Program;
+  users?: User[];
+  sectors?: ActivitySector[];
 }
 
 const getStatusLabel = (status: string): string => {
@@ -29,11 +33,18 @@ const truncateText = (text: string, maxLength: number): string => {
   return text.substring(0, maxLength - 3) + '...';
 };
 
-const prepareExportData = (projects: Project[]) => {
+const prepareExportData = (projects: Project[], users?: User[], sectors?: ActivitySector[]) => {
   return projects.map(project => {
+    const submitter = users?.find(u => u.id === project.submitterId);
+    const sector = sectors?.find(s => s.id === project.activitySectorId);
+
     const baseData: Record<string, unknown> = {
       'Titre': project.title,
       'Description': project.description,
+      'Nom du porteur': project.submitterName || submitter?.name || 'N/A',
+      'Email du porteur': submitter?.email || 'N/A',
+      'Telephone du porteur': project.submitterPhone || 'N/A',
+      'Secteur d\'activite': sector?.name || 'N/A',
       'Statut': getStatusLabel(project.status),
       'Budget': project.budget,
       'Duree': project.timeline,
@@ -43,20 +54,6 @@ const prepareExportData = (projects: Project[]) => {
       'Date de creation': project.createdAt.toLocaleDateString('fr-FR'),
       'Tags': project.tags.join(', ')
     };
-
-    if (project.formData) {
-      Object.entries(project.formData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          if (Array.isArray(value)) {
-            baseData[key] = value.join(', ');
-          } else if (typeof value === 'object') {
-            baseData[key] = JSON.stringify(value);
-          } else {
-            baseData[key] = value;
-          }
-        }
-      });
-    }
 
     if (project.evaluationScores) {
       baseData['Score evaluation'] = project.totalEvaluationScore || 'N/A';
@@ -81,8 +78,40 @@ const prepareExportData = (projects: Project[]) => {
   });
 };
 
+const prepareFormDataExport = (projects: Project[]) => {
+  return projects.map(project => {
+    const formExportData: Record<string, unknown> = {
+      'Titre du projet': project.title
+    };
+
+    if (project.formData) {
+      Object.entries(project.formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          if (Array.isArray(value)) {
+            if (value.length > 0 && typeof value[0] === 'object' && value[0].name) {
+              formExportData[key] = value.map((f: { name: string }) => f.name).join(', ');
+            } else {
+              formExportData[key] = value.join(', ');
+            }
+          } else if (typeof value === 'object') {
+            if (value.name) {
+              formExportData[key] = value.name;
+            } else {
+              formExportData[key] = JSON.stringify(value);
+            }
+          } else {
+            formExportData[key] = value;
+          }
+        }
+      });
+    }
+
+    return formExportData;
+  });
+};
+
 export const exportSubmissionsToExcel = async (data: SubmissionExportData): Promise<void> => {
-  const { projects, program } = data;
+  const { projects, program, users, sectors } = data;
 
   if (projects.length === 0) {
     alert('Aucune soumission a exporter pour ce programme');
@@ -90,7 +119,8 @@ export const exportSubmissionsToExcel = async (data: SubmissionExportData): Prom
   }
 
   const XLSX = await import('xlsx');
-  const exportData = prepareExportData(projects);
+  const exportData = prepareExportData(projects, users, sectors);
+  const formData = prepareFormDataExport(projects);
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   const workbook = XLSX.utils.book_new();
@@ -102,12 +132,33 @@ export const exportSubmissionsToExcel = async (data: SubmissionExportData): Prom
   }));
   worksheet['!cols'] = colWidths;
 
+  if (formData.length > 0) {
+    const allKeys = new Set<string>();
+    formData.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
+
+    const formDataWithAllKeys = formData.map(row => {
+      const newRow: Record<string, unknown> = {};
+      allKeys.forEach(key => {
+        newRow[key] = row[key] ?? '';
+      });
+      return newRow;
+    });
+
+    const formWorksheet = XLSX.utils.json_to_sheet(formDataWithAllKeys);
+    XLSX.utils.book_append_sheet(workbook, formWorksheet, 'Formulaires');
+
+    const formColWidths = Array.from(allKeys).map(key => ({
+      wch: Math.min(Math.max(key.length, 15), maxWidth)
+    }));
+    formWorksheet['!cols'] = formColWidths;
+  }
+
   const fileName = `Soumissions_${program.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(workbook, fileName);
 };
 
 export const exportSubmissionsToPDF = async (data: SubmissionExportData): Promise<void> => {
-  const { projects, program } = data;
+  const { projects, program, users, sectors } = data;
 
   if (projects.length === 0) {
     alert('Aucune soumission a exporter pour ce programme');
@@ -121,33 +172,21 @@ export const exportSubmissionsToPDF = async (data: SubmissionExportData): Promis
 
   const allColumns = new Set<string>();
   const processedData = projects.map(project => {
+    const submitter = users?.find(u => u.id === project.submitterId);
+    const sector = sectors?.find(s => s.id === project.activitySectorId);
+
     const rowData: Record<string, string> = {
       'Titre': project.title,
-      'Description': truncateText(project.description, 100),
+      'Porteur': project.submitterName || submitter?.name || 'N/A',
+      'Email': submitter?.email || 'N/A',
+      'Telephone': project.submitterPhone || 'N/A',
+      'Secteur': sector?.name || 'N/A',
       'Statut': getStatusLabel(project.status),
       'Budget': project.budget.toLocaleString('fr-FR'),
-      'Duree': project.timeline,
       'Soumis le': project.submissionDate
         ? project.submissionDate.toLocaleDateString('fr-FR')
-        : 'Non soumis',
-      'Tags': project.tags.join(', ')
+        : 'Non soumis'
     };
-
-    if (project.formData) {
-      Object.entries(project.formData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          let displayValue: string;
-          if (Array.isArray(value)) {
-            displayValue = value.join(', ');
-          } else if (typeof value === 'object') {
-            displayValue = JSON.stringify(value);
-          } else {
-            displayValue = String(value);
-          }
-          rowData[key] = truncateText(displayValue, 80);
-        }
-      });
-    }
 
     if (project.evaluationScores) {
       rowData['Score'] = project.totalEvaluationScore ? `${project.totalEvaluationScore}%` : 'N/A';

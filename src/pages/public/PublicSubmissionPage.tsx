@@ -4,6 +4,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useFormTemplateStore } from '../../stores/formTemplateStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import { supabase } from '../../services/supabaseService';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -16,9 +17,14 @@ import {
   Mail,
   Lock,
   Building,
-  FolderOpen
+  FolderOpen,
+  Phone,
+  Calendar,
+  Briefcase
 } from 'lucide-react';
 import CurrencyInput from '../../components/ui/CurrencyInput';
+import logoImage from '../../assets/logo_couleur.png';
+import { uploadFile, UploadedFile } from '../../utils/fileUpload';
 
 const PublicSubmissionPage: React.FC = () => {
   const { programId } = useParams<{ programId: string }>();
@@ -28,30 +34,38 @@ const PublicSubmissionPage: React.FC = () => {
   const { templates, fetchTemplates } = useFormTemplateStore();
   const { addProject } = useProjectStore();
   const { register, login } = useAuthStore();
+  const { sectors, fetchSectors, isLoading: sectorsLoading } = useActivitySectorStore();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Données d'identification
   const [submitterInfo, setSubmitterInfo] = useState({
     projectName: '',
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     organization: ''
   });
 
+  const [projectInfo, setProjectInfo] = useState({
+    description: '',
+    ageMonths: '',
+    activitySectorId: ''
+  });
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔍 Loading data for programId:', programId);
         await fetchPrograms();
         await fetchTemplates();
+        await fetchSectors();
       } catch (error) {
-        console.error('❌ Error loading data:', error);
+        console.error('Error loading data:', error);
       }
     };
     loadData();
@@ -62,13 +76,6 @@ const PublicSubmissionPage: React.FC = () => {
     ? templates.find(t => t.id === program.formTemplateId)
     : null;
 
-  useEffect(() => {
-    if (programs.length > 0) {
-      console.log('📋 Available programs:', programs.map(p => ({ id: p.id, name: p.name })));
-      console.log('🎯 Looking for program:', programId);
-      console.log('✨ Program found:', program ? program.name : 'NOT FOUND');
-    }
-  }, [programs, programId, program]);
 
   const handleFieldChange = (fieldId: string, value: any) => {
     setFormData(prev => ({
@@ -82,7 +89,20 @@ const PublicSubmissionPage: React.FC = () => {
       ...prev,
       [field]: value
     }));
-    // Clear error for this field
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleProjectInfoChange = (field: string, value: string) => {
+    setProjectInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
     if (errors[field]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -112,11 +132,19 @@ const PublicSubmissionPage: React.FC = () => {
     if (!submitterInfo.password) {
       newErrors.password = 'Le mot de passe est requis';
     } else if (submitterInfo.password.length < 6) {
-      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+      newErrors.password = 'Le mot de passe doit contenir au moins 6 caracteres';
     }
 
     if (submitterInfo.password !== submitterInfo.confirmPassword) {
       newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+    }
+
+    if (!projectInfo.description.trim()) {
+      newErrors.description = 'La description du projet est requise';
+    }
+
+    if (!projectInfo.activitySectorId) {
+      newErrors.activitySectorId = 'Le secteur d\'activite est requis';
     }
 
     setErrors(newErrors);
@@ -137,7 +165,6 @@ const PublicSubmissionPage: React.FC = () => {
     try {
       const cleanEmail = submitterInfo.email.trim().toLowerCase();
 
-      console.log('Starting submission process...');
       const registered = await register(
         submitterInfo.name.trim(),
         cleanEmail,
@@ -147,7 +174,6 @@ const PublicSubmissionPage: React.FC = () => {
       );
 
       if (!registered) {
-        console.log('Registration failed (user may exist), trying login');
         const loggedIn = await login(cleanEmail, submitterInfo.password);
 
         if (!loggedIn) {
@@ -160,9 +186,6 @@ const PublicSubmissionPage: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Session after auth:', session ? 'valid' : 'none');
-        console.log('Session user id (auth.uid):', session?.user?.id);
-        console.log('Session user email:', session?.user?.email);
         sessionUserId = session?.user?.id;
 
         if (!session) {
@@ -177,18 +200,20 @@ const PublicSubmissionPage: React.FC = () => {
         throw new Error('Impossible d\'identifier l\'utilisateur');
       }
 
-      console.log('Submitting project with submitterId (users.id):', submitterId);
-      console.log('authUser from store:', authUser);
-      console.log('Session auth.uid:', sessionUserId);
+      const fileStorageFolder = sessionUserId || submitterId;
 
-      if (supabase && sessionUserId) {
-        const { data: userCheck } = await supabase
-          .from('users')
-          .select('id, auth_user_id')
-          .eq('id', submitterId)
-          .maybeSingle();
-        console.log('User check from DB:', userCheck);
-        console.log('auth_user_id matches session?', userCheck?.auth_user_id === sessionUserId);
+      const finalFormData = { ...formData };
+      const uploadedFiles: Record<string, UploadedFile> = {};
+
+      for (const [fieldId, file] of Object.entries(pendingFiles)) {
+        try {
+          const uploadedFile = await uploadFile(fileStorageFolder, file);
+          uploadedFiles[fieldId] = uploadedFile;
+          finalFormData[fieldId] = uploadedFile;
+        } catch (uploadError) {
+          console.error(`Error uploading file for field ${fieldId}:`, uploadError);
+          throw new Error(`Erreur lors de l'upload du fichier: ${file.name}`);
+        }
       }
 
       await addProject({
@@ -198,11 +223,17 @@ const PublicSubmissionPage: React.FC = () => {
         budget: 0,
         timeline: '12 mois',
         submitterId: submitterId,
+        submitterName: submitterInfo.name,
+        submitterEmail: cleanEmail,
         programId: program.id,
         submissionDate: new Date(),
         tags: [],
-        formData: formData,
-        submittedAt: new Date()
+        formData: finalFormData,
+        submittedAt: new Date(),
+        projectDescription: projectInfo.description,
+        projectAgeMonths: projectInfo.ageMonths ? parseInt(projectInfo.ageMonths) : undefined,
+        activitySectorId: projectInfo.activitySectorId || undefined,
+        submitterPhone: submitterInfo.phone || undefined
       });
 
       setSubmitSuccess(true);
@@ -313,7 +344,14 @@ const PublicSubmissionPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <div className="flex justify-center mb-6">
+            <img
+              src={logoImage}
+              alt="Woluma"
+              className="h-16 w-auto"
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-blue-600 mb-2">
             {program.name}
           </h1>
           <p className="text-lg text-gray-600">
@@ -347,7 +385,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="text"
                       value={submitterInfo.name}
                       onChange={(e) => handleSubmitterInfoChange('name', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.name ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Jean Dupont"
@@ -368,13 +406,31 @@ const PublicSubmissionPage: React.FC = () => {
                       type="email"
                       value={submitterInfo.email}
                       onChange={(e) => handleSubmitterInfoChange('email', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.email ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="jean@example.com"
                     />
                   </div>
                   {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telephone
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={submitterInfo.phone}
+                      onChange={(e) => handleSubmitterInfoChange('phone', e.target.value)}
+                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
+                      placeholder="+221 77 123 45 67"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -389,7 +445,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="text"
                       value={submitterInfo.organization}
                       onChange={(e) => handleSubmitterInfoChange('organization', e.target.value)}
-                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                       placeholder="Mon Entreprise (optionnel)"
                     />
                   </div>
@@ -407,7 +463,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="password"
                       value={submitterInfo.password}
                       onChange={(e) => handleSubmitterInfoChange('password', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.password ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="••••••••"
@@ -430,7 +486,7 @@ const PublicSubmissionPage: React.FC = () => {
                       type="password"
                       value={submitterInfo.confirmPassword}
                       onChange={(e) => handleSubmitterInfoChange('confirmPassword', e.target.value)}
-                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`pl-10 block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                         errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="••••••••"
@@ -441,7 +497,7 @@ const PublicSubmissionPage: React.FC = () => {
               </CardContent>
             </Card>
 
-          {/* Section: Nom du Projet */}
+          {/* Section: Votre Projet */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -449,7 +505,7 @@ const PublicSubmissionPage: React.FC = () => {
                 Votre Projet
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nom du projet <span className="text-red-500">*</span>
@@ -458,12 +514,85 @@ const PublicSubmissionPage: React.FC = () => {
                   type="text"
                   value={submitterInfo.projectName}
                   onChange={(e) => handleSubmitterInfoChange('projectName', e.target.value)}
-                  className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
                     errors.projectName ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Ex: Application mobile de gestion agricole"
                 />
                 {errors.projectName && <p className="mt-1 text-sm text-red-600">{errors.projectName}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description du projet <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={projectInfo.description}
+                  onChange={(e) => handleProjectInfoChange('description', e.target.value)}
+                  rows={4}
+                  className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50 ${
+                    errors.description ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Decrivez votre projet en quelques lignes: objectifs, activites principales, impact attendu..."
+                />
+                {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <span className="flex items-center">
+                      <Briefcase className="h-4 w-4 mr-2 text-gray-400" />
+                      Secteur d'activite <span className="text-red-500 ml-1">*</span>
+                    </span>
+                  </label>
+                  {sectorsLoading ? (
+                    <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500">
+                      Chargement des secteurs...
+                    </div>
+                  ) : sectors.filter(s => s.isActive).length === 0 ? (
+                    <div className="block w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-700">
+                      Aucun secteur disponible
+                    </div>
+                  ) : (
+                    <select
+                      value={projectInfo.activitySectorId}
+                      onChange={(e) => handleProjectInfoChange('activitySectorId', e.target.value)}
+                      className={`block w-full rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white px-3 py-2.5 border text-gray-900 text-base ${
+                        errors.activitySectorId ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">Selectionnez un secteur</option>
+                      {sectors.filter(s => s.isActive).map(sector => (
+                        <option key={sector.id} value={sector.id}>
+                          {sector.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {errors.activitySectorId && <p className="mt-1 text-sm text-red-600">{errors.activitySectorId}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duree d'existence du projet (en mois)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Calendar className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="600"
+                      value={projectInfo.ageMonths}
+                      onChange={(e) => handleProjectInfoChange('ageMonths', e.target.value)}
+                      className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
+                      placeholder="Ex: 12"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Depuis combien de mois existe votre projet/entreprise?</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -500,7 +629,7 @@ const PublicSubmissionPage: React.FC = () => {
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -511,7 +640,7 @@ const PublicSubmissionPage: React.FC = () => {
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -522,7 +651,7 @@ const PublicSubmissionPage: React.FC = () => {
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -544,6 +673,7 @@ const PublicSubmissionPage: React.FC = () => {
                           }
                           placeholder={field.placeholder || "0"}
                           required={field.required}
+                          className="bg-blue-50"
                         />
                       )}
 
@@ -554,7 +684,7 @@ const PublicSubmissionPage: React.FC = () => {
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder}
                           rows={4}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
@@ -563,7 +693,7 @@ const PublicSubmissionPage: React.FC = () => {
                           required={field.required}
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         >
                           <option value="">Selectionnez une option</option>
                           {field.options.map((option) => (
@@ -635,27 +765,36 @@ const PublicSubmissionPage: React.FC = () => {
                           required={field.required}
                           value={formData[field.id] || ''}
                           onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                         />
                       )}
 
                       {field.type === 'file' && (
-                        <input
-                          type="file"
-                          required={field.required}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleFieldChange(field.id, file.name);
-                            }
-                          }}
-                          className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-md file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                        />
+                        <div>
+                          <input
+                            type="file"
+                            required={field.required && !pendingFiles[field.id]}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setPendingFiles(prev => ({ ...prev, [field.id]: file }));
+                                handleFieldChange(field.id, file.name);
+                              }
+                            }}
+                            className="block w-full text-sm text-gray-500
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-md file:border-0
+                              file:text-sm file:font-semibold
+                              file:bg-blue-50 file:text-blue-700
+                              hover:file:bg-blue-100"
+                          />
+                          {pendingFiles[field.id] && (
+                            <p className="mt-1 text-sm text-green-600 flex items-center">
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              {pendingFiles[field.id].name}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {field.helperText && (

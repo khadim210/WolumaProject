@@ -1,37 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useProjectStore } from '../../stores/projectStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useUserManagementStore } from '../../stores/userManagementStore';
+import { useActivitySectorStore } from '../../stores/activitySectorStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { FileText, GraduationCap, DollarSign, Archive, Shield, Plus, Download, Upload, CheckCircle, XCircle, Clock, CreditCard as Edit, Trash2, AlertCircle, Printer, FileSpreadsheet } from 'lucide-react';
+import { generateEligibilityReport, generateWolumaEvaluationReport } from '../../utils/pdfGenerator';
+import {
+  FileText,
+  GraduationCap,
+  DollarSign,
+  Archive,
+  Shield,
+  Plus,
+  Download,
+  Upload,
+  CheckCircle,
+  Clock,
+  CreditCard as Edit,
+  Trash2,
+  AlertCircle,
+  Printer,
+  FileSpreadsheet,
+  Search,
+  Filter,
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  Building,
+  Calendar,
+  MapPin,
+  Briefcase,
+  Target,
+  ChevronRight
+} from 'lucide-react';
+import { getAccessiblePrograms } from '../../hooks/useFilteredProjects';
+import logoUrl from '../../assets/logo_couleur.png';
 import DocumentRequestModal from '../../components/formalization/DocumentRequestModal';
 import TechnicalSupportModal from '../../components/formalization/TechnicalSupportModal';
 import DisbursementPlanModal from '../../components/formalization/DisbursementPlanModal';
 import { formalizationService } from '../../services/formalizationService';
+import { EmailService } from '../../services/emailService';
 import type {
   DocumentRequest,
-  DocumentSubmission,
   TechnicalSupport,
   DisbursementPlan,
   DisbursementTranche
 } from '../../services/formalizationService';
 
-type TabType = 'documents' | 'support' | 'financial' | 'archive';
-
 const FormalizationPage: React.FC = () => {
   const { user } = useAuthStore();
   const { checkPermission } = usePermissions();
   const { projects, fetchProjects } = useProjectStore();
-  const { programs, fetchPrograms } = useProgramStore();
+  const { programs, partners, fetchPrograms, fetchPartners } = useProgramStore();
+  const { users, fetchUsers, getUser } = useUserManagementStore();
+  const { sectors, fetchSectors, getSector } = useActivitySectorStore();
 
-  const [activeTab, setActiveTab] = useState<TabType>('documents');
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
   const [selectedSupport, setSelectedSupport] = useState<TechnicalSupport | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
   const [technicalSupports, setTechnicalSupports] = useState<TechnicalSupport[]>([]);
@@ -40,10 +73,19 @@ const FormalizationPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [programFilter, setProgramFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
+
   useEffect(() => {
     fetchPrograms();
+    fetchPartners();
     fetchProjects();
-  }, [fetchPrograms, fetchProjects]);
+    fetchUsers();
+    fetchSectors();
+  }, [fetchPrograms, fetchPartners, fetchProjects, fetchUsers, fetchSectors]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -52,39 +94,119 @@ const FormalizationPage: React.FC = () => {
   }, [selectedProject]);
 
   const loadProjectData = async (projectId: string) => {
-    const [docs, supports, financial] = await Promise.all([
-      formalizationService.getDocumentRequestsByProject(projectId),
-      formalizationService.getTechnicalSupportByProject(projectId),
-      formalizationService.getDisbursementPlanByProject(projectId)
-    ]);
+    try {
+      const [docs, supports, financial] = await Promise.all([
+        formalizationService.getDocumentRequestsByProject(projectId),
+        formalizationService.getTechnicalSupportByProject(projectId),
+        formalizationService.getDisbursementPlanByProject(projectId)
+      ]);
 
-    setDocumentRequests(docs);
-    setTechnicalSupports(supports);
-    setDisbursementPlan(financial.plan);
-    setDisbursementTranches(financial.tranches);
+      setDocumentRequests(docs);
+      setTechnicalSupports(supports);
+      setDisbursementPlan(financial.plan);
+      setDisbursementTranches(financial.tranches);
+    } catch (error) {
+      console.error('Error loading project data:', error);
+    }
   };
 
   if (!user || !checkPermission('evaluation.evaluate')) {
     return (
       <div className="text-center py-12">
         <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h2 className="text-lg font-medium text-gray-900 mb-2">Accès restreint</h2>
-        <p className="text-gray-500">Vous n'avez pas accès à cette section.</p>
+        <h2 className="text-lg font-medium text-gray-900 mb-2">Acces restreint</h2>
+        <p className="text-gray-500">Vous n'avez pas acces a cette section.</p>
       </div>
     );
   }
 
-  const selectedProjectsData = projects.filter(
-    p => p.status === 'selected' || p.recommendedStatus === 'selected'
+  const accessiblePrograms = useMemo(
+    () => getAccessiblePrograms(user, programs, partners),
+    [user, programs, partners]
   );
 
+  const selectedProjectsData = useMemo(() => {
+    return projects.filter(p => {
+      const hasRelevantStatus = p.status === 'selected' || p.recommendedStatus === 'selected';
+      if (!hasRelevantStatus) return false;
+
+      const isAccessible = accessiblePrograms.some(prog => prog.id === p.programId);
+      if (!isAccessible) return false;
+
+      const matchesSearch = searchTerm === '' ||
+        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.projectDescription || p.description).toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesProgram = programFilter === 'all' || p.programId === programFilter;
+
+      let matchesDate = true;
+      if (dateFilter !== 'all' && p.submissionDate) {
+        const submissionDate = new Date(p.submissionDate);
+        const now = new Date();
+
+        if (dateFilter === 'today') {
+          matchesDate = submissionDate.toDateString() === now.toDateString();
+        } else if (dateFilter === 'week') {
+          const weekAgo = new Date(now);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          matchesDate = submissionDate >= weekAgo;
+        } else if (dateFilter === 'month') {
+          const monthAgo = new Date(now);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          matchesDate = submissionDate >= monthAgo;
+        }
+      }
+
+      return matchesSearch && matchesProgram && matchesDate;
+    });
+  }, [projects, accessiblePrograms, searchTerm, programFilter, dateFilter]);
+
+  const totalPages = Math.ceil(selectedProjectsData.length / projectsPerPage);
+  const paginatedProjects = selectedProjectsData.slice(
+    (currentPage - 1) * projectsPerPage,
+    currentPage * projectsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, programFilter, dateFilter]);
+
   const currentProject = projects.find(p => p.id === selectedProject);
+  const currentProgram = currentProject ? programs.find(p => p.id === currentProject.programId) : null;
+  const currentPartner = currentProgram ? partners.find(p => p.id === currentProgram.partnerId) : null;
+  const submitterUser = currentProject ? getUser(currentProject.submitterId) : undefined;
 
   const handleCreateDocumentRequest = async (values: any) => {
-    await formalizationService.createDocumentRequest({
+    const result = await formalizationService.createDocumentRequest({
       ...values,
       requested_by: user.id
     });
+
+    if (result && currentProject) {
+      const submitterEmail = currentProject.submitterEmail || submitterUser?.email;
+      const submitterName = currentProject.submitterName || submitterUser?.name || 'Porteur de projet';
+
+      if (submitterEmail) {
+        const documentTypeLabels: Record<string, string> = {
+          'legal': 'Document legal',
+          'financial': 'Document financier',
+          'technical': 'Document technique',
+          'administrative': 'Document administratif',
+          'other': 'Autre'
+        };
+
+        await EmailService.sendDocumentRequestNotification(
+          submitterEmail,
+          submitterName,
+          currentProject.title,
+          values.document_name,
+          documentTypeLabels[values.document_type] || values.document_type,
+          values.description,
+          values.due_date
+        );
+      }
+    }
+
     loadProjectData(selectedProject);
   };
 
@@ -104,7 +226,7 @@ const FormalizationPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error uploading document:', error);
-      alert('Erreur lors du téléversement');
+      alert('Erreur lors du televersement');
     } finally {
       setIsUploading(false);
     }
@@ -124,8 +246,15 @@ const FormalizationPage: React.FC = () => {
   };
 
   const handleDeleteSupport = async (id: string) => {
-    if (confirm('Confirmer la suppression ?')) {
+    if (confirm('Confirmer la suppression de cet accompagnement ?')) {
       await formalizationService.deleteTechnicalSupport(id);
+      loadProjectData(selectedProject);
+    }
+  };
+
+  const handleDeleteDocumentRequest = async (id: string) => {
+    if (confirm('Confirmer la suppression de cette demande de document ?')) {
+      await formalizationService.deleteDocumentRequest(id);
       loadProjectData(selectedProject);
     }
   };
@@ -160,11 +289,11 @@ const FormalizationPage: React.FC = () => {
       const result = await formalizationService.createProjectArchive(
         selectedProject,
         user.id,
-        'Projet archivé depuis la page de formalisation'
+        'Projet archive depuis la page de formalisation'
       );
 
       if (result.success) {
-        alert('Projet archivé avec succès');
+        alert('Projet archive avec succes');
       }
     } catch (error) {
       console.error('Error archiving project:', error);
@@ -174,25 +303,18 @@ const FormalizationPage: React.FC = () => {
     }
   };
 
-  const tabs = [
-    { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'support', label: 'Accompagnement Technique', icon: GraduationCap },
-    { id: 'financial', label: 'Plan de Décaissement', icon: DollarSign },
-    { id: 'archive', label: 'Archive & Export', icon: Archive }
-  ];
-
   const getStatusBadge = (status: string) => {
     const badges = {
       pending: { label: 'En attente', color: 'bg-yellow-100 text-yellow-800' },
       submitted: { label: 'Soumis', color: 'bg-blue-100 text-blue-800' },
-      validated: { label: 'Validé', color: 'bg-green-100 text-green-800' },
-      rejected: { label: 'Rejeté', color: 'bg-red-100 text-red-800' },
-      planned: { label: 'Planifié', color: 'bg-purple-100 text-purple-800' },
+      validated: { label: 'Valide', color: 'bg-green-100 text-green-800' },
+      rejected: { label: 'Rejete', color: 'bg-red-100 text-red-800' },
+      planned: { label: 'Planifie', color: 'bg-blue-100 text-blue-800' },
       in_progress: { label: 'En cours', color: 'bg-blue-100 text-blue-800' },
-      completed: { label: 'Terminé', color: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'Annulé', color: 'bg-gray-100 text-gray-800' },
-      disbursed: { label: 'Décaissé', color: 'bg-green-100 text-green-800' },
-      approved: { label: 'Approuvé', color: 'bg-green-100 text-green-800' }
+      completed: { label: 'Termine', color: 'bg-green-100 text-green-800' },
+      cancelled: { label: 'Annule', color: 'bg-gray-100 text-gray-800' },
+      disbursed: { label: 'Decaisse', color: 'bg-green-100 text-green-800' },
+      approved: { label: 'Approuve', color: 'bg-green-100 text-green-800' }
     };
 
     const badge = badges[status as keyof typeof badges] || { label: status, color: 'bg-gray-100 text-gray-800' };
@@ -204,35 +326,6 @@ const FormalizationPage: React.FC = () => {
     );
   };
 
-  const getFormalizationSummary = (project: any) => {
-    const projDocRequests = documentRequests.filter(d => d.project_id === project.id);
-    const projSupports = technicalSupports.filter(s => s.project_id === project.id);
-    const projPlan = disbursementPlan?.project_id === project.id ? disbursementPlan : null;
-    const projTranches = projPlan ? disbursementTranches.filter(t => t.plan_id === projPlan.id) : [];
-
-    const docsApproved = projDocRequests.filter(d => d.status === 'approved').length;
-    const docsTotal = projDocRequests.length;
-
-    const supportsCompleted = projSupports.filter(s => s.status === 'completed').length;
-    const supportsTotal = projSupports.length;
-
-    const tranchesDisbursed = projTranches.filter(t => t.status === 'disbursed').length;
-    const tranchesTotal = projTranches.length;
-    const totalAmount = projPlan?.total_amount || 0;
-    const amountDisbursed = projTranches
-      .filter(t => t.status === 'disbursed')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      documents: `${docsApproved}/${docsTotal} approuvés`,
-      support: `${supportsCompleted}/${supportsTotal} complétés`,
-      financial: tranchesTotal > 0
-        ? `${tranchesDisbursed}/${tranchesTotal} tranches (${amountDisbursed.toLocaleString('fr-FR')} / ${totalAmount.toLocaleString('fr-FR')} ${projPlan?.currency || 'XOF'})`
-        : 'Pas de plan',
-      progress: docsTotal > 0 ? Math.round((docsApproved / docsTotal) * 100) : 0
-    };
-  };
-
   const handleExportFormalizationPDF = async () => {
     const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
       import('jspdf'),
@@ -240,13 +333,30 @@ const FormalizationPage: React.FC = () => {
     ]);
 
     const doc = new jsPDF('l', 'mm', 'a4');
+    const margin = 14;
+
+    let logoBase64: string | null = null;
+    try {
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* ignore */ }
+
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 5, 25, 25);
+    }
 
     doc.setFontSize(18);
-    doc.text('Projets en Formalisation - Résumé', 14, 15);
+    doc.text('Projets en Formalisation - Resume', margin + 30, 15);
 
     doc.setFontSize(10);
-    doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 22);
-    doc.text(`Total: ${selectedProjectsData.length} projet(s)`, 14, 28);
+    doc.text(`Genere le: ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, margin + 30, 22);
+    doc.text(`Total: ${selectedProjectsData.length} projet(s)`, margin, 34);
 
     const allData = await Promise.all(
       selectedProjectsData.map(async (project) => {
@@ -266,8 +376,8 @@ const FormalizationPage: React.FC = () => {
 
         return {
           project,
-          docs: `${docsApproved}/${docs.length} approuvés`,
-          support: `${supportsCompleted}/${supports.length} complétés`,
+          docs: `${docsApproved}/${docs.length} approuves`,
+          support: `${supportsCompleted}/${supports.length} completes`,
           financial: financial.tranches.length > 0
             ? `${tranchesDisbursed}/${financial.tranches.length} tranches (${amountDisbursed.toLocaleString('fr-FR')} / ${totalAmount.toLocaleString('fr-FR')} ${financial.plan?.currency || 'XOF'})`
             : 'Pas de plan',
@@ -289,7 +399,7 @@ const FormalizationPage: React.FC = () => {
     });
 
     autoTable(doc, {
-      startY: 35,
+      startY: 40,
       head: [['Projet', 'Programme', 'Documents', 'Accompagnement', 'Plan Financier', 'Progression']],
       body: tableData,
       theme: 'grid',
@@ -365,17 +475,17 @@ const FormalizationPage: React.FC = () => {
       'Titre': data.project.title,
       'Programme': data.program?.name || 'N/A',
       'Budget': data.project.budget,
-      'Documents approuvés': `${data.docsApproved}/${data.docs.length}`,
-      'Accompagnement complété': `${data.supportsCompleted}/${data.supports.length}`,
-      'Tranches décaissées': `${data.tranchesDisbursed}/${data.financial.tranches.length}`,
+      'Documents approuves': `${data.docsApproved}/${data.docs.length}`,
+      'Accompagnement complete': `${data.supportsCompleted}/${data.supports.length}`,
+      'Tranches decaissees': `${data.tranchesDisbursed}/${data.financial.tranches.length}`,
       'Montant total': data.totalAmount,
-      'Montant décaissé': data.amountDisbursed,
+      'Montant decaisse': data.amountDisbursed,
       'Devise': data.financial.plan?.currency || 'XOF',
       'Progression': data.docs.length > 0 ? `${Math.round((data.docsApproved / data.docs.length) * 100)}%` : '0%',
     }));
 
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé');
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resume');
 
     const docsData: any[] = [];
     allData.forEach(data => {
@@ -387,8 +497,8 @@ const FormalizationPage: React.FC = () => {
           'Description': doc.description || '',
           'Statut': doc.status === 'pending' ? 'En attente' :
                     doc.status === 'submitted' ? 'Soumis' :
-                    doc.status === 'validated' ? 'Validé' :
-                    doc.status === 'approved' ? 'Approuvé' : 'Rejeté',
+                    doc.status === 'validated' ? 'Valide' :
+                    doc.status === 'approved' ? 'Approuve' : 'Rejete',
           'Date limite': doc.due_date ? new Date(doc.due_date).toLocaleDateString('fr-FR') : 'N/A',
           'Date soumission': doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString('fr-FR') : 'N/A',
           'Fichier': doc.file_path || 'Non fourni',
@@ -410,11 +520,11 @@ const FormalizationPage: React.FC = () => {
           'Type': support.type,
           'Description': support.description || '',
           'Statut': support.status === 'pending' ? 'En attente' :
-                    support.status === 'scheduled' ? 'Planifié' :
+                    support.status === 'scheduled' ? 'Planifie' :
                     support.status === 'in_progress' ? 'En cours' :
-                    support.status === 'completed' ? 'Complété' : 'Annulé',
-          'Date prévue': support.scheduled_date ? new Date(support.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
-          'Durée (heures)': support.duration_hours || 0,
+                    support.status === 'completed' ? 'Complete' : 'Annule',
+          'Date prevue': support.scheduled_date ? new Date(support.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
+          'Duree (heures)': support.duration_hours || 0,
           'Prestataire': support.provider || 'N/A',
           'Participants': support.participants || 'N/A',
         });
@@ -431,13 +541,13 @@ const FormalizationPage: React.FC = () => {
       data.financial.tranches.forEach(tranche => {
         tranchesData.push({
           'Projet': data.project.title,
-          'Numéro de tranche': tranche.tranche_number,
+          'Numero de tranche': tranche.tranche_number,
           'Montant': tranche.amount,
           'Pourcentage': tranche.percentage ? `${tranche.percentage}%` : 'N/A',
           'Devise': data.financial.plan?.currency || 'XOF',
           'Statut': tranche.status === 'pending' ? 'En attente' :
-                    tranche.status === 'approved' ? 'Approuvé' : 'Décaissé',
-          'Date prévue': tranche.scheduled_date ? new Date(tranche.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
+                    tranche.status === 'approved' ? 'Approuve' : 'Decaisse',
+          'Date prevue': tranche.scheduled_date ? new Date(tranche.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
           'Date effective': tranche.actual_disbursement_date ? new Date(tranche.actual_disbursement_date).toLocaleDateString('fr-FR') : 'N/A',
           'Conditions': tranche.conditions || 'Aucune',
         });
@@ -452,435 +562,777 @@ const FormalizationPage: React.FC = () => {
     XLSX.writeFile(wb, `Formalisation_Detaillee_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  return (
-    <div className="p-6">
-      <div className="mb-6 flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Formalisation des Projets</h1>
-          <p className="text-gray-600">
-            Gestion des documents, accompagnement et décaissement
-          </p>
+  if (!selectedProject) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Formalisation des Projets</h1>
+            <p className="text-gray-600">
+              Gestion des documents, accompagnement et decaissement
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={handleExportFormalizationExcel}
+              leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+              disabled={selectedProjectsData.length === 0}
+            >
+              Export Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportFormalizationPDF}
+              leftIcon={<Printer className="h-4 w-4" />}
+              disabled={selectedProjectsData.length === 0}
+            >
+              Export PDF
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={handleExportFormalizationExcel}
-            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
-            disabled={selectedProjectsData.length === 0}
-          >
-            Export Excel
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleExportFormalizationPDF}
-            leftIcon={<Printer className="h-4 w-4" />}
-            disabled={selectedProjectsData.length === 0}
-          >
-            Export PDF
-          </Button>
-        </div>
-      </div>
 
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Sélectionner un projet
-        </label>
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 text-gray-500 mr-2" />
+              <CardTitle>Filtres</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Recherche
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Titre ou description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Programme
+                </label>
+                <select
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  value={programFilter}
+                  onChange={(e) => setProgramFilter(e.target.value)}
+                >
+                  <option value="all">Tous les programmes</option>
+                  {accessiblePrograms.map(program => {
+                    const partner = partners.find(p => p.id === program.partnerId);
+                    return (
+                      <option key={program.id} value={program.id}>
+                        {program.name} {partner && `(${partner.name})`}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Periode de soumission
+                </label>
+                <select
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                >
+                  <option value="all">Toutes les dates</option>
+                  <option value="today">Aujourd'hui</option>
+                  <option value="week">Cette semaine</option>
+                  <option value="month">Ce mois</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('');
+                  setProgramFilter('all');
+                  setDateFilter('all');
+                }}
+              >
+                Reinitialiser les filtres
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {selectedProjectsData.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Aucun projet sélectionné disponible
+                  Aucun projet selectionne disponible
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Les projets doivent être évalués avec une recommandation "Sélectionné" pour apparaître ici.
+                  Les projets doivent etre evalues avec une recommandation "Selectionne" pour apparaitre ici.
                 </p>
                 <div className="bg-blue-50 rounded-lg p-4 text-left max-w-md mx-auto">
                   <p className="text-sm text-blue-900 font-medium mb-2">Pour voir des projets ici :</p>
                   <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                    <li>Allez dans la page "Évaluation"</li>
-                    <li>Évaluez des projets éligibles</li>
-                    <li>Attribuez une recommandation "Sélectionné"</li>
-                    <li>Les projets apparaîtront automatiquement ici</li>
+                    <li>Allez dans la page "Evaluation"</li>
+                    <li>Evaluez des projets eligibles</li>
+                    <li>Attribuez une recommandation "Selectionne"</li>
+                    <li>Les projets apparaitront automatiquement ici</li>
                   </ol>
                 </div>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">-- Choisir un projet ({selectedProjectsData.length} disponible{selectedProjectsData.length > 1 ? 's' : ''}) --</option>
-            {selectedProjectsData.map(project => {
-              const isFormalized = project.status === 'selected';
-              const statusLabel = isFormalized ? 'Sélectionné' : 'Recommandé pour sélection';
-              return (
-                <option key={project.id} value={project.id}>
-                  {project.title} - {statusLabel}
-                </option>
-              );
-            })}
-          </select>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Projets disponibles ({selectedProjectsData.length})
+            </h2>
+            <div className="grid gap-4">
+              {paginatedProjects.map(project => {
+                const program = programs.find(p => p.id === project.programId);
+                const partner = program ? partners.find(p => p.id === program.partnerId) : null;
+                const isFormalized = project.status === 'selected';
+
+                return (
+                  <Card
+                    key={project.id}
+                    className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-blue-500"
+                    onClick={() => setSelectedProject(project.id)}
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900">{project.title}</h3>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              isFormalized
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {isFormalized ? 'Selectionne' : 'Recommande'}
+                            </span>
+                          </div>
+
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{project.projectDescription || project.description}</p>
+
+                          <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                            {program && (
+                              <div className="flex items-center gap-1">
+                                <Target className="h-4 w-4" />
+                                <span>{program.name}</span>
+                              </div>
+                            )}
+                            {partner && (
+                              <div className="flex items-center gap-1">
+                                <Building className="h-4 w-4" />
+                                <span>{partner.name}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="h-4 w-4" />
+                              <span>{project.budget?.toLocaleString('fr-FR')} XOF</span>
+                            </div>
+                            {project.submissionDate && (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                <span>{new Date(project.submissionDate).toLocaleDateString('fr-FR')}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center text-blue-600">
+                          <span className="text-sm font-medium mr-1">Voir details</span>
+                          <ChevronRight className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between pt-4 border-t">
+                <p className="text-sm text-gray-700">
+                  Affichage de {(currentPage - 1) * projectsPerPage + 1} a {Math.min(currentPage * projectsPerPage, selectedProjectsData.length)} sur {selectedProjectsData.length} resultats
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    &laquo;
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Precedent
+                  </button>
+                  <span className="px-3 py-1 text-sm bg-blue-50 border border-blue-200 rounded">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Suivant
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border rounded disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    &raquo;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
+    );
+  }
 
-      {selectedProject && currentProject && (
-        <>
-          {currentProject.status !== 'selected' && currentProject.recommendedStatus === 'selected' && (
-            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <Button
+          variant="outline"
+          onClick={() => setSelectedProject('')}
+          leftIcon={<ArrowLeft className="h-4 w-4" />}
+          className="mb-4"
+        >
+          Retour a la liste
+        </Button>
+
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Formalisation du projet</h1>
+            <p className="text-gray-600">
+              {currentProject?.title}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {currentProject?.status !== 'selected' && currentProject?.recommendedStatus === 'selected' && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-amber-900 mb-1">
+                Projet recommande pour selection
+              </h4>
+              <p className="text-sm text-amber-700">
+                Ce projet a ete evalue et recommande pour selection, mais n'a pas encore ete formellement valide.
+                Pour le valider definitivement, retournez a la page "Evaluation" et cliquez sur "Soumettre le resultat".
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-blue-600" />
+              <CardTitle>Porteur de projet</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="h-6 w-6 text-blue-600" />
+                </div>
                 <div>
-                  <h4 className="text-sm font-medium text-amber-900 mb-1">
-                    Projet recommandé pour sélection
-                  </h4>
-                  <p className="text-sm text-amber-700">
-                    Ce projet a été évalué et recommandé pour sélection, mais n'a pas encore été formellement validé.
-                    Pour le valider définitivement, retournez à la page "Évaluation" et cliquez sur "Soumettre le résultat".
+                  <p className="font-semibold text-gray-900">
+                    {currentProject?.submitterName || 'Non renseigne'}
                   </p>
+                  <p className="text-sm text-gray-500">Porteur de projet</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Mail className="h-4 w-4 text-gray-400" />
+                <span>{currentProject?.submitterEmail || submitterUser?.email || 'Non renseigne'}</span>
+              </div>
+
+              {currentProject?.submitterPhone && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Phone className="h-4 w-4 text-gray-400" />
+                  <span>{currentProject.submitterPhone}</span>
+                </div>
+              )}
+
+              {currentProject?.location && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                  <span>{currentProject.location}</span>
+                </div>
+              )}
+
+              {currentProject?.activitySector && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Briefcase className="h-4 w-4 text-gray-400" />
+                  <span>{currentProject.activitySector}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              <CardTitle>Details du projet</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Titre</h4>
+                <p className="text-gray-900 font-medium">{currentProject?.title}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Programme</h4>
+                <p className="text-gray-900">{currentProgram?.name || 'N/A'}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Partenaire</h4>
+                <p className="text-gray-900">{currentPartner?.name || 'N/A'}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Date de soumission</h4>
+                <p className="text-gray-900">
+                  {currentProject?.submissionDate
+                    ? new Date(currentProject.submissionDate).toLocaleDateString('fr-FR')
+                    : 'N/A'
+                  }
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Statut</h4>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  currentProject?.status === 'selected'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {currentProject?.status === 'selected' ? 'Selectionne' : 'Recommande'}
+                </span>
+              </div>
+
+              <div className="md:col-span-2">
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
+                <p className="text-gray-700 text-sm">{currentProject?.projectDescription || currentProject?.description}</p>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={async () => {
+                      if (!currentProject) return;
+                      setIsGeneratingPdf(true);
+                      try {
+                        const program = programs.find(p => p.id === currentProject.programId);
+                        const partner = partners.find(p => p.id === program?.partnerId) || null;
+                        const sector = getSector(currentProject.activitySectorId || '');
+                        await generateEligibilityReport(currentProject, program!, partner, sector?.name);
+                      } finally {
+                        setIsGeneratingPdf(false);
+                      }
+                    }}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Rapport d'eligibilite
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!currentProject) return;
+                      setIsGeneratingPdf(true);
+                      try {
+                        const program = programs.find(p => p.id === currentProject.programId);
+                        const partner = partners.find(p => p.id === program?.partnerId) || null;
+                        await generateWolumaEvaluationReport(currentProject, program!, partner, user?.name);
+                      } finally {
+                        setIsGeneratingPdf(false);
+                      }
+                    }}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Rapport d'evaluation
+                  </button>
                 </div>
               </div>
             </div>
-          )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="flex space-x-8">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as TabType)}
-                    className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-          {activeTab === 'documents' && (
-            <div className="space-y-6">
+      <div className="space-y-8">
+        <section id="documents">
+          <Card>
+            <CardHeader>
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Gestion des Documents</h2>
-                <Button onClick={() => setShowDocumentModal(true)}>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <CardTitle>Gestion des Documents</CardTitle>
+                </div>
+                <Button onClick={() => setShowDocumentModal(true)} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Nouvelle demande
                 </Button>
               </div>
-
-              <div className="grid gap-4">
-                {documentRequests.length === 0 ? (
-                  <Card>
-                    <CardContent className="text-center py-12">
-                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">Aucune demande de document</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  documentRequests.map((request) => (
-                    <Card key={request.id}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle>{request.document_name}</CardTitle>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Type: {request.document_type}
-                            </p>
-                          </div>
-                          {getStatusBadge(request.status)}
+            </CardHeader>
+            <CardContent>
+              {documentRequests.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Aucune demande de document</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {documentRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{request.document_name}</h4>
+                          <p className="text-sm text-gray-500">Type: {request.document_type}</p>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-gray-700 mb-4">{request.description}</p>
-                        {request.due_date && (
-                          <p className="text-sm text-gray-500 mb-4">
-                            <Clock className="h-4 w-4 inline mr-1" />
-                            Date limite: {new Date(request.due_date).toLocaleDateString('fr-FR')}
-                          </p>
-                        )}
+                        {getStatusBadge(request.status)}
+                      </div>
 
-                        <div className="flex gap-2">
-                          <label className="flex-1">
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const email = prompt('Email du soumissionnaire:');
-                                  if (email) {
-                                    handleUploadDocument(request.id, file, email);
-                                  }
+                      <p className="text-gray-700 text-sm mb-3">{request.description}</p>
+
+                      {request.due_date && (
+                        <p className="text-sm text-gray-500 mb-3">
+                          <Clock className="h-4 w-4 inline mr-1" />
+                          Date limite: {new Date(request.due_date).toLocaleDateString('fr-FR')}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2">
+                        <label className="flex-1">
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const email = prompt('Email du soumissionnaire:');
+                                if (email) {
+                                  handleUploadDocument(request.id, file, email);
                                 }
-                              }}
-                              disabled={isUploading || request.status === 'validated'}
-                            />
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              disabled={isUploading || request.status === 'validated'}
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              {isUploading ? 'Téléversement...' : 'Uploader'}
-                            </Button>
-                          </label>
+                              }
+                            }}
+                            disabled={isUploading || request.status === 'validated'}
+                          />
                           <Button
                             variant="outline"
-                            onClick={() => {
-                              formalizationService.updateDocumentRequest(request.id, {
-                                status: 'validated'
-                              }).then(() => loadProjectData(selectedProject));
-                            }}
-                            disabled={request.status !== 'submitted'}
+                            size="sm"
+                            className="w-full"
+                            disabled={isUploading || request.status === 'validated'}
                           >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Valider
+                            <Upload className="h-4 w-4 mr-2" />
+                            {isUploading ? 'Televersement...' : 'Uploader'}
                           </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                        </label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            formalizationService.updateDocumentRequest(request.id, {
+                              status: 'validated'
+                            }).then(() => loadProjectData(selectedProject));
+                          }}
+                          disabled={request.status !== 'submitted'}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Valider
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteDocumentRequest(request.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
-          {activeTab === 'support' && (
-            <div className="space-y-6">
+        <section id="support">
+          <Card>
+            <CardHeader>
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Accompagnement Technique</h2>
-                <Button onClick={() => {
-                  setSelectedSupport(null);
-                  setShowSupportModal(true);
-                }}>
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-blue-600" />
+                  <CardTitle>Accompagnement Technique</CardTitle>
+                </div>
+                <Button
+                  onClick={() => {
+                    setSelectedSupport(null);
+                    setShowSupportModal(true);
+                  }}
+                  size="sm"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Nouvel accompagnement
                 </Button>
               </div>
+            </CardHeader>
+            <CardContent>
+              {technicalSupports.length === 0 ? (
+                <div className="text-center py-8">
+                  <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Aucun accompagnement planifie</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {technicalSupports.map((support) => (
+                    <div
+                      key={support.id}
+                      className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{support.title}</h4>
+                          <p className="text-sm text-gray-500">Type: {support.support_type}</p>
+                        </div>
+                        {getStatusBadge(support.status)}
+                      </div>
 
-              <div className="grid gap-4">
-                {technicalSupports.length === 0 ? (
-                  <Card>
-                    <CardContent className="text-center py-12">
-                      <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">Aucun accompagnement planifié</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  technicalSupports.map((support) => (
-                    <Card key={support.id}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
+                      <p className="text-gray-700 text-sm mb-3">{support.description}</p>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                        {support.scheduled_date && (
                           <div>
-                            <CardTitle>{support.title}</CardTitle>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Type: {support.support_type}
-                            </p>
-                          </div>
-                          {getStatusBadge(support.status)}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-gray-700 mb-4">{support.description}</p>
-                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                          {support.scheduled_date && (
-                            <div>
-                              <span className="font-medium">Date:</span>{' '}
+                            <span className="font-medium text-gray-500">Date:</span>{' '}
+                            <span className="text-gray-900">
                               {new Date(support.scheduled_date).toLocaleDateString('fr-FR')}
-                            </div>
-                          )}
-                          {support.duration_hours > 0 && (
-                            <div>
-                              <span className="font-medium">Durée:</span>{' '}
-                              {support.duration_hours}h
-                            </div>
-                          )}
-                          {support.provider && (
-                            <div>
-                              <span className="font-medium">Prestataire:</span>{' '}
-                              {support.provider}
-                            </div>
-                          )}
-                          {support.participants && (
-                            <div>
-                              <span className="font-medium">Participants:</span>{' '}
-                              {support.participants}
-                            </div>
-                          )}
-                        </div>
+                            </span>
+                          </div>
+                        )}
+                        {support.duration_hours > 0 && (
+                          <div>
+                            <span className="font-medium text-gray-500">Duree:</span>{' '}
+                            <span className="text-gray-900">{support.duration_hours}h</span>
+                          </div>
+                        )}
+                        {support.provider && (
+                          <div>
+                            <span className="font-medium text-gray-500">Prestataire:</span>{' '}
+                            <span className="text-gray-900">{support.provider}</span>
+                          </div>
+                        )}
+                        {support.participants && (
+                          <div>
+                            <span className="font-medium text-gray-500">Participants:</span>{' '}
+                            <span className="text-gray-900">{support.participants}</span>
+                          </div>
+                        )}
+                      </div>
 
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedSupport(support);
-                              setShowSupportModal(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Modifier
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleDeleteSupport(support.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Supprimer
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedSupport(support);
+                            setShowSupportModal(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Modifier
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteSupport(support.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
-          {activeTab === 'financial' && (
-            <div className="space-y-6">
+        <section id="financial">
+          <Card>
+            <CardHeader>
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Plan de Décaissement</h2>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-blue-600" />
+                  <CardTitle>Plan de Decaissement</CardTitle>
+                </div>
                 {!disbursementPlan && (
-                  <Button onClick={() => setShowFinancialModal(true)}>
+                  <Button onClick={() => setShowFinancialModal(true)} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
-                    Créer le plan
+                    Creer le plan
                   </Button>
                 )}
               </div>
-
+            </CardHeader>
+            <CardContent>
               {disbursementPlan ? (
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        Montant total: {disbursementPlan.total_amount.toLocaleString()} {disbursementPlan.currency}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {disbursementTranches.map((tranche) => (
-                          <div
-                            key={tranche.id}
-                            className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-                          >
-                            <div className="flex justify-between items-start mb-3">
-                              <div>
-                                <h4 className="font-medium">
-                                  Tranche {tranche.tranche_number}
-                                </h4>
-                                <p className="text-sm text-gray-600">
-                                  {tranche.amount.toLocaleString()} {disbursementPlan.currency} ({tranche.percentage}%)
-                                </p>
-                              </div>
-                              {getStatusBadge(tranche.status)}
-                            </div>
+                <div>
+                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                    <p className="text-lg font-semibold text-blue-900">
+                      Montant total: {disbursementPlan.total_amount.toLocaleString()} {disbursementPlan.currency}
+                    </p>
+                  </div>
 
-                            {tranche.scheduled_date && (
-                              <p className="text-sm text-gray-600 mb-2">
-                                Date prévue: {new Date(tranche.scheduled_date).toLocaleDateString('fr-FR')}
-                              </p>
-                            )}
-
-                            {tranche.conditions && (
-                              <p className="text-sm text-gray-700 mb-3">
-                                <span className="font-medium">Conditions:</span> {tranche.conditions}
-                              </p>
-                            )}
-
-                            {tranche.status === 'pending' && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleUpdateTranche(tranche.id, { status: 'disbursed', actual_disbursement_date: new Date() })}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Marquer comme décaissé
-                              </Button>
-                            )}
-
-                            {tranche.actual_disbursement_date && (
-                              <p className="text-sm text-green-600 mt-2">
-                                Décaissé le: {new Date(tranche.actual_disbursement_date).toLocaleDateString('fr-FR')}
-                              </p>
-                            )}
+                  <div className="space-y-4">
+                    {disbursementTranches.map((tranche) => (
+                      <div
+                        key={tranche.id}
+                        className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900">
+                              Tranche {tranche.tranche_number}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              {tranche.amount.toLocaleString()} {disbursementPlan.currency} ({tranche.percentage}%)
+                            </p>
                           </div>
-                        ))}
+                          {getStatusBadge(tranche.status)}
+                        </div>
+
+                        {tranche.scheduled_date && (
+                          <p className="text-sm text-gray-600 mb-2">
+                            Date prevue: {new Date(tranche.scheduled_date).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+
+                        {tranche.conditions && (
+                          <p className="text-sm text-gray-700 mb-3">
+                            <span className="font-medium">Conditions:</span> {tranche.conditions}
+                          </p>
+                        )}
+
+                        {tranche.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateTranche(tranche.id, { status: 'disbursed', actual_disbursement_date: new Date() })}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Marquer comme decaisse
+                          </Button>
+                        )}
+
+                        {tranche.actual_disbursement_date && (
+                          <p className="text-sm text-green-600 mt-2">
+                            Decaisse le: {new Date(tranche.actual_disbursement_date).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <Card>
-                  <CardContent className="text-center py-12">
-                    <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">Aucun plan de décaissement créé</p>
-                  </CardContent>
-                </Card>
+                <div className="text-center py-8">
+                  <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Aucun plan de decaissement cree</p>
+                </div>
               )}
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        </section>
 
-          {activeTab === 'archive' && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold">Archivage et Export</h2>
+        <section id="archive">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-blue-600" />
+                <CardTitle>Archivage et Export</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-6">
+                <Archive className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  Archiver le projet: {currentProject?.title}
+                </h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-6">
+                  L'archivage permet de cloturer officiellement le projet et d'exporter
+                  l'ensemble du dossier (documents, evaluations, accompagnement, decaissements)
+                  au format ZIP.
+                </p>
 
-              <Card>
-                <CardContent className="py-8">
-                  <div className="text-center space-y-4">
-                    <Archive className="h-16 w-16 text-blue-600 mx-auto" />
-                    <h3 className="text-lg font-semibold">
-                      Archiver le projet: {currentProject?.title}
-                    </h3>
-                    <p className="text-gray-600 max-w-md mx-auto">
-                      L'archivage permet de clôturer officiellement le projet et d'exporter
-                      l'ensemble du dossier (documents, évaluations, accompagnement, décaissements)
-                      au format ZIP.
-                    </p>
+                <div className="flex gap-4 justify-center">
+                  <Button
+                    onClick={handleArchiveProject}
+                    disabled={isArchiving}
+                  >
+                    <Archive className="h-4 w-4 mr-2" />
+                    {isArchiving ? 'Archivage...' : 'Archiver le projet'}
+                  </Button>
 
-                    <div className="flex gap-4 justify-center pt-4">
-                      <Button
-                        onClick={handleArchiveProject}
-                        disabled={isArchiving}
-                      >
-                        <Archive className="h-4 w-4 mr-2" />
-                        {isArchiving ? 'Archivage...' : 'Archiver le projet'}
-                      </Button>
+                  <Button variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Exporter en ZIP
+                  </Button>
+                </div>
 
-                      <Button variant="outline">
-                        <Download className="h-4 w-4 mr-2" />
-                        Exporter en ZIP
-                      </Button>
-                    </div>
-
-                    <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-left text-sm text-yellow-800">
-                          <p className="font-medium mb-1">Attention</p>
-                          <p>
-                            Cette action est définitive. Le projet sera marqué comme archivé
-                            et ne pourra plus être modifié.
-                          </p>
-                        </div>
-                      </div>
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg max-w-md mx-auto">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-left text-sm text-yellow-800">
+                      <p className="font-medium mb-1">Attention</p>
+                      <p>
+                        Cette action est definitive. Le projet sera marque comme archive
+                        et ne pourra plus etre modifie.
+                      </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      </div>
 
       <DocumentRequestModal
         isOpen={showDocumentModal}

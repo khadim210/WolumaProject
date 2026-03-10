@@ -89,6 +89,47 @@
   .form-input {
     @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
   }
+
+  .form-input-light-blue {
+    @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-blue-50;
+  }
+
+  select.bg-blue-50 {
+    color: #1f2937;
+    background-color: #eff6ff;
+  }
+
+  select.bg-blue-50 option {
+    color: #1f2937;
+    background-color: #ffffff;
+  }
+
+  /* Mobile select styling for better compatibility */
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+
+  select option {
+    color: #1f2937;
+    background-color: #ffffff;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+  }
+
+  /* Ensure options are visible on iOS/Android */
+  @supports (-webkit-touch-callout: none) {
+    select {
+      font-size: 16px;
+      min-height: 44px;
+    }
+  }
   
   .form-label {
     @apply block text-sm font-medium text-gray-700 mb-1;
