@@ -40,24 +40,22 @@ const ProcessStep: React.FC<ProcessStepProps> = ({ number, title, isActive, isCo
   );
 };
 
-const getStatusIndex = (status: ProjectStatus): number => {
-  const statusOrder: ProjectStatus[] = [
-    'draft',
-    'submitted',
-    'eligible',
-    'ineligible',
-    'under_review',
-    'pre_selected',
-    'selected',
-    'formalization',
-    'financed',
-    'monitoring',
-    'closed',
-    'rejected'
-  ];
-
-  const index = statusOrder.indexOf(status);
-  return index !== -1 ? index : 0;
+const getStepForStatus = (status: ProjectStatus): number => {
+  const statusToStep: Record<ProjectStatus, number> = {
+    'draft': 1,
+    'submitted': 2,
+    'eligible': 2,
+    'ineligible': 2,
+    'under_review': 3,
+    'pre_selected': 3,
+    'selected': 3,
+    'formalization': 4,
+    'financed': 5,
+    'monitoring': 5,
+    'closed': 6,
+    'rejected': 2
+  };
+  return statusToStep[status] || 1;
 };
 
 interface ProcessDiagramProps {
@@ -66,15 +64,15 @@ interface ProcessDiagramProps {
 }
 
 const ProcessDiagram: React.FC<ProcessDiagramProps> = ({ currentStatus, className }) => {
-  const currentIndex = getStatusIndex(currentStatus);
+  const currentStepNumber = getStepForStatus(currentStatus);
 
   const steps = [
-    { number: 1, title: 'Préparation', statuses: ['draft'], minIndex: 0 },
-    { number: 2, title: 'Soumission', statuses: ['submitted', 'eligible', 'ineligible'], minIndex: 1 },
-    { number: 3, title: 'Sélection', statuses: ['under_review', 'pre_selected', 'selected'], minIndex: 4 },
-    { number: 4, title: 'Formalisation', statuses: ['formalization'], minIndex: 7 },
-    { number: 5, title: 'Suivi', statuses: ['financed', 'monitoring'], minIndex: 8 },
-    { number: 6, title: 'Clôture', statuses: ['closed'], minIndex: 10 },
+    { number: 1, title: 'Préparation', statuses: ['draft'] as ProjectStatus[] },
+    { number: 2, title: 'Soumission', statuses: ['submitted', 'eligible', 'ineligible', 'rejected'] as ProjectStatus[] },
+    { number: 3, title: 'Sélection', statuses: ['under_review', 'pre_selected', 'selected'] as ProjectStatus[] },
+    { number: 4, title: 'Formalisation', statuses: ['formalization'] as ProjectStatus[] },
+    { number: 5, title: 'Suivi', statuses: ['financed', 'monitoring'] as ProjectStatus[] },
+    { number: 6, title: 'Clôture', statuses: ['closed'] as ProjectStatus[] },
   ];
 
   return (
@@ -82,7 +80,7 @@ const ProcessDiagram: React.FC<ProcessDiagramProps> = ({ currentStatus, classNam
       <div className="space-y-6">
         {steps.map((step, index) => {
           const isActive = step.statuses.includes(currentStatus);
-          const isCompleted = currentIndex > step.minIndex && !isActive;
+          const isCompleted = currentStepNumber > step.number;
           const isLast = index === steps.length - 1;
 
           return (
