@@ -1122,9 +1122,10 @@ const FormalizationPage: React.FC = () => {
                         )}
 
                         <div className="flex gap-2">
-                          <label className="flex-1">
+                          <div className="flex-1">
                             <input
                               type="file"
+                              id={`file-input-${request.id}`}
                               className="hidden"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
@@ -1134,6 +1135,7 @@ const FormalizationPage: React.FC = () => {
                                     handleUploadDocument(request.id, file, email);
                                   }
                                 }
+                                e.target.value = '';
                               }}
                               disabled={isUploading === request.id || request.status === 'validated'}
                             />
@@ -1142,11 +1144,15 @@ const FormalizationPage: React.FC = () => {
                               size="sm"
                               className="w-full"
                               disabled={isUploading === request.id || request.status === 'validated'}
+                              onClick={() => {
+                                const input = document.getElementById(`file-input-${request.id}`) as HTMLInputElement;
+                                input?.click();
+                              }}
                             >
                               <Upload className="h-4 w-4 mr-2" />
                               {isUploading === request.id ? 'Televersement...' : hasDocument ? 'Remplacer' : 'Uploader'}
                             </Button>
-                          </label>
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"
