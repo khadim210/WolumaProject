@@ -46,6 +46,7 @@ import { formalizationService } from '../../services/formalizationService';
 import { EmailService } from '../../services/emailService';
 import type {
   DocumentRequest,
+  DocumentSubmission,
   TechnicalSupport,
   DisbursementPlan,
   DisbursementTranche
@@ -67,11 +68,14 @@ const FormalizationPage: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
+  const [documentSubmissions, setDocumentSubmissions] = useState<Record<string, DocumentSubmission[]>>({});
   const [technicalSupports, setTechnicalSupports] = useState<TechnicalSupport[]>([]);
   const [disbursementPlan, setDisbursementPlan] = useState<DisbursementPlan | null>(null);
   const [disbursementTranches, setDisbursementTranches] = useState<DisbursementTranche[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploading, setIsUploading] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFileName, setPreviewFileName] = useState<string>('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [programFilter, setProgramFilter] = useState<string>('all');
@@ -105,6 +109,13 @@ const FormalizationPage: React.FC = () => {
       setTechnicalSupports(supports);
       setDisbursementPlan(financial.plan);
       setDisbursementTranches(financial.tranches);
+
+      const submissionsMap: Record<string, DocumentSubmission[]> = {};
+      for (const doc of docs) {
+        const submissions = await formalizationService.getDocumentSubmissions(doc.id);
+        submissionsMap[doc.id] = submissions;
+      }
+      setDocumentSubmissions(submissionsMap);
     } catch (error) {
       console.error('Error loading project data:', error);
     }
@@ -211,7 +222,7 @@ const FormalizationPage: React.FC = () => {
   };
 
   const handleUploadDocument = async (requestId: string, file: File, submittedBy: string) => {
-    setIsUploading(true);
+    setIsUploading(requestId);
     try {
       const filePath = await formalizationService.uploadDocument(file, requestId);
       if (filePath) {
@@ -228,8 +239,29 @@ const FormalizationPage: React.FC = () => {
       console.error('Error uploading document:', error);
       alert('Erreur lors du televersement');
     } finally {
-      setIsUploading(false);
+      setIsUploading(null);
     }
+  };
+
+  const handleViewDocument = async (filePath: string, fileName: string) => {
+    try {
+      const url = await formalizationService.getDownloadUrl(filePath);
+      if (url) {
+        setPreviewUrl(url);
+        setPreviewFileName(fileName);
+      }
+    } catch (error) {
+      console.error('Error getting document URL:', error);
+      alert('Erreur lors de l\'ouverture du document');
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
   const handleCreateTechnicalSupport = async (values: any) => {
@@ -1018,78 +1050,128 @@ const FormalizationPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {documentRequests.map((request) => (
-                    <div
-                      key={request.id}
-                      className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{request.document_name}</h4>
-                          <p className="text-sm text-gray-500">Type: {request.document_type}</p>
+                  {documentRequests.map((request) => {
+                    const submissions = documentSubmissions[request.id] || [];
+                    const latestSubmission = submissions[0];
+                    const hasDocument = !!latestSubmission;
+
+                    return (
+                      <div
+                        key={request.id}
+                        className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{request.document_name}</h4>
+                            <p className="text-sm text-gray-500">Type: {request.document_type}</p>
+                          </div>
+                          {getStatusBadge(request.status)}
                         </div>
-                        {getStatusBadge(request.status)}
-                      </div>
 
-                      <p className="text-gray-700 text-sm mb-3">{request.description}</p>
+                        <p className="text-gray-700 text-sm mb-3">{request.description}</p>
 
-                      {request.due_date && (
-                        <p className="text-sm text-gray-500 mb-3">
-                          <Clock className="h-4 w-4 inline mr-1" />
-                          Date limite: {new Date(request.due_date).toLocaleDateString('fr-FR')}
-                        </p>
-                      )}
+                        {request.due_date && (
+                          <p className="text-sm text-gray-500 mb-3">
+                            <Clock className="h-4 w-4 inline mr-1" />
+                            Date limite: {new Date(request.due_date).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
 
-                      <div className="flex gap-2">
-                        <label className="flex-1">
-                          <input
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const email = prompt('Email du soumissionnaire:');
-                                if (email) {
-                                  handleUploadDocument(request.id, file, email);
+                        {hasDocument && (
+                          <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-50 rounded-lg">
+                                  <FileText className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900 text-sm">{latestSubmission.file_name}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {formatFileSize(latestSubmission.file_size)} - Soumis le {new Date(latestSubmission.submitted_at).toLocaleDateString('fr-FR')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleViewDocument(latestSubmission.file_path, latestSubmission.file_name)}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Voir le document"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </button>
+                                <a
+                                  href="#"
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    const url = await formalizationService.getDownloadUrl(latestSubmission.file_path);
+                                    if (url) window.open(url, '_blank');
+                                  }}
+                                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Telecharger"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </a>
+                              </div>
+                            </div>
+                            {submissions.length > 1 && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                {submissions.length - 1} version(s) precedente(s)
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <label className="flex-1">
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const email = prompt('Email du soumissionnaire:');
+                                  if (email) {
+                                    handleUploadDocument(request.id, file, email);
+                                  }
                                 }
-                              }
-                            }}
-                            disabled={isUploading || request.status === 'validated'}
-                          />
+                              }}
+                              disabled={isUploading === request.id || request.status === 'validated'}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              disabled={isUploading === request.id || request.status === 'validated'}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              {isUploading === request.id ? 'Televersement...' : hasDocument ? 'Remplacer' : 'Uploader'}
+                            </Button>
+                          </label>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full"
-                            disabled={isUploading || request.status === 'validated'}
+                            onClick={() => {
+                              formalizationService.updateDocumentRequest(request.id, {
+                                status: 'validated'
+                              }).then(() => loadProjectData(selectedProject));
+                            }}
+                            disabled={request.status !== 'submitted'}
                           >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {isUploading ? 'Televersement...' : 'Uploader'}
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Valider
                           </Button>
-                        </label>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            formalizationService.updateDocumentRequest(request.id, {
-                              status: 'validated'
-                            }).then(() => loadProjectData(selectedProject));
-                          }}
-                          disabled={request.status !== 'submitted'}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Valider
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteDocumentRequest(request.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteDocumentRequest(request.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1361,6 +1443,73 @@ const FormalizationPage: React.FC = () => {
           projectBudget={currentProject.budget}
           existingPlan={disbursementPlan && { ...disbursementPlan, tranches: disbursementTranches }}
         />
+      )}
+
+      {previewUrl && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-gray-900">{previewFileName}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  Ouvrir dans un nouvel onglet
+                </a>
+                <button
+                  onClick={() => {
+                    setPreviewUrl(null);
+                    setPreviewFileName('');
+                  }}
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden p-4">
+              {previewFileName.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full min-h-[60vh] rounded-lg border"
+                  title={previewFileName}
+                />
+              ) : previewFileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <div className="flex items-center justify-center h-full">
+                  <img
+                    src={previewUrl}
+                    alt={previewFileName}
+                    className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full py-12">
+                  <FileText className="h-16 w-16 text-gray-400 mb-4" />
+                  <p className="text-gray-600 mb-4">
+                    Ce type de fichier ne peut pas etre previsualise directement.
+                  </p>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    Telecharger le fichier
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
