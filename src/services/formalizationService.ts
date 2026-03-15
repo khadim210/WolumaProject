@@ -130,7 +130,7 @@ class FormalizationService {
   async updateDocumentRequest(id: string, updates: Partial<DocumentRequest>): Promise<boolean> {
     const { error } = await supabase
       .from('document_requests')
-      .update({ ...updates, updated_at: new Date() })
+      .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {
@@ -188,7 +188,10 @@ class FormalizationService {
       return null;
     }
 
-    await this.updateDocumentRequest(data.request_id!, { status: 'submitted' });
+    const updateSuccess = await this.updateDocumentRequest(data.request_id!, { status: 'submitted' });
+    if (!updateSuccess) {
+      console.error('Failed to update document request status to submitted');
+    }
 
     return result;
   }
