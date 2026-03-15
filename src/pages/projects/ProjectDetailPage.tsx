@@ -23,7 +23,7 @@ import { formatFileSize, UploadedFile } from '../../utils/fileUpload';
 import { generateEvaluationReport } from '../../utils/pdfGenerator';
 import { formatCurrency } from '../../utils/currency';
 import { ProjectStatusService } from '../../services/projectStatusService';
-import { formalizationService, DocumentRequest } from '../../services/formalizationService';
+import { formalizationService, DocumentRequest, DocumentSubmission } from '../../services/formalizationService';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +44,7 @@ const ProjectDetailPage: React.FC = () => {
   const [editFormData, setEditFormData] = useState<Record<string, any>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([]);
+  const [documentSubmissions, setDocumentSubmissions] = useState<Record<string, DocumentSubmission[]>>({});
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [uploadingRequestId, setUploadingRequestId] = useState<string | null>(null);
   
@@ -72,6 +73,13 @@ const ProjectDetailPage: React.FC = () => {
 
         const docRequests = await formalizationService.getDocumentRequestsByProject(id);
         setDocumentRequests(docRequests);
+
+        const submissionsMap: Record<string, DocumentSubmission[]> = {};
+        for (const doc of docRequests) {
+          const submissions = await formalizationService.getDocumentSubmissions(doc.id);
+          submissionsMap[doc.id] = submissions;
+        }
+        setDocumentSubmissions(submissionsMap);
 
         if (!projectData) {
           console.log('⚠️ Project not found, redirecting...');
@@ -212,6 +220,9 @@ const ProjectDetailPage: React.FC = () => {
 
         const updatedRequests = await formalizationService.getDocumentRequestsByProject(id);
         setDocumentRequests(updatedRequests);
+
+        const submissions = await formalizationService.getDocumentSubmissions(requestId);
+        setDocumentSubmissions(prev => ({ ...prev, [requestId]: submissions }));
 
         alert('Document televerse avec succes!');
       }
@@ -856,6 +867,40 @@ const ProjectDetailPage: React.FC = () => {
                                 : 'Telecharger le document'}
                             </Button>
                           </label>
+                        </div>
+                      )}
+
+                      {documentSubmissions[request.id]?.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-medium text-gray-700">Document(s) soumis:</p>
+                          {documentSubmissions[request.id].map((submission) => (
+                            <div
+                              key={submission.id}
+                              className="flex items-center justify-between p-2 bg-blue-50 border border-blue-100 rounded-lg"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileCheck className="h-4 w-4 text-blue-600 shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {submission.file_name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {formatFileSize(submission.file_size)} - {new Date(submission.submitted_at || submission.created_at).toLocaleDateString('fr-FR')}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  const url = await formalizationService.getDownloadUrl(submission.file_path);
+                                  if (url) window.open(url, '_blank');
+                                }}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       )}
 
