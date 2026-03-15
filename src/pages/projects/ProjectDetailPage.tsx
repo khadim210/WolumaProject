@@ -939,6 +939,60 @@ const ProjectDetailPage: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          {Object.values(documentSubmissions).flat().length > 0 && (
+            <Card className="border-l-4 border-l-green-500">
+              <CardHeader>
+                <CardTitle className="flex items-center text-base">
+                  <FileCheck className="h-5 w-5 mr-2 text-green-600" />
+                  Documents soumis ({Object.values(documentSubmissions).flat().length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(documentSubmissions).map(([requestId, submissions]) => {
+                    const request = documentRequests.find(r => r.id === requestId);
+                    return submissions.map((submission) => (
+                      <div
+                        key={submission.id}
+                        className="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <FileCheck className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {submission.file_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {request?.document_name && (
+                                <span className="text-green-700 font-medium">{request.document_name}</span>
+                              )}
+                              {request?.document_name && ' - '}
+                              {formatFileSize(submission.file_size)} - Soumis le {new Date(submission.submitted_at || submission.created_at).toLocaleDateString('fr-FR')}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          leftIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                          onClick={async () => {
+                            const url = await formalizationService.getDownloadUrl(submission.file_path);
+                            if (url) window.open(url, '_blank');
+                          }}
+                        >
+                          Ouvrir
+                        </Button>
+                      </div>
+                    ));
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
