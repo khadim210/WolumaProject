@@ -94,7 +94,6 @@ export const generateEvaluationReport = async (
     head: [],
     body: [
       ['Titre', project.title],
-      ['Budget', formatCurrency(project.budget, program.currency || 'XOF')],
       ['Durée', project.timeline],
       ['Programme', program.name],
       ...(partner ? [['Partenaire', partner.name]] : [])
@@ -366,7 +365,6 @@ export const generateWolumaEvaluationReport = async (
     head: [],
     body: [
       ['Titre du projet', project.title],
-      ['Chiffre d\'Affaires', formatCurrency(project.budget, program.currency || 'XOF')],
       ['Durée d\'existence', project.timeline],
       ['Programme de rattachement', program.name],
       ['Partenaire d\'exécution', partner?.name || 'N/A'],
