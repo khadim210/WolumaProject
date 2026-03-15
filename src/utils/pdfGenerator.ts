@@ -68,7 +68,7 @@ export const generateEvaluationReport = async (
   pdf.rect(0, 0, pageWidth, 40, 'F');
 
   if (logoBase64) {
-    pdf.addImage(logoBase64, 'PNG', margin, 5, 30, 30);
+    pdf.addImage(logoBase64, 'PNG', margin, 8, 20, 20);
   }
 
   pdf.setTextColor(255, 255, 255);
@@ -340,23 +340,23 @@ export const generateWolumaEvaluationReport = async (
 
   // HEADER with logo
   if (logoBase64) {
-    pdf.addImage(logoBase64, 'PNG', margin, yPosition - 15, 35, 35);
+    pdf.addImage(logoBase64, 'PNG', margin, yPosition - 10, 22, 22);
   }
 
   pdf.setFontSize(18);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  pdf.text('RAPPORT D\'ÉVALUATION DE PROJET', pageWidth / 2 + 12, yPosition, { align: 'center' });
   yPosition += 12;
 
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'bolditalic');
-  pdf.text('Plateforme Woluma', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  pdf.text('Plateforme Woluma', pageWidth / 2 + 12, yPosition, { align: 'center' });
   yPosition += 8;
 
   pdf.setFont('helvetica', 'italic');
   pdf.setFontSize(9);
-  pdf.text('Solution d\'evaluation et de financement intelligent des PME africaines', pageWidth / 2 + 20, yPosition, { align: 'center' });
-  yPosition += 25;
+  pdf.text('Solution d\'evaluation et de financement intelligent des PME africaines', pageWidth / 2 + 12, yPosition, { align: 'center' });
+  yPosition += 20;
 
   // 1. INFORMATIONS GÉNÉRALES
   addSection('1. Informations Générales du Projet');
@@ -646,23 +646,23 @@ export const generateEligibilityReport = async (
   const logoBase64 = await loadLogoAsBase64();
 
   if (logoBase64) {
-    pdf.addImage(logoBase64, 'PNG', margin, yPosition - 15, 35, 35);
+    pdf.addImage(logoBase64, 'PNG', margin, yPosition - 10, 22, 22);
   }
 
   pdf.setFontSize(18);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('RAPPORT D\'ELIGIBILITE', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  pdf.text('RAPPORT D\'ELIGIBILITE', pageWidth / 2 + 12, yPosition, { align: 'center' });
   yPosition += 12;
 
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'bolditalic');
-  pdf.text('Plateforme Woluma', pageWidth / 2 + 20, yPosition, { align: 'center' });
+  pdf.text('Plateforme Woluma', pageWidth / 2 + 12, yPosition, { align: 'center' });
   yPosition += 8;
 
   pdf.setFont('helvetica', 'italic');
   pdf.setFontSize(9);
-  pdf.text('Solution d\'evaluation et de financement intelligent des PME africaines', pageWidth / 2 + 20, yPosition, { align: 'center' });
-  yPosition += 25;
+  pdf.text('Solution d\'evaluation et de financement intelligent des PME africaines', pageWidth / 2 + 12, yPosition, { align: 'center' });
+  yPosition += 20;
 
   addSection('1. Informations du Porteur');
 
