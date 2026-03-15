@@ -774,10 +774,6 @@ const FormalizationPage: React.FC = () => {
                                 <span>{partner.name}</span>
                               </div>
                             )}
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="h-4 w-4" />
-                              <span>{project.budget?.toLocaleString('fr-FR')} XOF</span>
-                            </div>
                             {project.submissionDate && (
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
