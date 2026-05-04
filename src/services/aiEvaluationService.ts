@@ -1,4 +1,5 @@
 import { extractMultipleFileContents, formatFileContentForPrompt } from '../utils/fileContentExtractor';
+import { supabase } from './supabaseService';
 
 export type AIProvider = 'gemini' | 'chatgpt' | 'anthropic' | 'mistral' | 'mock';
 
@@ -94,11 +95,19 @@ class AIEvaluationService {
 
     const proxyUrl = `${SUPABASE_URL}/functions/v1/ai-proxy`;
 
+    let authToken = SUPABASE_ANON_KEY;
+    if (supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        authToken = session.access_token;
+      }
+    }
+
     const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Authorization': `Bearer ${authToken}`,
         'apikey': SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({
