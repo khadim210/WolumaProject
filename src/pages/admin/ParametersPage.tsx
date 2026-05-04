@@ -365,18 +365,20 @@ const ParametersPage: React.FC = () => {
                           Modèle
                         </label>
                         <select
-                          value={formData.openaiModel || 'gpt-4o-mini'}
+                          value={formData.openaiModel || 'gpt-4.1-mini'}
                           onChange={(e) => handleInputChange('openaiModel', e.target.value)}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         >
-                          <option value="gpt-4o">GPT-4o (Recommandé - Rapide et performant)</option>
-                          <option value="gpt-4o-mini">GPT-4o Mini (Économique)</option>
-                          <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
-                          <option value="gpt-4">GPT-4 (Standard)</option>
-                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
+                          <option value="gpt-4.1">GPT-4.1 (Dernier - Haute performance)</option>
+                          <option value="gpt-4.1-mini">GPT-4.1 Mini (Recommandé - Économique)</option>
+                          <option value="gpt-4o">GPT-4o</option>
+                          <option value="gpt-4o-mini">GPT-4o Mini</option>
+                          <option value="o4-mini">o4-mini (Raisonnement)</option>
+                          <option value="o3">o3 (Raisonnement avancé)</option>
+                          <option value="o3-mini">o3-mini (Raisonnement compact)</option>
                         </select>
                         <p className="mt-1 text-xs text-gray-500">
-                          GPT-4o est recommandé pour un bon équilibre performance/coût. <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Voir les modèles</a>
+                          GPT-4.1 Mini est recommandé pour un bon équilibre performance/coût. <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Voir les modèles</a>
                         </p>
                       </div>
 
@@ -424,13 +426,14 @@ const ParametersPage: React.FC = () => {
                           Modèle Claude
                         </label>
                         <select
-                          value={formData.anthropicModel || 'claude-3-opus-20240229'}
+                          value={formData.anthropicModel || 'claude-sonnet-4-5'}
                           onChange={(e) => handleInputChange('anthropicModel', e.target.value)}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         >
-                          <option value="claude-3-opus-20240229">Claude 3 Opus (Plus puissant)</option>
-                          <option value="claude-3-sonnet-20240229">Claude 3 Sonnet (Équilibré)</option>
-                          <option value="claude-3-haiku-20240307">Claude 3 Haiku (Rapide)</option>
+                          <option value="claude-opus-4-5">Claude Opus 4.5 (Plus puissant)</option>
+                          <option value="claude-sonnet-4-5">Claude Sonnet 4.5 (Recommandé - Équilibré)</option>
+                          <option value="claude-haiku-3-5">Claude Haiku 3.5 (Rapide et économique)</option>
+                          <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
                         </select>
                       </div>
                     </div>
@@ -465,13 +468,15 @@ const ParametersPage: React.FC = () => {
                           Modèle Gemini
                         </label>
                         <select
-                          value={formData.googleModel || 'gemini-pro'}
+                          value={formData.googleModel || 'gemini-2.0-flash'}
                           onChange={(e) => handleInputChange('googleModel', e.target.value)}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         >
-                          <option value="gemini-pro">Gemini Pro</option>
-                          <option value="gemini-pro-vision">Gemini Pro Vision</option>
-                          <option value="gemini-ultra">Gemini Ultra</option>
+                          <option value="gemini-2.5-pro-preview-05-06">Gemini 2.5 Pro Preview (Plus puissant)</option>
+                          <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview (Recommandé)</option>
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                          <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (Économique)</option>
+                          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                         </select>
                       </div>
                     </div>
@@ -513,6 +518,8 @@ const ParametersPage: React.FC = () => {
                           <option value="mistral-large-latest">Mistral Large (Recommandé)</option>
                           <option value="mistral-medium-latest">Mistral Medium</option>
                           <option value="mistral-small-latest">Mistral Small</option>
+                          <option value="codestral-latest">Codestral (Code)</option>
+                          <option value="open-mistral-nemo">Mistral Nemo (Open Source)</option>
                         </select>
                       </div>
                     </div>

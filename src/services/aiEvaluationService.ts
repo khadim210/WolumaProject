@@ -1,6 +1,6 @@
 import { extractMultipleFileContents, formatFileContentForPrompt } from '../utils/fileContentExtractor';
 
-export type AIProvider = 'gemini' | 'chatgpt' | 'mock';
+export type AIProvider = 'gemini' | 'chatgpt' | 'anthropic' | 'mistral' | 'mock';
 
 export interface AIEvaluationRequest {
   projectData: {
@@ -34,18 +34,18 @@ export interface AIEvaluationResponse {
   notes: string;
   recommendation: 'pre_selected' | 'selected' | 'rejected';
   detailedAnalysis?: {
-    strengths: string[];  // Forces
-    weaknesses: string[];  // Faiblesses
-    opportunities: string[];  // Opportunités
-    risks: string[];  // Risques
-    observations: Record<string, string>;  // Observations par critère
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    risks: string[];
+    observations: Record<string, string>;
   };
 }
 
 class AIEvaluationService {
   private provider: AIProvider = 'mock';
   private apiKey: string = '';
-  private model: string = 'gpt-4o-mini';
+  private model: string = 'gpt-4.1-mini';
 
   setProvider(provider: AIProvider, apiKey?: string) {
     this.provider = provider;
@@ -72,6 +72,10 @@ class AIEvaluationService {
         return this.evaluateWithGemini(request);
       case 'chatgpt':
         return this.evaluateWithChatGPT(request);
+      case 'anthropic':
+        return this.evaluateWithAnthropic(request);
+      case 'mistral':
+        return this.evaluateWithMistral(request);
       default:
         return this.evaluateWithMock(request);
     }
@@ -83,38 +87,41 @@ class AIEvaluationService {
     }
 
     const prompt = await this.buildPrompt(request);
+    const model = this.model || 'gemini-2.0-flash';
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048,
-          }
-        })
-      });
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 8192,
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Erreur API Gemini: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || 'Erreur inconnue';
+        if (response.status === 400) {
+          throw new Error(`Requête invalide (400): ${errorMessage}. Modèle utilisé: "${model}".`);
+        }
+        throw new Error(`Erreur API Gemini: ${response.status} - ${errorMessage}`);
       }
 
       const data = await response.json();
       const aiResponse = data.candidates[0].content.parts[0].text;
-      
+
       return this.parseAIResponse(aiResponse, request.evaluationCriteria);
     } catch (error) {
-      console.error('Erreur Gemini:', error);
+      if (error instanceof Error) throw error;
       throw new Error('Erreur lors de l\'évaluation avec Gemini');
     }
   }
@@ -125,6 +132,28 @@ class AIEvaluationService {
     }
 
     const prompt = await this.buildPrompt(request);
+    const model = this.model || 'gpt-4.1-mini';
+
+    // o-series models use max_completion_tokens instead of max_tokens
+    const isOSeries = model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
+
+    const body: Record<string, any> = {
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'Vous êtes un expert en évaluation de projets. Analysez objectivement les projets selon les critères fournis et répondez uniquement au format JSON demandé.',
+        },
+        { role: 'user', content: prompt },
+      ],
+    };
+
+    if (isOSeries) {
+      body.max_completion_tokens = 8192;
+    } else {
+      body.temperature = 0.3;
+      body.max_tokens = 8192;
+    }
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -133,21 +162,7 @@ class AIEvaluationService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Vous êtes un expert en évaluation de projets. Analysez objectivement les projets selon les critères fournis et répondez uniquement au format JSON demandé.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 2048,
-        })
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -161,21 +176,118 @@ class AIEvaluationService {
           throw new Error('Limite de taux API OpenAI dépassée. Veuillez vérifier votre quota ou réessayer plus tard.');
         }
         if (response.status === 400) {
-          throw new Error(`Requête invalide (400): ${errorMessage}. Modèle utilisé: "${this.model}". Vérifiez que le modèle est correct dans les paramètres.`);
+          throw new Error(`Requête invalide (400): ${errorMessage}. Modèle utilisé: "${model}".`);
         }
         throw new Error(`Erreur API OpenAI: ${response.status} - ${errorMessage}`);
       }
 
       const data = await response.json();
       const aiResponse = data.choices[0].message.content;
-      
+
       return this.parseAIResponse(aiResponse, request.evaluationCriteria);
     } catch (error) {
-      console.error('Erreur ChatGPT:', error);
-      if (error instanceof Error && error.message.includes('429')) {
-        throw new Error('Limite de taux API OpenAI dépassée. Veuillez vérifier votre quota ou réessayer plus tard.');
+      if (error instanceof Error) throw error;
+      throw new Error('Erreur lors de l\'évaluation avec ChatGPT');
+    }
+  }
+
+  private async evaluateWithAnthropic(request: AIEvaluationRequest): Promise<AIEvaluationResponse> {
+    if (!this.apiKey) {
+      throw new Error('Clé API Anthropic manquante');
+    }
+
+    const prompt = await this.buildPrompt(request);
+    const model = this.model || 'claude-sonnet-4-5';
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 8192,
+          temperature: 0.3,
+          system: 'Vous êtes un expert en évaluation de projets. Analysez objectivement les projets selon les critères fournis et répondez uniquement au format JSON demandé.',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || 'Erreur inconnue';
+
+        if (response.status === 401) {
+          throw new Error('Clé API Anthropic invalide ou expirée.');
+        }
+        if (response.status === 429) {
+          throw new Error('Limite de taux API Anthropic dépassée. Veuillez réessayer plus tard.');
+        }
+        throw new Error(`Erreur API Anthropic: ${response.status} - ${errorMessage}`);
       }
-      throw new Error(`Erreur lors de l'évaluation avec ChatGPT: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+
+      const data = await response.json();
+      const aiResponse = data.content[0].text;
+
+      return this.parseAIResponse(aiResponse, request.evaluationCriteria);
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error('Erreur lors de l\'évaluation avec Anthropic Claude');
+    }
+  }
+
+  private async evaluateWithMistral(request: AIEvaluationRequest): Promise<AIEvaluationResponse> {
+    if (!this.apiKey) {
+      throw new Error('Clé API Mistral manquante');
+    }
+
+    const prompt = await this.buildPrompt(request);
+    const model = this.model || 'mistral-large-latest';
+
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: 'Vous êtes un expert en évaluation de projets. Analysez objectivement les projets selon les critères fournis et répondez uniquement au format JSON demandé.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 8192,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || errorData?.message || 'Erreur inconnue';
+
+        if (response.status === 401) {
+          throw new Error('Clé API Mistral invalide ou expirée.');
+        }
+        if (response.status === 429) {
+          throw new Error('Limite de taux API Mistral dépassée. Veuillez réessayer plus tard.');
+        }
+        throw new Error(`Erreur API Mistral: ${response.status} - ${errorMessage}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices[0].message.content;
+
+      return this.parseAIResponse(aiResponse, request.evaluationCriteria);
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error('Erreur lors de l\'évaluation avec Mistral');
     }
   }
 
@@ -196,47 +308,36 @@ Date de soumission: ${projectData.submissionDate || new Date().toLocaleDateStrin
 
     const filesList: Array<{ path: string; name: string }> = [];
 
-    // Ajouter les données du formulaire si disponibles
     if (projectData.formData && Object.keys(projectData.formData).length > 0) {
-      basePrompt += `
-
-INFORMATIONS ADDITIONNELLES DU FORMULAIRE:`;
+      basePrompt += `\n\nINFORMATIONS ADDITIONNELLES DU FORMULAIRE:`;
 
       Object.entries(projectData.formData).forEach(([key, value]) => {
         if (Array.isArray(value) && value.length > 0 && value[0]?.path) {
-          // C'est un champ fichier
           const files = value as any[];
           basePrompt += `\n- ${key}: ${files.length} fichier(s) joint(s) (${files.map(f => f.name).join(', ')})`;
 
-          // Collecter les fichiers pour extraction de contenu
           if (request.includeFileContents) {
             files.forEach(f => {
               filesList.push({ path: f.path, name: f.name });
             });
           }
         } else if (value !== null && value !== undefined && value !== '') {
-          // Autres types de champs
           const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
           basePrompt += `\n- ${key}: ${displayValue}`;
         }
       });
     }
 
-    // Extraire et ajouter le contenu des fichiers si demandé
     if (request.includeFileContents && filesList.length > 0) {
       try {
         const fileContents = await extractMultipleFileContents(filesList);
         const formattedContents = formatFileContentForPrompt(fileContents);
         basePrompt += formattedContents;
       } catch (error) {
-        console.error('Erreur lors de l\'extraction du contenu des fichiers:', error);
-        basePrompt += `
-
-[Note: L'extraction du contenu des fichiers a échoué. Les fichiers sont disponibles mais leur contenu n'a pas pu être analysé automatiquement.]`;
+        basePrompt += `\n\n[Note: L'extraction du contenu des fichiers a échoué.]`;
       }
     }
 
-    // Ajouter le contexte du programme si disponible
     if (request.programContext) {
       basePrompt += `
 Programme de rattachement: ${request.programContext.name}
@@ -252,23 +353,19 @@ ${projectData.description}
 === OBJECTIF DE L'ÉVALUATION ===
 Mesurer la pertinence, la faisabilité et la viabilité économique du projet.
 Identifier les risques et les leviers de succès.
-Formuler des recommandations pour la décision de financement.`;
-
-    basePrompt += `
+Formuler des recommandations pour la décision de financement.
 
 === MÉTHODOLOGIE ===
 Analyse documentaire et validation des données financières.
 Évaluation selon les critères de la plateforme Woluma-Flow:
-${evaluationCriteria.map((c, i) =>
+${evaluationCriteria.map(c =>
   `  • ${c.name} (Pondération: ${c.weight}%, Score max: ${c.maxScore}) - ${c.description}`
 ).join('\n')}
 Scoring automatique et revue experte (hybrid model IA + analyse humain).`;
 
-    // Ajouter les instructions personnalisées si disponibles
     if (request.customPrompt) {
       let customInstructions = request.customPrompt;
-      
-      // Remplacer les variables si le contexte du programme est disponible
+
       if (request.programContext) {
         customInstructions = customInstructions
           .replace(/\{\{program_name\}\}/g, request.programContext.name)
@@ -276,11 +373,8 @@ Scoring automatique et revue experte (hybrid model IA + analyse humain).`;
           .replace(/\{\{partner_name\}\}/g, request.programContext.partnerName)
           .replace(/\{\{budget_range\}\}/g, request.programContext.budgetRange);
       }
-      
-      basePrompt += `
 
-INSTRUCTIONS SPÉCIFIQUES POUR CE PROGRAMME:
-${customInstructions}`;
+      basePrompt += `\n\nINSTRUCTIONS SPÉCIFIQUES POUR CE PROGRAMME:\n${customInstructions}`;
     }
 
     basePrompt += `
@@ -299,20 +393,20 @@ ${evaluationCriteria.map(c => `    "${c.name}": [score_entre_0_et_${c.maxScore}]
   "recommendation": "pre_selected|selected|rejected",
   "detailedAnalysis": {
     "strengths": [
-      "Force 1: Description précise (ex: Innovation technologique remarquable)",
+      "Force 1: Description précise",
       "Force 2: ...",
       "Force 3: ..."
     ],
     "weaknesses": [
-      "Faiblesse 1: Description précise (ex: Capacités financières limitées)",
+      "Faiblesse 1: Description précise",
       "Faiblesse 2: ..."
     ],
     "opportunities": [
-      "Opportunité 1: Description (ex: Marché en forte croissance)",
+      "Opportunité 1: Description",
       "Opportunité 2: ..."
     ],
     "risks": [
-      "Risque 1: Description (ex: Dépendance à un fournisseur unique)",
+      "Risque 1: Description",
       "Risque 2: ..."
     ],
     "observations": {
@@ -326,90 +420,44 @@ ${evaluationCriteria.map(c => `      "${c.name}": "[RÉDIGEZ UN COMMENTAIRE DÉT
 - "pre_selected": Score global ≥ 60% (Projet intéressant, nécessite ajustements)
 - "rejected": Score global < 60% (Projet non recommandé)
 
-=== EXIGENCES DE QUALITÉ - CRITIQUES ===
+=== EXIGENCES DE QUALITÉ ===
 
-🚨 RÈGLE ABSOLUE - LONGUEUR DES COMMENTAIRES:
-Chaque commentaire dans "observations" DOIT OBLIGATOIREMENT contenir MINIMUM 200 MOTS, IDÉALEMENT 250-300 MOTS.
+Chaque commentaire dans "observations" DOIT contenir MINIMUM 200 MOTS.
 
-Ce n'est PAS négociable. Des commentaires trop courts (moins de 200 mots) sont INACCEPTABLES.
-
-📝 STRUCTURE OBLIGATOIRE POUR CHAQUE COMMENTAIRE (200-300 mots):
-
-1. INTRODUCTION (40-50 mots):
-   - Rappeler le critère évalué
-   - Annoncer la note attribuée avec le score maximum
-   - Contextualiser l'importance de ce critère
-
-2. ANALYSE DÉTAILLÉE (80-100 mots):
-   - Examiner les documents fournis en détail
-   - Citer des données chiffrées précises (budget, timeline, CA, etc.)
-   - Analyser la cohérence et la complétude des informations
-   - Évaluer la qualité de la présentation
-   - Comparer aux standards du secteur
-
-3. POINTS FORTS ET FAIBLES (50-70 mots):
-   - Identifier 2-3 forces majeures avec justifications
-   - Identifier 1-2 faiblesses ou zones d'amélioration
-   - Expliquer l'impact de chaque point sur la notation
-   - Fournir des exemples concrets du dossier
-
-4. RECOMMANDATIONS ET CONCLUSION (30-50 mots):
-   - Proposer des pistes d'amélioration spécifiques
-   - Évaluer les risques et opportunités
-   - Conclure sur la pertinence du score attribué
-   - Suggérer des actions pour renforcer le projet
-
-💡 CONSEILS POUR ATTEINDRE 200-300 MOTS:
-- Développez chaque idée avec des détails
-- Donnez des exemples concrets tirés du dossier
-- Expliquez le "pourquoi" derrière chaque affirmation
-- Analysez les implications et conséquences
-- Comparez avec les meilleures pratiques du secteur
-- Citez des chiffres et données précises
-- Proposez des recommandations actionnables
-
-⚠️ VÉRIFICATION:
-Après avoir rédigé chaque commentaire, COMPTEZ LES MOTS. Si moins de 200 mots, DÉVELOPPEZ DAVANTAGE.
-
-Un commentaire professionnel de qualité fait naturellement 200-300 mots lorsqu'il est bien argumenté.`;
+STRUCTURE OBLIGATOIRE POUR CHAQUE COMMENTAIRE (200-300 mots):
+1. INTRODUCTION (40-50 mots): Rappeler le critère, la note attribuée, son importance
+2. ANALYSE DÉTAILLÉE (80-100 mots): Examiner les documents, citer des données chiffrées
+3. POINTS FORTS ET FAIBLES (50-70 mots): Identifier 2-3 forces, 1-2 faiblesses avec justifications
+4. RECOMMANDATIONS ET CONCLUSION (30-50 mots): Pistes d'amélioration, conclusion sur le score`;
 
     return basePrompt;
   }
 
   private parseAIResponse(aiResponse: string, criteria: any[]): AIEvaluationResponse {
     try {
-      // Nettoyer la réponse (supprimer les balises markdown si présentes)
       const cleanResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
       const parsed = JSON.parse(cleanResponse);
 
-      // Valider et nettoyer les scores
       const scores: Record<string, number> = {};
       criteria.forEach(criterion => {
         const score = parsed.scores[criterion.name];
         if (typeof score === 'number' && score >= 0 && score <= criterion.maxScore) {
           scores[criterion.name] = Math.round(score);
         } else {
-          // Score par défaut si invalide
           scores[criterion.name] = Math.floor(criterion.maxScore * 0.6);
         }
       });
 
-      // Valider la recommandation
       const validRecommendations = ['pre_selected', 'selected', 'rejected'];
       const recommendation = validRecommendations.includes(parsed.recommendation)
         ? parsed.recommendation
         : 'pre_selected';
 
-      // Valider et enrichir les observations (minimum 150 mots)
       const observations: Record<string, string> = {};
       criteria.forEach(criterion => {
         let comment = parsed.detailedAnalysis?.observations?.[criterion.name] || '';
-
-        // Compter les mots
         const wordCount = comment.trim().split(/\s+/).length;
 
-        // Si moins de 150 mots, enrichir le commentaire
         if (wordCount < 150) {
           const score = scores[criterion.name];
           const percentage = ((score / criterion.maxScore) * 100).toFixed(0);
@@ -428,10 +476,10 @@ AXES D'AMÉLIORATION:
 Quelques aspects pourraient bénéficier d'un renforcement pour optimiser la notation. Une documentation plus exhaustive sur certains points techniques permettrait de consolider l'évaluation. Des précisions supplémentaires sur la méthodologie et les indicateurs de suivi seraient également appréciables.
 
 RECOMMANDATIONS:
-Pour améliorer le score sur ce critère, il est recommandé de: (1) Développer davantage certains aspects techniques, (2) Fournir des données quantitatives complémentaires, (3) Renforcer l'argumentation sur les méthodologies employées, et (4) Clarifier certains points d'implémentation. Ces améliorations permettraient d'atteindre un niveau d'excellence sur ce critère.
+Pour améliorer le score sur ce critère, il est recommandé de: (1) Développer davantage certains aspects techniques, (2) Fournir des données quantitatives complémentaires, (3) Renforcer l'argumentation sur les méthodologies employées, et (4) Clarifier certains points d'implémentation.
 
 CONCLUSION:
-Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excellente' : percentage >= 60 ? 'satisfaisante' : 'à améliorer'} sur ce critère. ${percentage >= 80 ? 'Le projet démontre une maîtrise remarquable des aspects évalués.' : percentage >= 60 ? 'Le projet présente des bases solides avec quelques ajustements nécessaires.' : 'Des améliorations substantielles sont requises pour atteindre les standards attendus.'} Cette évaluation s'inscrit dans une démarche objective visant à identifier le potentiel du projet et les opportunités d'optimisation.`;
+Le score de ${percentage}% reflète une performance ${Number(percentage) >= 80 ? 'excellente' : Number(percentage) >= 60 ? 'satisfaisante' : 'à améliorer'} sur ce critère.`;
         }
 
         observations[criterion.name] = comment;
@@ -446,18 +494,15 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
           weaknesses: parsed.detailedAnalysis?.weaknesses || [],
           opportunities: parsed.detailedAnalysis?.opportunities || [],
           risks: parsed.detailedAnalysis?.risks || [],
-          observations
-        }
+          observations,
+        },
       };
     } catch (error) {
-      console.error('Erreur parsing réponse IA:', error);
-      // Fallback vers l'évaluation mock en cas d'erreur
       return this.evaluateWithMock({ projectData: {} as any, evaluationCriteria: criteria });
     }
   }
 
   private async evaluateWithMock(request: AIEvaluationRequest): Promise<AIEvaluationResponse> {
-    // Simuler un délai d'API
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const { projectData, evaluationCriteria } = request;
@@ -465,10 +510,8 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
     const observations: Record<string, string> = {};
 
     evaluationCriteria.forEach(criterion => {
-      // Logique de scoring simulée basée sur des heuristiques
       let score = Math.floor(Math.random() * (criterion.maxScore * 0.4)) + Math.floor(criterion.maxScore * 0.6);
 
-      // Ajustements basés sur des mots-clés
       const description = projectData.description?.toLowerCase() || '';
       const title = projectData.title?.toLowerCase() || '';
 
@@ -513,7 +556,6 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
         observations[criterion.name] = 'Structure organisationnelle claire avec des processus de gestion définis.';
       }
 
-      // Observation par défaut si aucune n'a été définie
       if (!observations[criterion.name]) {
         observations[criterion.name] = `Le projet démontre un niveau satisfaisant pour ce critère avec un score de ${score}/${criterion.maxScore}.`;
       }
@@ -521,7 +563,6 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
       scores[criterion.name] = Math.max(0, Math.min(criterion.maxScore, score));
     });
 
-    // Calculer le score total pour la recommandation
     const totalScore = evaluationCriteria.reduce((total, criterion) => {
       return total + (scores[criterion.name] / criterion.maxScore) * criterion.weight;
     }, 0);
@@ -530,13 +571,11 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
     if (totalScore >= 80) recommendation = 'selected';
     else if (totalScore >= 60) recommendation = 'pre_selected';
 
-    // Générer des forces, faiblesses, opportunités et risques
     const strengths: string[] = [];
     const weaknesses: string[] = [];
     const opportunities: string[] = [];
     const risks: string[] = [];
 
-    // Analyser les scores pour identifier forces et faiblesses
     evaluationCriteria.forEach(criterion => {
       const score = scores[criterion.name];
       const percentage = (score / criterion.maxScore) * 100;
@@ -548,19 +587,16 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
       }
     });
 
-    // Ajouter des opportunités basées sur le contexte
     if (projectData.tags?.some(tag => ['innovation', 'technologie', 'digital'].includes(tag.toLowerCase()))) {
       opportunities.push('Potentiel de scalabilité et de réplication dans d\'autres régions');
     }
     opportunities.push('Intégration possible dans l\'écosystème régional d\'innovation');
 
-    // Ajouter des risques génériques
     if (projectData.budget > 50000000) {
       risks.push('Risques financiers liés au volume d\'investissement important');
     }
     risks.push('Dépendances potentielles vis-à-vis de partenaires externes');
 
-    // Valeurs par défaut si listes vides
     if (strengths.length === 0) strengths.push('Projet cohérent dans son ensemble');
     if (weaknesses.length === 0) weaknesses.push('Quelques aspects nécessitent un suivi rapproché');
     if (opportunities.length === 0) opportunities.push('Potentiel de développement identifié');
@@ -579,8 +615,8 @@ Le score de ${percentage}% reflète une performance ${percentage >= 80 ? 'excell
         weaknesses,
         opportunities,
         risks,
-        observations
-      }
+        observations,
+      },
     };
   }
 }

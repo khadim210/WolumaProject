@@ -167,16 +167,16 @@ const defaultParameters: SystemParameters = {
 
   // OpenAI
   openaiApiKey: '',
-  openaiModel: 'gpt-4',
+  openaiModel: 'gpt-4.1-mini',
   openaiOrgId: '',
 
   // Anthropic
   anthropicApiKey: '',
-  anthropicModel: 'claude-3-opus-20240229',
+  anthropicModel: 'claude-sonnet-4-5',
 
   // Google
   googleApiKey: '',
-  googleModel: 'gemini-pro',
+  googleModel: 'gemini-2.0-flash',
 
   // Mistral
   mistralApiKey: '',
