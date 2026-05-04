@@ -90,35 +90,32 @@ const EvaluationPage: React.FC = () => {
 
   useEffect(() => {
     if (parameters.enableAiEvaluation) {
-      const provider = parameters.aiProvider === 'openai' ? 'chatgpt' :
-                      parameters.aiProvider === 'google' ? 'gemini' : 'mock';
+      const providerMap: Record<string, string> = {
+        openai: 'chatgpt',
+        google: 'gemini',
+        anthropic: 'anthropic',
+        mistral: 'mistral',
+      };
+      const provider = providerMap[parameters.aiProvider] || 'mock';
 
-      let apiKey = '';
-      let model = 'gpt-4o-mini';
+      const apiKeyMap: Record<string, string> = {
+        chatgpt: parameters.openaiApiKey || '',
+        gemini: parameters.googleApiKey || '',
+        anthropic: parameters.anthropicApiKey || '',
+        mistral: parameters.mistralApiKey || '',
+      };
 
-      if (provider === 'chatgpt') {
-        apiKey = parameters.openaiApiKey;
-
-        const validModels: Record<string, string> = {
-          'gpt-5': 'gpt-4o',
-          'gpt-4o': 'gpt-4o',
-          'gpt-4': 'gpt-4',
-          'gpt-4-turbo': 'gpt-4-turbo-preview',
-          'gpt-4-turbo-preview': 'gpt-4-turbo-preview',
-          'gpt-3.5-turbo': 'gpt-3.5-turbo',
-          'gpt-4o-mini': 'gpt-4o-mini'
-        };
-
-        const configuredModel = parameters.openaiModel || 'gpt-4';
-        model = validModels[configuredModel] || validModels[configuredModel.toLowerCase()] || 'gpt-4o-mini';
-      } else if (provider === 'gemini') {
-        apiKey = parameters.googleApiKey;
-      }
+      const modelMap: Record<string, string> = {
+        chatgpt: parameters.openaiModel || 'gpt-4.1-mini',
+        gemini: parameters.googleModel || 'gemini-2.0-flash',
+        anthropic: parameters.anthropicModel || 'claude-sonnet-4-5',
+        mistral: parameters.mistralModel || 'mistral-large-latest',
+      };
 
       aiEvaluationService.configure({
         provider: provider as any,
-        apiKey: apiKey,
-        model: model
+        apiKey: apiKeyMap[provider] || '',
+        model: modelMap[provider] || '',
       });
     }
   }, [parameters]);
