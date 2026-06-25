@@ -202,15 +202,27 @@ export class UserService {
       throw new Error('Supabase not available');
     }
 
-    // Use regular client with RLS - admins can insert via RLS policy
     const { data, error } = await supabase
       .from('users')
       .insert([user])
       .select()
       .single();
 
-    if (error) throw error;
-    return data;
+    if (!error) return data;
+
+    // Fallback to admin client when the session is not yet available
+    // (e.g. Supabase email confirmation is enabled and signUp returns no session).
+    if (supabaseAdmin) {
+      const { data: adminData, error: adminError } = await supabaseAdmin
+        .from('users')
+        .insert([user])
+        .select()
+        .single();
+      if (adminError) throw adminError;
+      return adminData;
+    }
+
+    throw error;
   }
 
   static async updateUser(id: string, updates: Partial<SupabaseUser>): Promise<SupabaseUser> {
@@ -626,12 +638,24 @@ export class AuthService {
       .select()
       .single();
 
-    if (error) {
-      logger.auth.error('Error creating user profile:', error);
-      return null;
+    if (!error) return createdProfile;
+
+    // Fallback to admin client when RLS blocks the insert (e.g. no session yet)
+    if (supabaseAdmin) {
+      const { data: adminProfile, error: adminError } = await supabaseAdmin
+        .from('users')
+        .insert([newProfile])
+        .select()
+        .single();
+      if (adminError) {
+        logger.auth.error('Error creating user profile (admin):', adminError);
+        return null;
+      }
+      return adminProfile;
     }
 
-    return createdProfile;
+    logger.auth.error('Error creating user profile:', error);
+    return null;
   }
 
   static async updatePassword(newPassword: string): Promise<void> {
